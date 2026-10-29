@@ -141,21 +141,25 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   #res { display: none; }
   .tog { font-size: 11px; padding: 5px 9px; }
   .say { font-size: 13.5px; min-height: 2.6em; padding: 7px 12px; }
-  .pad { gap: 7px; }
-  .pad button.icon, .pad button.food { width: clamp(44px, 13.4vw, 62px); height: clamp(44px, 13.4vw, 62px); padding: 4px; border-radius: 14px; }
-  .pad button.food .coin { min-width: 18px; height: 18px; font-size: 11px; line-height: 18px; }
+  .device .pad { gap: 6px; }
+  .device .pad button.icon, .device .pad button.food { width: clamp(38px, 11.2vw, 50px); height: clamp(38px, 11.2vw, 50px); padding: 3px; border-radius: 12px; box-shadow: 0 3px 0 color-mix(in oklab, var(--shell) 55%, #000); }
+  .device .pad button.food .coin { min-width: 16px; height: 16px; font-size: 10px; line-height: 16px; }
+  .device .say { font-size: 12.5px; min-height: 0; padding: 6px 10px; border-radius: 11px; }
+  .device .below { gap: 8px; }
+  .topbar { flex-wrap: nowrap; }
+  .tools { gap: 5px; flex-wrap: nowrap; }
 }
 /* wide, short windows (wide laptops, maximized browsers): a slim column of buttons beside the screen so the picture gets nearly all the room */
 @media (min-width: 901px) and (min-height: 521px) and (min-aspect-ratio: 19/10) {
   .wrap { padding-block: 10px 40px; }
-  .device { grid-template-columns: auto 146px; grid-template-areas: "top top" "screen ctrl"; align-items: center; gap: 10px 14px; padding: 14px 16px 16px; }
+  .device { grid-template-columns: auto 134px; grid-template-areas: "top top" "screen ctrl"; align-items: center; gap: 10px 14px; padding: 14px 16px 16px; }
   .topbar { grid-area: top; }
   .bezel { grid-area: screen; padding: 8px; }
-  .bezel canvas { width: min(calc(100vw - 270px), 1720px, calc((100vh - 96px) * 16 / 9)); width: min(calc(100vw - 270px), 1720px, calc((100dvh - 96px) * 16 / 9)); }
+  .bezel canvas { width: min(calc(100vw - 258px), 1720px, calc((100vh - 96px) * 16 / 9)); width: min(calc(100vw - 258px), 1720px, calc((100dvh - 96px) * 16 / 9)); }
   .below, .below.wide { grid-area: ctrl; grid-template-columns: minmax(0, 1fr); align-self: stretch; align-content: center; gap: 10px; }
   .say { font-size: 12.5px; line-height: 1.35; min-height: 0; padding: 8px 10px; }
   .pad { justify-content: flex-start; gap: 8px; }
-  .pad button.icon, .pad button.food { width: 60px; height: 60px; padding: 4px; border-radius: 15px; }
+  .device .pad button.icon, .device .pad button.food { width: 54px; height: 54px; padding: 4px; border-radius: 15px; }
   #res { display: none; }
 }
 /* phones turned sideways (short landscape): screen on the left at full height, controls in a column on the right */
@@ -172,7 +176,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .below, .below.wide { grid-area: ctrl; grid-template-columns: minmax(0, 1fr); gap: 8px; align-self: stretch; align-content: center; }
   .say { font-size: 12.5px; min-height: 0; padding: 6px 10px; }
   .pad { gap: 6px; }
-  .pad button.icon, .pad button.food { width: 46px; height: 46px; padding: 3px; border-radius: 12px; }
+  .device .pad button.icon, .device .pad button.food { width: 46px; height: 46px; padding: 3px; border-radius: 12px; }
   #res { display: none; }
   .talk { position: absolute; top: 8px; width: calc(100% - 20px); max-height: calc(100% - 16px); padding: 10px 12px; }
   .talk p { font-size: 13.5px; }
@@ -200,6 +204,15 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .pad button.food:active { transform: translateY(3px); }
 .pad button.food .coin { position: absolute; right: -4px; top: -6px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: #ffd43b; color: #5c3d00; font: 800 12px/20px var(--body); box-shadow: 0 1px 0 rgba(0,0,0,.25); }
 .pad button.food:disabled { opacity: .4; }
+/* compact controls everywhere: icon toggles in the top bar, smaller care buttons */
+#sndBtn, #musBtn, #installBtn { font-size: 0; padding: 5px 9px; line-height: 1; }
+#sndBtn::before { content: "🔊"; font-size: 15px; }
+#sndBtn[aria-pressed=false]::before { content: "🔇"; }
+#musBtn::before { content: "🎵"; font-size: 15px; }
+#installBtn::before { content: "📲"; font-size: 15px; }
+.pad button.icon, .pad button.food { width: 54px; height: 54px; padding: 4px; border-radius: 15px; }
+/* needs, age, weight and coins are drawn inside the screen, so the panel under the console leaves them out */
+.stats .facts, .stats .meters { display: none; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .device button:focus-visible, .device input:focus-visible { outline-color: var(--shell-ink); }
 
@@ -3486,7 +3499,7 @@ function drawScene(t) {
 }
 function drawBadge() {
   const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', r = RARITY[sp.rarity];
-  const lab = r.label.toUpperCase(), txt = `${THEME_NAME[theme]} · Hệ ${sp.type} · ${WEATHER_NAME[weather.kind] || ''}`;
+  const lab = r.label.toUpperCase(), txt = isPhone() ? THEME_NAME[theme] : `${THEME_NAME[theme]} · Hệ ${sp.type} · ${WEATHER_NAME[weather.kind] || ''}`;
   ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; const w2 = ctx.measureText(lab).width;
   ctx.font = '700 21px "Be Vietnam Pro", sans-serif'; const w1 = ctx.measureText(txt).width;
   const x = 22, h = 40, y = LH - h - 20;
@@ -3495,6 +3508,39 @@ function drawBadge() {
   ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; ctx.fillText(lab, x + 18, y + h / 2 + 1);
   ctx.font = '700 21px "Be Vietnam Pro", sans-serif'; ctx.fillText(txt, x + w2 + 46, y + h / 2 + 1);
+}
+// the pet's needs, age, weight and coins as a slim strip inside the screen (the stats panel under the console is hidden)
+const isPhone = () => cv.clientWidth < 640;
+const HUD_COL = { good: '#5cc07f', warn: '#e6a443', bad: '#ec6a5c' };
+function hudIcon(k, x, y) {
+  ctx.save(); ctx.translate(x, y);
+  if (k === 'hunger') { ctx.scale(0.19, 0.19); drawFoodIcon('rice'); }
+  else if (k === 'happy') { heartPath(0, 1, 8); ctx.fillStyle = '#ff6b9e'; ctx.fill(); }
+  else if (k === 'clean') { starPath(0, 0, 9); ctx.fillStyle = '#74c0fc'; ctx.fill(); }
+  else if (k === 'energy') { ctx.beginPath(); ctx.moveTo(2, -10); ctx.lineTo(-6, 2); ctx.lineTo(0, 2); ctx.lineTo(-2, 10); ctx.lineTo(6, -2); ctx.lineTo(0, -2); ctx.closePath(); ctx.fillStyle = '#ffd43b'; ctx.fill(); }
+  else { rr(-3, -8, 6, 16, 2, '#ff6b6b'); rr(-8, -3, 16, 6, 2, '#ff6b6b'); }
+  ctx.restore();
+}
+function drawHud() {
+  const s = state, x0 = 14, y0 = 14, h = 30, cw = 70, cy = y0 + h / 2;
+  rr(x0, y0, METERS.length * cw + 10, h, 15, 'rgba(15,20,35,.55)');
+  METERS.forEach(([k], i) => {
+    const v = Math.round(s[k]), x = x0 + 10 + i * cw, lv = v >= 50 ? 'good' : v >= 25 ? 'warn' : 'bad';
+    // an empty need blinks so it is noticed
+    if (lv === 'bad' && Math.sin(now() / 160) > 0.3) ell(x + 9, cy, 13, 13, 'rgba(236,106,92,.45)');
+    hudIcon(k, x + 9, cy);
+    rr(x + 22, cy - 4, 40, 8, 4, 'rgba(255,255,255,.22)');
+    if (v > 0) rr(x + 22, cy - 4, Math.max(8, 40 * v / 100), 8, 4, HUD_COL[lv]);
+  });
+}
+function drawHudInfo() {
+  const s = state, txt = `${fmtAge(ageMin())} · ${s.weight} g`, y0 = 14, h = 30, cy = y0 + h / 2;
+  ctx.font = '700 17px "Be Vietnam Pro", sans-serif'; const tw = ctx.measureText(txt).width, cn = String(s.coins), cwid = ctx.measureText(cn).width;
+  const w = tw + cwid + 64, x = LW - 14 - w;
+  rr(x, y0, w, h, 15, 'rgba(15,20,35,.55)');
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x + 14, cy + 1);
+  ell(x + tw + 32, cy, 9, 9, '#ffd43b'); ell(x + tw + 32, cy, 5, 5, '#f59f00');
+  ctx.fillStyle = '#ffe066'; ctx.fillText(cn, x + tw + 46, cy + 1);
 }
 /* ---------- weather & ambient life in the habitat ---------- */
 const WEATHER_BY_THEME = {
@@ -4183,6 +4229,7 @@ function render(ts) {
   drawParticles(dt);
   if (state && state.hatched && state.alive) { updateWind(t, dt); drawWeatherFront(t, dt); }
   if (state && state.hatched && !game) scaled(22, LH - 20, drawBadge);
+  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
   if (bubble && lastBody && state && state.hatched) drawBubble(lastBody, t);
   if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, 0, LW, LH); } }
   drawBanner();
@@ -4221,7 +4268,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude
 
 <script>
 (() => {
-  const BUILD = '20261029113526';
+  const BUILD = '20261029122032';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
