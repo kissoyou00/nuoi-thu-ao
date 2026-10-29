@@ -84,7 +84,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .lamp.on { background: #ffd23f; box-shadow: 0 0 12px #ffd23f; animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: .25; } }
 .talk {
-  position: absolute; left: 50%; top: 18px; transform: translateX(-50%); width: min(560px, calc(100% - 36px)); max-height: calc(100% - 36px);
+  position: absolute; left: 50%; top: 18px; transform: translateX(-50%); width: min(470px, calc(100% - 36px)); max-height: calc(100% - 36px);
   overflow: auto; box-sizing: border-box; background: #fffdf8; color: #2b2220; border-radius: 18px; padding: 14px 18px 12px;
   box-shadow: 0 12px 32px rgba(0,0,0,.28); display: grid; gap: 8px;
 }
@@ -98,6 +98,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .talk-k { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8e4fd0; }
 .talk[data-kind=news] .talk-k { color: #d9480f; }
 .talk[data-kind=fact] .talk-k { color: #2b8a3e; }
+/* the same soft tints as the in-screen bubble */
+.talk[data-kind=fortune] { background: linear-gradient(#f7f0ff, #e6d6ff); box-shadow: inset 4px 0 0 #8e4fd0, 0 12px 32px rgba(0,0,0,.28); }
+.talk[data-kind=news] { background: linear-gradient(#fff6ec, #ffdcc0); box-shadow: inset 4px 0 0 #d9480f, 0 12px 32px rgba(0,0,0,.28); }
+.talk[data-kind=fact] { background: linear-gradient(#f0fbf3, #cdeed7); box-shadow: inset 4px 0 0 #2b8a3e, 0 12px 32px rgba(0,0,0,.28); }
 .talk p { margin: 0; font-size: 16px; line-height: 1.55; min-height: 3em; white-space: pre-line; }
 .talk dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; font-size: 13.5px; }
 .talk dt { color: #7a6a62; } .talk dd { margin: 0; font-weight: 500; }
@@ -1297,11 +1301,11 @@ function autoTalk(T) {
 /* ---------- chat bubble: the pet tells a fortune, a village news story or a fact inside the screen ---------- */
 const AUTO_KINDS = ['fortune', 'news', 'fact'];
 const BUBBLE_STYLE = {
-  fortune: { color: '#8e4fd0', say: n => `${n} vừa gieo một quẻ cho bạn!` },
-  news: { color: '#d9480f', say: n => `${n} đọc bản tin Làng Thú cho bạn nghe.` },
-  fact: { color: '#2b8a3e', say: n => `${n} kể bạn nghe một chuyện thật thú vị.` },
+  fortune: { color: '#8e4fd0', bg: ['#f7f0ff', '#e6d6ff'], say: n => `${n} vừa gieo một quẻ cho bạn!` },
+  news: { color: '#d9480f', bg: ['#fff6ec', '#ffdcc0'], say: n => `${n} đọc bản tin Làng Thú cho bạn nghe.` },
+  fact: { color: '#2b8a3e', bg: ['#f0fbf3', '#cdeed7'], say: n => `${n} kể bạn nghe một chuyện thật thú vị.` },
 };
-const BUBBLE_FONT = '600 24px "Be Vietnam Pro", sans-serif', BUBBLE_FOOT = '500 19px "Be Vietnam Pro", sans-serif', CHAR_MS = 30;
+const BUBBLE_FONT = '600 19px "Be Vietnam Pro", sans-serif', BUBBLE_FOOT = '500 15px "Be Vietnam Pro", sans-serif', CHAR_MS = 30;
 let bubble = null, lastBody = null, autoTurn = 0;
 const splitSentences = text => text.split(/(?<=[.!?…]"?)\s+(?=["\p{Lu}])/u).filter(Boolean);
 function wrapText(text, maxW) {
@@ -1323,11 +1327,11 @@ function startBubble(kind) {
   if (kind === 'news') title = 'Bản tin Làng Thú';
   ctx.font = BUBBLE_FONT;
   // one sentence per line; long sentences wrap, and each new sentence gets a little gap above it
-  const lines = splitSentences(c.text).flatMap((sen, si) => wrapText(sen, 600).map((s, li) => ({ s, gap: si > 0 && li === 0 })));
+  const lines = splitSentences(c.text).flatMap((sen, si) => wrapText(sen, 430).map((s, li) => ({ s, gap: si > 0 && li === 0 })));
   const tw = Math.max(...lines.map(l => ctx.measureText(l.s).width));
   ctx.font = BUBBLE_FOOT;
   const total = lines.reduce((a, l) => a + l.s.length + 1, 0);
-  bubble = { kind, title, lines, foot, total, w: Math.max(tw, ctx.measureText(foot).width, 260), made: now(), start: 0, doneAt: 0, readMs: Math.max(12000, total * 55), rect: null };
+  bubble = { kind, title, lines, foot, total, w: Math.max(tw, ctx.measureText(foot).width, 220), made: now(), start: 0, doneAt: 0, readMs: Math.max(12000, total * 55), rect: null };
   // walk to the left so the wide bubble has room on the right
   idle = null; pet.tx = 150 + petR(); pet.nextMove = now() + 999999;
 }
@@ -1343,23 +1347,26 @@ function drawBubble(b, t) {
   if (typed >= bb.total && !bb.doneAt) bb.doneAt = T;
   if (bb.doneAt && T > bb.doneAt + bb.readMs) { bubble = null; pet.nextMove = T + 1500; return; }
   const alpha = bb.doneAt ? Math.min(1, (bb.doneAt + bb.readMs - T) / 400) : Math.min(1, (T - bb.start) / 200);
-  const pad = 26, lh = 34, gapH = 12, titleH = 32, footH = 32, w = bb.w + pad * 2;
+  const pad = 18, lh = 27, gapH = 7, titleH = 24, footH = 24, w = bb.w + pad * 2;
   const gaps = bb.lines.filter(l => l.gap).length, h = pad + titleH + bb.lines.length * lh + gaps * gapH + footH + pad * 0.5;
   const headY = b.cy - b.ry * 0.6;
   const wide = (curDef().extras || []).some(k => k === 'wings' || k === 'butterfly') || (curDef().tails || 0) > 3;
   const x = Math.max(16, Math.min(LW - w - 16, b.x + b.R * (wide ? 1.75 : 1.25) + 36));
-  const y = Math.max(18, Math.min(LH - h - 86, headY - h * 0.4)) + Math.sin(t * 2) * 2;
+  const y = Math.max(58, Math.min(LH - h - 86, headY - h * 0.4)) + Math.sin(t * 2) * 2;   // below the stats strip
   bb.rect = [x, y, w, h];
   ctx.save(); ctx.globalAlpha = alpha;
-  ctx.shadowColor = 'rgba(20,20,40,.28)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 6;
-  rr(x, y, w, h, 26, '#fffdf8');
+  // a soft tint per kind: lavender for fortunes, peach for news, mint for facts
+  const bg = ctx.createLinearGradient(0, y, 0, y + h); bg.addColorStop(0, st.bg[0]); bg.addColorStop(1, st.bg[1]);
+  ctx.shadowColor = 'rgba(20,20,40,.25)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 5;
+  rr(x, y, w, h, 20, bg);
   ctx.shadowColor = 'transparent';
-  const ty = Math.min(y + h - 36, Math.max(y + 36, headY));
-  tri(x + 2, ty - 18, x + 2, ty + 18, x - 32, ty + 10, '#fffdf8');
-  rr(x, y, 8, h, 4, st.color);
+  const ty = Math.min(y + h - 28, Math.max(y + 28, headY));
+  tri(x + 2, ty - 14, x + 2, ty + 14, x - 26, ty + 8, bg);
+  ctx.strokeStyle = st.color + '55'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, w - 2, h - 2, 19); ctx.stroke();
+  rr(x, y, 6, h, 3, st.color);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = st.color; ctx.font = '800 18px "Be Vietnam Pro", sans-serif';
-  ctx.fillText(bb.title.toUpperCase(), x + pad, y + pad + 8);
+  ctx.fillStyle = st.color; ctx.font = '800 14px "Be Vietnam Pro", sans-serif';
+  ctx.fillText(bb.title.toUpperCase(), x + pad, y + pad + 6);
   ctx.fillStyle = '#2b2220'; ctx.font = BUBBLE_FONT;
   let left = typed, ly = y + pad + titleH;
   bb.lines.forEach(line => {
@@ -4268,7 +4275,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude
 
 <script>
 (() => {
-  const BUILD = '20261029122032';
+  const BUILD = '20261029122500';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
