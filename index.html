@@ -148,6 +148,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .device .pad { gap: 6px; }
   .device .pad button.icon, .device .pad button.food { width: clamp(38px, 11.2vw, 50px); height: clamp(38px, 11.2vw, 50px); padding: 3px; border-radius: 12px; box-shadow: 0 3px 0 color-mix(in oklab, var(--shell) 55%, #000); }
   .device .pad button.food .coin { min-width: 16px; height: 16px; font-size: 10px; line-height: 16px; }
+  /* the food menu (8 dishes + back) always fits on one row */
+  .device .below.wide .pad { gap: 4px; flex-wrap: nowrap; }
+  .device .below.wide .pad button.food, .device .below.wide .pad button.icon { width: calc((100% - 32px) / 9); max-width: 50px; height: auto; aspect-ratio: 1; padding: 2px; border-radius: 10px; }
+  .device .below.wide .pad button.food .coin { min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; right: -3px; top: -5px; padding: 0 3px; }
   .device .say { font-size: 12.5px; min-height: 0; padding: 6px 10px; border-radius: 11px; }
   .device .below { gap: 8px; }
   .topbar { flex-wrap: nowrap; }
@@ -826,6 +830,10 @@ const Sound = (() => {
     ping: () => arp([79, 84], 0.12, { type: 'sine', vol: 0.045, dur: 0.35 }),
     chirp: () => tone(520 + Math.random() * 380, 0.05, { type: 'triangle', vol: 0.022 }),
     crunch: () => [0, 0.22, 0.44].forEach(a => whoosh(0.07, { vol: 0.05, from: 1800, to: 3200, at: a })),
+    bite: () => { whoosh(0.05, { vol: 0.07, from: 1500, to: 3200 }); tone(170, 0.06, { vol: 0.06, slide: 0.6 }); },
+    chew: () => tone(150 + Math.random() * 40, 0.07, { type: 'triangle', vol: 0.03, slide: 0.8 }),
+    sip: () => whoosh(0.5, { vol: 0.03, from: 900, to: 1600 }),
+    gulp: () => tone(320, 0.16, { vol: 0.07, slide: 0.45 }),
     slurp: () => { tone(260, 0.45, { vol: 0.05, slide: 2.2 }); tone(330, 0.35, { vol: 0.04, slide: 1.8, at: 0.5 }); },
     fire: () => whoosh(0.9, { vol: 0.06, from: 220, to: 1400 }),
     zap: () => arp([84, 88, 91, 96, 100, 96, 100], 0.05, { type: 'square', vol: 0.016, dur: 0.12 }),
@@ -1382,33 +1390,33 @@ function drawBubble(b, t) {
   ctx.restore();
 }
 /* ---------- food: menu, icons and what each dish does ---------- */
+// eat: 'bite' leaves bite marks, 'scoop' empties a bowl a mouthful at a time, 'sip' drinks it down; crumb = colour of the bits that fall
 const FOODS = [
-  { id: 'rice', name: 'Cơm', cost: 0, hunger: 30, weight: 1, fx: 'steam', snd: 'eat', say: n => `${n} ăn cơm ngon lành.` },
-  { id: 'fish', name: 'Cá nướng', cost: 3, hunger: 35, happy: 6, weight: 1, fx: 'bubbles', snd: 'eat', say: n => `Cá nướng thơm phức, ${n} ăn sạch không chừa miếng nào!` },
-  { id: 'soup', name: 'Súp nóng', cost: 4, hunger: 25, health: 12, cure: true, fx: 'steam', after: 'joy', snd: 'slurp', say: n => `Súp nóng ấm bụng, ${n} thấy khỏe hẳn ra.` },
-  { id: 'pizza', name: 'Pizza', cost: 6, hunger: 40, happy: 12, weight: 3, fx: 'stars', snd: 'eat', say: n => `Pizza phô mai kéo sợi! ${n} ăn no căng bụng.` },
-  { id: 'apple', name: 'Táo đỏ', cost: 2, hunger: 12, health: 8, fx: 'leaf', snd: 'crunch', say: n => `Rộp rộp! Táo giòn ngọt, ${n} khỏe thêm một chút.` },
-  { id: 'carrot', name: 'Cà rốt', cost: 1, hunger: 10, health: 6, fx: 'leaf', snd: 'crunch', say: n => `${n} gặm cà rốt rau ráu như thỏ con.` },
-  { id: 'broccoli', name: 'Bông cải', cost: 0, hunger: 12, health: 10, happy: -5, fx: 'leaf', after: 'disgust', snd: 'crunch', say: n => `Rau xanh... ${n} nhăn mặt nhưng vẫn ăn hết vì tốt cho sức khỏe.` },
-  { id: 'melon', name: 'Dưa hấu', cost: 3, hunger: 15, happy: 8, health: 3, fx: 'seeds', snd: 'crunch', say: n => `Dưa hấu mát lạnh, ${n} phun hạt phì phì!` },
-  { id: 'milk', name: 'Sữa tươi', cost: 2, hunger: 15, health: 5, energy: 5, fx: 'milk', snd: 'slurp', say: n => `${n} uống ừng ực, giờ có bộ ria mép sữa trắng xóa.` },
-  { id: 'cake', name: 'Bánh ngọt', cost: 5, hunger: 10, happy: 18, weight: 2, fx: 'hearts', snd: 'eat', say: n => `${n} mê bánh ngọt lắm, tim bay tứ tung!` },
-  { id: 'icecream', name: 'Kem', cost: 4, hunger: 8, happy: 15, weight: 1, fx: 'frost', snd: 'eat', say: n => `Kem mát quá! Ơ... ${n} bị lạnh buốt óc, run cầm cập.` },
-  { id: 'candy', name: 'Kẹo mút', cost: 2, hunger: 4, happy: 12, clean: -5, weight: 1, fx: 'sparkle', snd: 'eat', say: n => `Kẹo ngọt lấp lánh! ${n} hơi bị dính tay một chút.` },
-  { id: 'chili', name: 'Ớt cay', cost: 2, hunger: 6, energy: 12, happy: 4, fx: 'fire', snd: 'eat', say: n => `Cay quá trời! ${n} phun cả lửa ra ngoài!` },
-  { id: 'boba', name: 'Trà sữa', cost: 6, hunger: 10, energy: 30, happy: 10, weight: 1, fx: 'zap', snd: 'slurp', say: n => `Trà sữa trân châu! ${n} tỉnh như sáo, nhảy tưng bừng.` },
+  { id: 'rice', name: 'Cơm', cost: 0, hunger: 30, weight: 1, fx: 'steam', eat: 'scoop', crumb: '#f4efe4', say: n => `${n} ăn cơm ngon lành.` },
+  { id: 'fish', name: 'Cá nướng', cost: 3, hunger: 35, happy: 6, weight: 1, fx: 'bubbles', eat: 'bite', crumb: '#f4a261', say: n => `Cá nướng thơm phức, ${n} ăn sạch không chừa miếng nào!` },
+  { id: 'soup', name: 'Súp nóng', cost: 4, hunger: 25, health: 12, cure: true, fx: 'steam', after: 'joy', eat: 'sip', say: n => `Súp nóng ấm bụng, ${n} thấy khỏe hẳn ra.` },
+  { id: 'apple', name: 'Táo đỏ', cost: 2, hunger: 12, health: 8, fx: 'leaf', eat: 'bite', crumb: '#fff3d6', say: n => `Rộp rộp! Táo giòn ngọt, ${n} khỏe thêm một chút.` },
+  { id: 'broccoli', name: 'Bông cải', cost: 0, hunger: 12, health: 10, happy: -5, fx: 'leaf', after: 'disgust', eat: 'bite', crumb: '#40c057', say: n => `Rau xanh... ${n} nhăn mặt nhưng vẫn ăn hết vì tốt cho sức khỏe.` },
+  { id: 'milk', name: 'Sữa tươi', cost: 2, hunger: 15, health: 5, energy: 5, fx: 'milk', eat: 'sip', say: n => `${n} uống ừng ực, giờ có bộ ria mép sữa trắng xóa.` },
+  { id: 'cake', name: 'Bánh ngọt', cost: 5, hunger: 10, happy: 18, weight: 2, fx: 'hearts', eat: 'bite', crumb: '#f7d27a', say: n => `${n} mê bánh ngọt lắm, tim bay tứ tung!` },
+  { id: 'boba', name: 'Trà sữa', cost: 6, hunger: 10, energy: 30, happy: 10, weight: 1, fx: 'zap', eat: 'sip', say: n => `Trà sữa trân châu! ${n} tỉnh như sáo, nhảy tưng bừng.` },
 ];
 const STAT_LABEL = { hunger: 'No', happy: 'Vui', energy: 'Năng lượng', health: 'Sức khỏe', clean: 'Sạch' };
 const foodDesc = f => `${f.name} · ${f.cost ? f.cost + ' xu' : 'miễn phí'} · ` +
   Object.keys(STAT_LABEL).filter(k => f[k]).map(k => `${STAT_LABEL[k]} ${f[k] > 0 ? '+' : ''}${f[k]}`).join(', ') + (f.cure ? ', giúp chữa ốm' : '');
 let mustacheUntil = 0;
 
-function drawFoodIcon(id, t = 0) {
+// level (0..1) is how much is left in a bowl, glass or cup while it is being eaten
+function drawFoodIcon(id, t = 0, level = 1) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const L = Math.max(0, Math.min(1, level));
   switch (id) {
     case 'rice':
-      ell(0, -6, 34, 22, '#ffffff');
-      for (let i = 0; i < 6; i++) ell(-20 + i * 8, -14 + (i % 2) * 6, 4, 2.5, '#ece4d6', i);
+      ell(0, -2, 42, 9, '#e9dfd2');
+      if (L > 0.02) {
+        ell(0, -6 + (1 - L) * 12, 34 * (0.5 + 0.5 * L), 22 * L, '#ffffff');
+        for (let i = 0; i < Math.round(6 * L); i++) ell(-20 + i * 8, -14 + (i % 2) * 6 + (1 - L) * 14, 4, 2.5, '#ece4d6', i);
+      }
       ctx.fillStyle = '#e2574c'; ctx.beginPath(); ctx.moveTo(-44, -2); ctx.quadraticCurveTo(-40, 36, 0, 36); ctx.quadraticCurveTo(40, 36, 44, -2); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ffffff'; ctx.fillRect(-38, 10, 76, 5); break;
     case 'fish':
@@ -1419,8 +1427,12 @@ function drawFoodIcon(id, t = 0) {
       ell(-24, -3, 4.5, 4.5, '#2b2220'); ell(-25, -4.5, 1.6, 1.6, '#ffffff'); break;
     case 'soup':
       ctx.fillStyle = '#4f9fd8'; ctx.beginPath(); ctx.moveTo(-44, -4); ctx.quadraticCurveTo(-40, 34, 0, 34); ctx.quadraticCurveTo(40, 34, 44, -4); ctx.closePath(); ctx.fill();
-      ell(0, -4, 44, 12, '#3b82c4'); ell(0, -4, 38, 9, '#f08c3a');
-      ell(-14, -5, 6, 3.5, '#7cc472'); ell(10, -3, 5, 3, '#ffd43b'); ell(2, -7, 4, 2.5, '#ff6b6b'); ell(20, -6, 4, 2.5, '#7cc472'); break;
+      ell(0, -4, 44, 12, '#3b82c4'); ell(0, -4, 38, 9, '#2f6ea8');
+      if (L > 0.02) {
+        const k = 0.35 + 0.65 * L; ell(0, -4 + (1 - L) * 4, 38 * k, 9 * k, '#f08c3a');
+        [[-14, -5, 6, 3.5, '#7cc472'], [10, -3, 5, 3, '#ffd43b'], [2, -7, 4, 2.5, '#ff6b6b'], [20, -6, 4, 2.5, '#7cc472']].slice(0, Math.ceil(4 * L)).forEach(([a, b, w, h, c]) => ell(a * k, b + (1 - L) * 4, w, h, c));
+      }
+      break;
     case 'pizza':
       tri(-34, -26, 34, -26, 0, 40, '#ffd43b');
       rr(-38, -36, 76, 13, 6, '#c98a4a');
@@ -1441,10 +1453,17 @@ function drawFoodIcon(id, t = 0) {
       ctx.beginPath(); ctx.moveTo(-42, -10); ctx.arc(0, -10, 42, 0, Math.PI); ctx.closePath(); ctx.fillStyle = '#2f9e44'; ctx.fill();
       ctx.beginPath(); ctx.moveTo(-36, -10); ctx.arc(0, -10, 36, 0, Math.PI); ctx.closePath(); ctx.fillStyle = '#ff6b6b'; ctx.fill();
       [[-18, 2], [0, 8], [18, 2], [-8, 18], [10, 18]].forEach(([a, b]) => ell(a, b, 2.5, 4, '#2b2220')); break;
-    case 'milk':
-      rr(-21, -34, 42, 68, 9, 'rgba(255,255,255,.95)');
-      ctx.strokeStyle = '#a5d8ff'; ctx.lineWidth = 3; ctx.strokeRect(-21, -34, 42, 68);
-      rr(-17, -16, 34, 46, 6, '#f8f9fa'); rr(-21, -2, 42, 9, 0, '#74c0fc'); ell(-9, -22, 4, 6, 'rgba(165,216,255,.6)'); break;
+    case 'milk': {
+      // a glass of milk; the milk line drops as it is drunk
+      const glass = () => { ctx.beginPath(); ctx.moveTo(-22, -36); ctx.lineTo(22, -36); ctx.lineTo(17, 36); ctx.quadraticCurveTo(0, 40, -17, 36); ctx.closePath(); };
+      glass(); ctx.fillStyle = 'rgba(215,236,252,.45)'; ctx.fill();
+      if (L > 0.02) {
+        const top = 34 - 64 * L;
+        ctx.save(); glass(); ctx.clip(); ctx.fillStyle = '#fbfbf8'; ctx.fillRect(-24, top, 48, 80); ell(0, top, 22 - (top + 36) * 0.07, 4, '#ffffff'); ctx.restore();
+      }
+      glass(); ctx.strokeStyle = '#a5c8e4'; ctx.lineWidth = 3; ctx.stroke();
+      rr(-16, -30, 5, 56, 2.5, 'rgba(255,255,255,.75)'); break;
+    }
     case 'cake':
       ell(0, 30, 42, 8, '#ffffff');
       ctx.fillStyle = '#f7d27a'; ctx.beginPath(); ctx.moveTo(-38, 26); ctx.lineTo(38, 26); ctx.lineTo(30, -24); ctx.lineTo(-30, -10); ctx.closePath(); ctx.fill();
@@ -1467,8 +1486,12 @@ function drawFoodIcon(id, t = 0) {
       ell(-27, -11, 9, 7, '#2f9e44'); rr(-38, -16, 10, 4, 2, '#2f9e44');
       ell(0, -12, 10, 3, 'rgba(255,255,255,.45)', 0.2); break;
     case 'boba':
-      ctx.fillStyle = 'rgba(217,160,102,.92)'; ctx.beginPath(); ctx.moveTo(-23, -24); ctx.lineTo(23, -24); ctx.lineTo(17, 38); ctx.lineTo(-17, 38); ctx.closePath(); ctx.fill();
-      [[-9, 30], [0, 32], [9, 30], [-5, 23], [5, 23], [-12, 22], [12, 22]].forEach(([a, b]) => ell(a, b, 4.5, 4.5, '#3b2a20'));
+      ctx.fillStyle = 'rgba(225,235,240,.5)'; ctx.beginPath(); ctx.moveTo(-23, -24); ctx.lineTo(23, -24); ctx.lineTo(17, 38); ctx.lineTo(-17, 38); ctx.closePath(); ctx.fill();
+      if (L > 0.02) {
+        const top = 38 - 62 * L, hw = y => 23 - (y + 24) * 6 / 62;
+        ctx.fillStyle = 'rgba(217,160,102,.95)'; ctx.beginPath(); ctx.moveTo(-hw(top), top); ctx.lineTo(hw(top), top); ctx.lineTo(17, 38); ctx.lineTo(-17, 38); ctx.closePath(); ctx.fill();
+      }
+      [[-9, 30], [0, 32], [9, 30], [-5, 23], [5, 23], [-12, 22], [12, 22]].slice(0, Math.ceil(7 * Math.min(1, L * 2.5))).forEach(([a, b]) => ell(a, b, 4.5, 4.5, '#3b2a20'));
       ell(0, -24, 25, 6, '#f1f3f5');
       ctx.save(); ctx.translate(6, -24); ctx.rotate(0.25); rr(-3.5, -26, 7, 30, 3, '#ff8fab'); ctx.restore(); break;
   }
@@ -1482,6 +1505,31 @@ function drawFoodButtons() {
     ctx = prev;
   });
 }
+const EAT_MS = 4400;
+let eatMouth = 0;
+// the meal as a timeline (p 0..1): the dish is set down and sniffed, then a few bites (lean in, open wide, snap shut,
+// sit back, chew four times) or sips (lean in, a long draw at the rim, sit back, swallow), then one last gulp
+function eatState(p, mode) {
+  const n = mode === 'sip' ? 3 : 4, a = 0.12, b = 0.88;
+  const o = { n, lean: 0, mouth: 0, chew: 0, gulp: 0, done: 0, level: 1, cycle: -1, u: 0 };
+  if (p < a) { o.lean = Math.sin(p / a * Math.PI) * 0.3; return o; }
+  if (p >= b) { o.done = n; o.level = 0; o.cycle = n; o.gulp = Math.sin(Math.min(1, (p - b) / 0.07) * Math.PI); return o; }
+  const c = (p - a) / (b - a) * n, i = Math.floor(c), u = c - i;
+  o.cycle = i; o.u = u;
+  if (mode === 'sip') {
+    o.lean = u < 0.2 ? easeOut(u / 0.2) : u < 0.68 ? 1 : Math.max(0, 1 - easeOut((u - 0.68) / 0.18));
+    o.mouth = u > 0.16 && u < 0.7 ? 0.28 : 0;
+    o.done = i + Math.max(0, Math.min(1, (u - 0.2) / 0.48));
+    if (u > 0.74 && u < 0.94) o.gulp = Math.sin((u - 0.74) / 0.2 * Math.PI);
+  } else {
+    o.lean = u < 0.25 ? easeOut(u / 0.25) : u < 0.32 ? 1 : u < 0.46 ? 1 - easeOut((u - 0.32) / 0.14) : 0;
+    o.mouth = u < 0.25 ? u / 0.25 : u < 0.31 ? 1 - (u - 0.25) / 0.06 : 0;
+    o.done = i + (u >= 0.29 ? 1 : 0);
+    if (u > 0.46) o.chew = Math.abs(Math.sin((u - 0.46) / 0.54 * Math.PI * 4));
+  }
+  o.level = 1 - o.done / n;
+  return o;
+}
 function feed(f) {
   const s = state;
   if (s.coins < f.cost) { say(`Không đủ xu mua ${f.name.toLowerCase()}. Chơi trò chơi để kiếm thêm nhé.`); return; }
@@ -1489,8 +1537,7 @@ function feed(f) {
   s.coins -= f.cost;
   ['hunger', 'happy', 'energy', 'health', 'clean'].forEach(k => { if (f[k]) s[k] = clamp(s[k] + f[k]); });
   s.weight = Math.max(3, s.weight + (f.weight || 0));
-  startAnim('eat', 2600, { food: f.id, fx: f.fx, after: f.after });
-  Sound.play(f.snd);
+  startAnim('eat', EAT_MS, { food: f.id, fx: f.fx, after: f.after, mode: f.eat });
   if (f.cure && s.sick) { s.doses++; if (s.doses >= 2) { s.sick = false; s.doses = 0; log(`${s.name} khỏi ốm nhờ bát súp nóng.`); } }
   say(f.say(s.name), 4500);
   log(`Cho ${s.name} ăn ${f.name.toLowerCase()}${f.cost ? ` (-${f.cost} xu)` : ''}.`);
@@ -2473,7 +2520,7 @@ function drawCreature(o) {
     ell(fx - R * 0.055, fy + R * 0.1, R * 0.025, R * 0.04, shade(col, -0.45)); ell(fx + R * 0.055, fy + R * 0.1, R * 0.025, R * 0.04, shade(col, -0.45));
   }
   if (has('beak')) {
-    const open = md === 'eat' ? Math.abs(Math.sin(t * 16)) * R * 0.08 : md === 'laugh' || md === 'happy' || md === 'love' ? R * 0.05 : 0;
+    const open = md === 'eat' ? eatMouth * R * 0.08 :md === 'laugh' || md === 'happy' || md === 'love' ? R * 0.05 : 0;
     tri(fx - R * 0.12, fy + R * 0.12 + open, fx + R * 0.12, fy + R * 0.12 + open, fx, fy + R * 0.24 + open, '#e8961e', 4);
     tri(fx - R * 0.14, fy + R * 0.06, fx + R * 0.14, fy + R * 0.06, fx, fy + R * 0.22, '#ffb92e', 4);
   }
@@ -2650,7 +2697,7 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
       ctx.beginPath(); ctx.moveTo(fx - R * 0.22, my - R * 0.02); ctx.lineTo(fx + R * 0.22, my - R * 0.02);
       ctx.quadraticCurveTo(fx + R * 0.2, my + R * 0.36, fx, my + R * 0.36); ctx.quadraticCurveTo(fx - R * 0.2, my + R * 0.36, fx - R * 0.22, my - R * 0.02);
       ctx.fillStyle = lip; ctx.fill(); ell(fx, my + R * 0.25, R * 0.1, R * 0.06, '#ff7a8a'); break;
-    case 'eat': { const o = 0.5 + 0.5 * Math.sin(t * 16); ell(fx, my + R * 0.06, R * 0.1, R * 0.03 + R * 0.09 * o, lip); break; }
+    case 'eat': ell(fx, my + R * 0.06, R * (0.07 + 0.04 * eatMouth), R * 0.015 + R * 0.11 * eatMouth, lip); break;
     case 'o': ell(fx, my + R * 0.08, R * (md === 'surprised' ? 0.08 : 0.05), R * (md === 'surprised' ? 0.1 : 0.04), lip); break;
     case 'yawn': ell(fx, my + R * 0.12, R * 0.12, R * 0.17, lip); ell(fx, my + R * 0.22, R * 0.07, R * 0.05, '#ff7a8a'); break;
     case 'wail': ell(fx, my + R * 0.12, R * 0.13, R * (0.1 + Math.abs(Math.sin(t * 12)) * 0.03), lip); break;
@@ -4013,7 +4060,12 @@ function drawPet(t, dt) {
     if (anim.fx === 'fire') { tilt = (x < 640 ? -1 : 1) * 0.1; sy = 1.06; }
     if (anim.fx === 'seeds') { tilt = Math.sin(t * 12) * 0.06; }
   }
-  if (anim && anim.type === 'eat') { look = x < 640 ? 1 : -1; lookY = 0.6; sy = 1 + Math.sin(t * 16) * 0.03; }
+  if (anim && anim.type === 'eat') {
+    // bend toward the dish for each bite, sit back up to chew, swell a little on each swallow
+    const e = anim.es = eatState(animP(), anim.mode), sd = pet.x < 640 ? 1 : -1;
+    x += sd * R * 0.3 * e.lean; tilt = sd * 0.3 * e.lean; look = sd; lookY = 0.45 + 0.45 * e.lean;
+    sy = 1 - e.chew * 0.035 + e.gulp * 0.05; eatMouth = Math.max(e.mouth, e.chew * 0.35);
+  }
   if (face && face.until > T && face.f === 'dizzy') tilt = Math.sin(t * 6) * 0.15;
   if (T - pointer.t < 2500 && !game && !s.asleep && !talk && !(idle && idle.type === 'look')) {
     look = Math.max(-1, Math.min(1, (pointer.x - x) / 260));
@@ -4080,21 +4132,50 @@ function drawPet(t, dt) {
   if (em) drawEmote(em, x, top, R, t);
   return { x, cy, ry, rx, R };
 }
-function drawFood(p, kind, body) {
-  const side = body.x < 640 ? 1 : -1, x = pet.x + side * (body.R + 90), y = GROUND + 6, t = performance.now() / 1000;
-  const k = 1.5 * (1 - p * 0.8);
-  ell(x, y + 6, 66 * k / 1.5 + 10, 12, 'rgba(30,20,10,.18)');
-  ctx.save(); ctx.translate(x, y - 48 * k); ctx.scale(k, k); drawFoodIcon(kind, t); ctx.restore();
-  const f = FOODS.find(z => z.id === kind);
-  if (f && f.fx === 'steam') {
-    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+const biteCv = document.createElement('canvas'); biteCv.width = biteCv.height = 256;
+// the dish beside the pet, sized to it: set down with a little bounce, then bitten, scooped or sipped away
+function drawFood(kind, body) {
+  const f = FOODS.find(z => z.id === kind) || FOODS[0], p = animP(), e = anim.es || eatState(p, f.eat);
+  const sd = pet.x < 640 ? 1 : -1, k = Math.max(0.85, Math.min(1.35, body.R / 115)), s = k * 0.9, t = performance.now() / 1000;
+  const x = pet.x + sd * (body.R * 1.12 + 40 * k), y = GROUND + 4, plate = f.eat === 'bite';
+  const d = Math.min(1, p / 0.07), dy = d < 1 ? -150 * (1 - d) * (1 - d) : 0, sq = p > 0.07 && p < 0.12 ? Math.sin((p - 0.07) / 0.05 * Math.PI) * 0.08 : 0;
+  ctx.save(); ctx.globalAlpha = p > 0.95 ? Math.max(0, 1 - (p - 0.95) / 0.05) : 1;
+  ell(x, y + 4, (plate ? 58 : 44) * k * (1 + dy / 400), 11 * k, 'rgba(30,20,10,.2)');
+  if (plate) { ell(x, y + dy, 58 * k, 13 * k, '#dfe3e8'); ell(x, y - 2 * k + dy, 50 * k, 10 * k, '#ffffff'); }
+  const cy = y - (plate ? 40 : 36) * s + dy;
+  if (plate) {
+    if (e.done < e.n) {
+      // draw the food off-screen and cut a rounded bite with tooth marks out of the side facing the pet for each bite taken
+      const prev = ctx, c = ctx = biteCv.getContext('2d');
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 256, 256); c.setTransform(2, 0, 0, 2, 128, 128);
+      drawFoodIcon(kind, t);
+      c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';
+      for (let j = 0; j < e.done; j++) {
+        const bx = -sd * (54 - j * 25), by = [-6, 9, -2][j % 3];
+        c.beginPath(); c.arc(bx, by, 25, 0, TAU); c.fill();
+        for (const a of [-0.8, -0.27, 0.27, 0.8]) { c.beginPath(); c.arc(bx + sd * Math.cos(a) * 24, by + Math.sin(a) * 24, 6.5, 0, TAU); c.fill(); }
+      }
+      c.globalCompositeOperation = 'source-over'; ctx = prev;
+      ctx.save(); ctx.translate(x, cy); ctx.scale(1 + sq, 1 - sq); ctx.drawImage(biteCv, -64 * s, -64 * s, 128 * s, 128 * s); ctx.restore();
+    }
+  } else { ctx.save(); ctx.translate(x, cy); ctx.scale(s * (1 + sq), s * (1 - sq)); drawFoodIcon(kind, t, e.level); ctx.restore(); }
+  if (f.fx === 'steam' && e.level > 0.25) {
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 4 * k; ctx.lineCap = 'round';
     for (let j = -1; j <= 1; j++) {
-      const ph = (t * 0.8 + j * 0.3 + 1) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath();
-      for (let q = 0; q <= 6; q++) { const yy = y - 90 * k - ph * 30 - q * 8, xx = x + j * 22 + Math.sin(t * 4 + q * 0.8 + j) * 6; q ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+      const ph = (t * 0.8 + j * 0.3 + 1) % 1; ctx.globalAlpha = (1 - ph) * e.level; ctx.beginPath();
+      for (let q = 0; q <= 6; q++) { const yy = cy - 30 * s - ph * 30 * k - q * 7 * k, xx = x + j * 18 * k + Math.sin(t * 4 + q * 0.8 + j) * 5 * k; q ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
       ctx.stroke();
     }
-    ctx.globalAlpha = 1;
   }
+  ctx.restore();
+  // sounds and crumbs, once per event
+  if (f.eat !== 'sip' && e.done > (anim.bit || 0)) {
+    anim.bit = e.done; Sound.play('bite');
+    for (let i = 0; i < 7; i++) spawn('crumb', x - sd * 28 * k, cy - 6 * k, { vx: (Math.random() - 0.5) * 170, vy: -60 - Math.random() * 140, max: 1.3, size: k * (0.6 + Math.random() * 0.6), color: f.crumb || '#e9d8b4' });
+  }
+  if (e.chew > 0) { const cn = e.cycle * 10 + Math.floor((e.u - 0.46) / 0.54 * 4); if (cn !== anim.cn) { anim.cn = cn; Sound.play('chew'); } }
+  if (f.eat === 'sip' && e.mouth > 0 && anim.sp !== e.cycle) { anim.sp = e.cycle; Sound.play('sip'); }
+  if (e.gulp > 0.8 && anim.gl !== e.cycle) { anim.gl = e.cycle; Sound.play('gulp'); }
 }
 function drawTalkProp(b, t, kind) {
   const R = b.R;
@@ -4140,6 +4221,7 @@ function drawParticles(dt) {
     else if (p.type === 'spark') { starPath(p.x, p.y, 12 * p.size); ctx.fillStyle = p.color; ctx.fill(); }
     else if (p.type === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, 14 * p.size, 0, TAU); ctx.fillStyle = 'rgba(220,245,255,.45)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke(); }
     else if (p.type === 'flame') { flame(p.x, p.y, 13 * p.size * (1 + p.life * 1.5), p.life * 9); }
+    else if (p.type === 'crumb') { p.vy += 700 * dt; if (p.y > GROUND + 6) { p.y = GROUND + 6; p.vy = 0; p.vx *= 0.8; } ell(p.x, p.y, 4.5 * p.size, 3.2 * p.size, p.color, p.life * 4); }
     else if (p.type === 'seed') { p.vy += 600 * dt; ell(p.x, p.y, 3.5, 5.5, '#2b2220', p.life * 9); }
     else if (p.type === 'leaf') { ell(p.x + Math.sin(p.life * 5) * 12, p.y, 11 * p.size, 5 * p.size, '#51cf66', Math.sin(p.life * 4)); }
     else if (p.type === 'snow') { snowflake(p.x + Math.sin(p.life * 3) * 8, p.y, 8 * p.size, p.life * 2); }
@@ -4202,7 +4284,7 @@ function render(ts) {
   else {
     drawPoops(t);
     const body = drawPet(t, dt);
-    if (anim && anim.type === 'eat') drawFood(animP(), anim.food, body);
+    if (anim && anim.type === 'eat') drawFood(anim.food, body);
     if (anim && anim.type === 'react') reactFX(body, t);
     drawFlies(t, body);
     if (talk) drawTalkProp(body, t, talk.kind); else if (bubble && bubble.start) drawTalkProp(body, t, bubble.kind);
@@ -4275,7 +4357,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude
 
 <script>
 (() => {
-  const BUILD = '20261029122500';
+  const BUILD = '20261029134338';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
