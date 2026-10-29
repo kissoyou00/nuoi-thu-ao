@@ -316,7 +316,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
       <div class="install" id="install" hidden role="dialog" aria-labelledby="installTitle">
         <b id="installTitle">Thêm Thú Ảo ra màn hình chính</b>
         <ol id="installSteps"></ol>
-        <div class="talk-act"><button type="button" class="alt" id="installLater">Để sau</button><button type="button" id="installOk">Đã hiểu</button></div>
+        <div class="talk-act"><button type="button" class="alt" id="installLater">Để sau</button><button type="button" id="installNow" hidden>📲 Cài ngay</button><button type="button" id="installOk">Đã hiểu</button></div>
       </div>
       <div class="talk" id="talk" hidden aria-live="polite">
         <div class="talk-k" id="talkKind"></div>
@@ -900,14 +900,24 @@ $('musBtn').addEventListener('click', () => { Sound.ensure(); Sound.toggleMusic(
   if (!phone || standalone) return;
   const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent), btn = $('installBtn'), box = $('install');
   let deferred = null;
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
-  $('installSteps').innerHTML = ios
-    ? '<li>Mở file này bằng <b>Safari</b>.</li><li>Bấm nút <kbd>Chia sẻ</kbd> (ô vuông có mũi tên lên) ở thanh dưới.</li><li>Chọn <kbd>Thêm vào MH chính</kbd> rồi bấm <kbd>Thêm</kbd>.</li><li>Biểu tượng chú mèo lửa sẽ hiện trên màn hình chính.</li>'
-    : '<li>Mở file này bằng <b>Chrome</b>.</li><li>Bấm nút <kbd>⋮</kbd> ở góc trên bên phải.</li><li>Chọn <kbd>Thêm vào màn hình chính</kbd> rồi bấm <kbd>Thêm</kbd>.</li><li>Biểu tượng chú mèo lửa sẽ hiện trên màn hình chính.</li>';
+  const what = location.protocol.startsWith('http') ? 'trang này' : 'file này';
+  const manual = ios
+    ? `<li>Mở ${what} bằng <b>Safari</b>.</li><li>Bấm nút <kbd>Chia sẻ</kbd> (ô vuông có mũi tên lên) ở thanh dưới.</li><li>Kéo xuống, chọn <kbd>Thêm vào MH chính</kbd> rồi bấm <kbd>Thêm</kbd>.</li><li>Biểu tượng chú mèo lửa sẽ hiện trên màn hình chính.</li>`
+    : `<li>Mở ${what} bằng <b>Chrome</b>.</li><li>Bấm nút <kbd>⋮</kbd> ở góc trên bên phải, rồi <b>kéo danh sách xuống dưới cùng</b>.</li><li>Chọn <kbd>Thêm vào màn hình chính</kbd> (hoặc <kbd>Cài đặt ứng dụng</kbd>), rồi bấm <kbd>Thêm</kbd>.</li><li>Nếu điện thoại cảnh báo "không an toàn", hãy chọn <kbd>Tạo lối tắt</kbd> thay vì cài ứng dụng: game vẫn mở như thường.</li>`;
+  // when Chrome offers to install the game, one tap on "Cài ngay" is enough; otherwise show the manual steps
+  const render = () => {
+    $('installNow').hidden = !deferred;
+    $('installSteps').innerHTML = deferred ? '<li>Bấm <kbd>📲 Cài ngay</kbd> rồi chọn <kbd>Cài đặt</kbd>.</li><li>Biểu tượng chú mèo lửa sẽ hiện trên màn hình chính, mở ra là chơi.</li>' : manual;
+  };
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; render(); });
+  window.addEventListener('appinstalled', () => { deferred = null; btn.hidden = true; box.hidden = true; });
+  render();
   const show = () => { box.hidden = false; };
   const hide = done => { box.hidden = true; if (done) { try { localStorage.setItem('thu-ao-install-seen', '1'); } catch (er) {} } };
+  const prompt = async () => { const d = deferred; deferred = null; render(); d.prompt(); const r = await d.userChoice.catch(() => null); if (r && r.outcome === 'accepted') hide(true); };
   btn.hidden = false;
-  btn.addEventListener('click', async () => { if (deferred) { deferred.prompt(); deferred = null; return; } show(); });
+  btn.addEventListener('click', () => { if (deferred) prompt(); else show(); });
+  $('installNow').addEventListener('click', () => { if (deferred) prompt(); });
   $('installOk').addEventListener('click', () => hide(true));
   $('installLater').addEventListener('click', () => hide(false));
   let seen = false; try { seen = localStorage.getItem('thu-ao-install-seen') === '1'; } catch (er) {}
@@ -4357,7 +4367,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude
 
 <script>
 (() => {
-  const BUILD = '20261029134338';
+  const BUILD = '20261029150447';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
