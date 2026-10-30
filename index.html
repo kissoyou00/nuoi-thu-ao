@@ -1154,7 +1154,7 @@ const Sound = (() => {
   return {
     ensure,
     play(name, ...a) { if (on && ac && FX[name]) { try { FX[name](...a); } catch (e) {} } },
-    get on() { return on; }, get music() { return music; }, get musicStep() { return step; },
+    get on() { return on; }, get music() { return music; },
     toggle() { on = !on; persist(); }, toggleMusic() { music = !music; persist(); },
     // a soft looping hiss for rain; level 0..1, faded smoothly
     rain(level) {
@@ -1213,7 +1213,10 @@ $('musBtn').addEventListener('click', () => { Sound.ensure(); Sound.toggleMusic(
    pinch on phones (iOS Safari ignores user-scalable=no; double-tap zoom is stopped by touch-action in the page CSS),
    Ctrl/⌘ + scroll, trackpad pinch and Ctrl/⌘ +/−/0 on computers */
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
-document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+// the blocking touchmove listener is only attached while two fingers are down, so ordinary scrolling stays smooth
+const pinchGuard = e => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); };
+document.addEventListener('touchstart', e => { if (e.touches.length > 1) document.addEventListener('touchmove', pinchGuard, { passive: false }); }, { passive: true });
+['touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, e => { if (e.touches.length < 2) document.removeEventListener('touchmove', pinchGuard); }, { passive: true }));
 document.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', '0'].includes(e.key)) e.preventDefault(); });
 syncSoundButtons();
@@ -3349,9 +3352,13 @@ const NotePop = {
       el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
       if (el.hidden) Sound.play('ping');
     }
-    $('npCount').textContent = this.list.length > 1 ? `1/${this.list.length}` : '';
     // just under the status bar drawn on the canvas (14px from the top, 30px tall, enlarged by uiK on small screens)
     const cw = cv.clientWidth, ch = cv.clientHeight, k = cw / LW, tight = cw < 640;
+    // nothing changed since the last check (same note, size and mode): skip the relayout
+    const sig = [b.created_at, cw, ch, uiK, this.list.length, $('npReplyBox').hidden].join('|');
+    if (!el.hidden && sig === this.sig) return;
+    this.sig = sig;
+    $('npCount').textContent = this.list.length > 1 ? `1/${this.list.length}` : '';
     // never cover more than 30% of the game screen: a card at most 55% wide, or on phones a short strip across the
     // whole width; shrunk to fit if it is still too big
     el.classList.toggle('tight', tight); el.classList.toggle('replying', !$('npReplyBox').hidden);
@@ -3460,7 +3467,7 @@ function drawHouse(t) {
   const h = house, p = h.pet, sp = p ? spById(p.species) : null;
   const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod); BACKDROPS[theme].live(t, tod);
-  h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), hour: new Date().getHours() };
+  h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), theme, hour: new Date().getHours() };
   drawSkyLife(t, theme, tod, h.weather.kind, h.weather.wind);
   (h.decor || []).forEach(id => { if (DECOR_X[id]) drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); });
   fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
@@ -5270,22 +5277,24 @@ function bakeBackdrop(theme, tod, w) {
 }
 const BAKED = { base: '', w: 0, img: null, timer: 0 };
 function drawBackdrop(theme, tod) {
-  const base = theme + '|' + tod, w = cv.width;
+  const base = theme + '|' + tod, w = Math.min(4096, Math.round(cv.width * zoom));   // painted at the size it shows (zoomed on phones), so it stays sharp
   if (!BAKED.img || BAKED.base !== base) { BAKED.img = bakeBackdrop(theme, tod, w); BAKED.base = base; BAKED.w = w; }
-  else if (BAKED.w !== w && !BAKED.timer) BAKED.timer = setTimeout(() => { BAKED.timer = 0; BAKED.base = ''; }, 300);   // window being resized: rebake once it settles
+  // window resized (or the phone view zoomed in): rebake once it settles; a sharper copy than needed is kept (minigames unzoom)
+  else if ((w > BAKED.w * 1.05 || w < BAKED.w * 0.4) && !BAKED.timer) BAKED.timer = setTimeout(() => { BAKED.timer = 0; BAKED.base = ''; }, 300);
   ctx.drawImage(BAKED.img, 0, 0, LW, LH);
   if (padTop) { drawSkyExt(theme, tod); bandDone = true; }
 }
 /* tall phone screens: a real painting above the 16:9 backdrop instead of a stretched strip. It continues the colours at the
    seam (with a soft mirrored blend), deepens towards the top, and adds what belongs up there in each habitat. Baked once
    per backdrop and size, drawn in world space so it pans with the camera. */
-const EXT = { key: '', img: null };
+const EXT = new Map();   // a few recent paintings, so going in and out of a minigame (a different band height) does not repaint
 let bandDone = false;
 const EXT_ZENITH = { ocean: '#c9f3ff', volcano: '#080306', crystal: '#05040c', haunted: '#05030f', space: '#010107' };
 function drawSkyExt(theme, tod) {
   const H = padTop, k = worldK(), w = Math.round(LW * k), key = [BAKED.base, w, H].join('|');
-  if (EXT.key !== key) { EXT.img = bakeSkyExt(theme, tod, w, H, k); EXT.key = key; }
-  ctx.drawImage(EXT.img, 0, -H, LW, H);
+  let img = EXT.get(key);
+  if (!img) { img = bakeSkyExt(theme, tod, w, H, k); EXT.set(key, img); if (EXT.size > 3) EXT.delete(EXT.keys().next().value); }
+  ctx.drawImage(img, 0, -H, LW, H);
 }
 /* the sky band on tall phone screens is alive: sun or moon and stars by the time of day, drifting clouds and birds, and
    whatever the weather or the habitat brings (rain clouds and lightning, blowing leaves, dust, smoke and embers, bubbles
@@ -5295,17 +5304,21 @@ function drawSkyLife(t, theme, tod, kind, wind) {
   const H = padTop; if (H < 120) return;
   const x0 = camX, vw = viewW, outdoor = OUTDOOR.includes(theme), night = tod === 'night', wet = kind === 'rain' || kind === 'storm', stormy = kind === 'storm' || theme === 'storm';
   ctx.save();
+  // the backdrop already paints the sun (or the moon at night): add twinkling stars and shooting stars, or sunbeams
+  // fanning up from that same sun into the band, rather than a second one
   if (outdoor && !wet && !stormy) {
     if (night) {
       for (let i = 0; i < 46; i++) { const a = 0.3 + 0.7 * Math.abs(Math.sin(t * (0.6 + rnd(i + 40) * 1.5) + i)), y = -H * (0.15 + rnd(i + 41) * 0.8); ell(x0 + rnd(i + 42) * vw, y, 1.6, 1.6, `rgba(255,255,240,${a * Math.min(1, -y / 60)})`); }
-      moon(x0 + vw * 0.76, -H * 0.66, 30);
       const c = t % 7; if (c < 0.9) { const p = c / 0.9, sx = x0 + vw * (0.15 + 0.5 * rnd(Math.floor(t / 7))) + p * 220, sy = -H * 0.85 + p * H * 0.3; ctx.strokeStyle = `rgba(255,250,220,${1 - p})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 90, sy - 30); ctx.stroke(); }
     } else {
-      const dusk = tod === 'dusk', sx = x0 + vw * 0.78, sy = dusk ? -H * 0.28 : -H * 0.66, r = dusk ? 44 : 34;
-      glow(sx, sy, r * 7, dusk ? '#ff9a5a' : '#fff4d6', dusk ? 0.55 : 0.45);
-      ctx.save(); ctx.translate(sx, sy); ctx.rotate(t * 0.05); ctx.fillStyle = dusk ? 'rgba(255,190,120,.16)' : 'rgba(255,248,210,.2)';
-      for (let i = 0; i < 12; i++) { ctx.rotate(TAU / 12); ctx.beginPath(); ctx.moveTo(-6, r * 1.3); ctx.lineTo(6, r * 1.3); ctx.lineTo(0, r * 3.4 + Math.sin(t * 2 + i) * 10); ctx.closePath(); ctx.fill(); }
-      ctx.restore(); ell(sx, sy, r, r, dusk ? '#ffd88a' : '#fffbe8');
+      const dusk = tod === 'dusk', sx = 230, sy = dusk ? (theme === 'sky' ? 560 : 470) - 90 : 110, len = H + sy + 200;
+      ctx.save(); ctx.translate(sx, sy);
+      for (let i = 0; i < 9; i++) {
+        const a = -Math.PI / 2 + (i - 4) * 0.2 + Math.sin(t * 0.15 + i) * 0.04, wd = 0.035 + 0.02 * Math.sin(t * 0.7 + i * 2);
+        const gr = ctx.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len); gr.addColorStop(0, dusk ? 'rgba(255,190,120,.2)' : 'rgba(255,248,215,.22)'); gr.addColorStop(1, 'rgba(255,248,215,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a - wd) * len, Math.sin(a - wd) * len); ctx.lineTo(Math.cos(a + wd) * len, Math.sin(a + wd) * len); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
     }
   }
   // drifting clouds, faster with the wind; heavy and dark when it rains
@@ -5342,16 +5355,13 @@ function drawSkyLife(t, theme, tod, kind, wind) {
     }
   }
   if (theme === 'crystal' || kind === 'sparkle') for (let i = 0; i < 24; i++) glow(rnd(i + 740) * LW + Math.sin(t * 0.5 + i) * 20, -H * (0.1 + rnd(i + 741) * 0.85), 14, ['#9be7ff', '#d0a8ff', '#ff9ad5'][i % 3], Math.max(0, Math.sin(t * 1.5 + i * 1.9)) * 0.9);
-  if (theme === 'haunted') {
-    moon(x0 + vw * 0.72, -H * 0.62, 28);
+  if (theme === 'haunted') {   // (its moon is part of the backdrop)
     for (let i = 0; i < 4; i++) {
       const span = LW + 300, x = ((rnd(i + 760) * span + t * (70 + i * 15)) % span) - 150, y = -H * (0.3 + rnd(i + 761) * 0.5) + Math.sin(t * 3 + i) * 18, f = Math.sin(t * 14 + i);
       ctx.fillStyle = '#120c22'; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 10, y - 10 - f * 8, x - 22, y - f * 10); ctx.quadraticCurveTo(x - 12, y + 2, x, y + 4); ctx.quadraticCurveTo(x + 12, y + 2, x + 22, y - f * 10); ctx.quadraticCurveTo(x + 10, y - 10 - f * 8, x, y); ctx.fill();
     }
   }
-  if (theme === 'space') {
-    const px = x0 + vw * 0.25, py = -H * 0.6; ell(px, py, 40, 40, '#e8a87c'); ell(px - 10, py - 12, 30, 22, 'rgba(255,230,200,.35)');
-    ctx.strokeStyle = 'rgba(255,220,180,.7)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(px, py, 70, 16, -0.3, 0, TAU); ctx.stroke();
+  if (theme === 'space') {   // meteors (the ringed planet and the earth are part of the backdrop)
     for (let i = 0; i < 3; i++) { const c = (t * 0.3 + i * 0.33) % 1; if (c < 0.2) { const p = c / 0.2, mx = x0 + vw * rnd(Math.floor(t * 0.3 + i * 0.33) + i * 9) + p * 260, my = -H * 0.9 + p * H * 0.4; ctx.strokeStyle = `rgba(255,250,220,${1 - p})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx - 110, my - 46); ctx.stroke(); } }
   }
   if (theme === 'fairy' && !wet) for (let i = 0; i < 12; i++) { const ph = (t * 0.12 + rnd(i + 780)) % 1; ctx.globalAlpha = (1 - ph) * 0.8; heartPath(rnd(i + 781) * LW + Math.sin(t * 2 + i) * 18, -ph * H, 9 + (i % 3) * 3); ctx.fillStyle = ['#ff8fc8', '#ffd1e8', '#ffffff'][i % 3]; ctx.fill(); ctx.globalAlpha = 1; }
@@ -5366,8 +5376,8 @@ function houseWeather(theme, name) {
 }
 // draw the falling weather of a friend's house with the usual weather code, then put mine back
 function drawHouseWeather(t, dt, hw) {
-  const keep = { kind: weather.kind, gust: weather.gust, flash: weather.flash };
-  weather.kind = hw.kind; weather.gust = hw.wind * (0.8 + 0.3 * Math.sin(t * 0.9));
+  const keep = { kind: weather.kind, gust: weather.gust, flash: weather.flash, theme: weather.theme };
+  weather.kind = hw.kind; weather.theme = hw.theme; weather.gust = hw.wind * (0.8 + 0.3 * Math.sin(t * 0.9));
   weather.flash = hw.kind === 'storm' && t % 6 < 0.26 ? now() - (t % 6) * 1000 : 0;
   try { drawWeatherFront(t, dt); } finally { Object.assign(weather, keep); }
 }
@@ -6429,7 +6439,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030153206';
+  const BUILD = '20261030154653';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
