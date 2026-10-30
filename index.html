@@ -75,6 +75,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: .16em; text-transform: uppercase; }
+/* the player's house address beside the title; tapping it opens the neighbours card */
+.addr { font: 700 12px/1 var(--body); text-transform: none; letter-spacing: 0; padding: 4px 9px; border: 0; border-radius: 999px; cursor: pointer;
+  background: rgba(255,255,255,.55); color: var(--shell-ink); max-width: 9.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addr::before { content: "🏠 "; }
 .badge { font-size: 12px; font-weight: 700; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; }
 .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tog { font: 700 12px/1 var(--body); padding: 6px 11px; border-radius: 999px; border: 0; cursor: pointer; background: rgba(255,255,255,.55); color: var(--shell-ink); }
@@ -112,14 +116,20 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .talk-act button { font: 700 14px/1 var(--body); border: 0; border-radius: 999px; padding: 9px 15px; cursor: pointer; background: var(--shell-d); color: #fff; }
 .talk-act button.alt { background: transparent; color: #2b2220; box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
 .talk-act button:focus-visible { outline: 3px solid #2b2220; outline-offset: 2px; }
-/* phones: the card sits under the screen and stays small, three lines of text; tap the text to read all of it */
+#talkRead { display: none; }
+/* phones: a small card under the screen showing just the first two lines; "Đọc tiếp" opens the rest */
 @media (max-width: 640px) {
-  .talk { position: static; transform: none; width: auto; max-height: none; margin-top: 8px; box-shadow: none; padding: 9px 13px 9px; gap: 5px; border-radius: 14px; }
-  .talk-k { font-size: 11px; }
-  .talk p { font-size: 14px; line-height: 1.45; min-height: 0; cursor: pointer; }
-  .talk:not(.full) p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
-  .talk:not(.full) dl, .talk:not(.full) small { display: none; }
-  .talk-act button { font-size: 13px; padding: 7px 12px; }
+  .talk { position: static; transform: none; width: auto; max-height: none; margin-top: 6px; box-shadow: none; padding: 8px 12px; gap: 4px; border-radius: 14px; }
+  .talk-k { font-size: 10.5px; }
+  .talk p { font-size: 13.5px; line-height: 1.42; min-height: 0; }
+  .talk:not(.full) p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .talk.full p { max-height: 40vh; overflow-y: auto; scrollbar-width: none; }
+  .talk.full p::-webkit-scrollbar { display: none; }
+  .talk dl, .talk small, .talk .talk-bar { display: none !important; }
+  .talk-act { gap: 6px; }
+  .talk-act button { font-size: 12.5px; padding: 6px 11px; }
+  #talkRead { display: inline-block; margin-right: auto; }
+  .panel { max-height: 48vh; }
 }
 /* shop, quests, adventures, album, share card and visits open in this card over the screen (under it on phones) */
 .panel {
@@ -158,7 +168,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .auth-err { color: #c92a2a; font-size: 13.5px; min-height: 0; margin: 0; }
 .auth-err:empty { display: none; }
 .p-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.p-code { font: 800 22px var(--display); letter-spacing: .12em; background: #fff4e6; border-radius: 10px; padding: 2px 10px; }
+.p-code { font: 800 20px var(--display); letter-spacing: .02em; background: #fff4e6; border-radius: 10px; padding: 2px 10px; }
 .p-sec { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8a7a72; margin-top: 4px; }
 .pip { position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: #fa5252; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 @media (max-width: 640px) {
@@ -186,18 +196,23 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .wrap { padding-block: 8px 32px; gap: 22px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
   .device { width: auto; border-radius: 22px; padding: 10px 8px 12px; gap: 10px; }
   .bezel { border-radius: 16px; padding: 5px; }
-  .bezel canvas { width: 100%; border-radius: 11px; }
-  .brand { font-size: 12px; letter-spacing: .1em; gap: 7px; }
+  /* 20% taller than 16:9: the game fills the extra height with sky */
+  .bezel canvas { width: 100%; border-radius: 11px; aspect-ratio: 1280 / 864; }
+  /* the care log and the how-to guide take too much room on a phone */
+  #foldLog, #foldHow { display: none; }
+  .brand { font-size: 12px; letter-spacing: .1em; gap: 7px; min-width: 0; }
+  .addr { font-size: 11px; padding: 4px 7px; max-width: none; min-width: 0; flex: 0 1 auto; }
+  .addr::before { content: none; }
   #res { display: none; }
   .tog { font-size: 11px; padding: 5px 9px; }
   .say { font-size: 13.5px; min-height: 2.6em; padding: 7px 12px; }
-  .device .pad { gap: 6px; }
-  .device .pad button.icon, .device .pad button.food { width: clamp(38px, 11.2vw, 50px); height: clamp(38px, 11.2vw, 50px); padding: 3px; border-radius: 12px; box-shadow: 0 3px 0 color-mix(in oklab, var(--shell) 55%, #000); }
-  .device .pad button.food .coin { min-width: 16px; height: 16px; font-size: 10px; line-height: 16px; }
-  /* the food and extras menus always fit on one row (--n = number of buttons) */
-  .device .below.wide .pad { gap: 4px; flex-wrap: nowrap; }
-  .device .below.wide .pad button.food, .device .below.wide .pad button.icon { width: calc((100% - (var(--n, 9) - 1) * 4px) / var(--n, 9)); max-width: 50px; height: auto; aspect-ratio: 1; padding: 2px; border-radius: 10px; }
-  .device .below.wide .pad button.food .coin { min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; right: -3px; top: -5px; padding: 0 3px; }
+  /* every menu is a single row of equally sized buttons: sized so 9 fit, smaller only when a menu has more (--n = its button count) */
+  .device .pad { gap: 4px; flex-wrap: nowrap; justify-content: center; width: 100%; box-sizing: border-box; }
+  .device .pad button.icon, .device .pad button.food {
+    flex: 0 0 auto; width: min(50px, calc((100% - 32px) / 9), calc((100% - (var(--n, 9) - 1) * 4px) / var(--n, 9))); height: auto; aspect-ratio: 1;
+    padding: 2px; border-radius: 10px; box-shadow: 0 3px 0 color-mix(in oklab, var(--shell) 55%, #000);
+  }
+  .device .pad button.food .coin { min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; right: -3px; top: -5px; padding: 0 3px; }
   .device .say { font-size: 12.5px; min-height: 0; padding: 6px 10px; border-radius: 11px; }
   .device .below { gap: 8px; }
   .topbar { flex-wrap: nowrap; }
@@ -349,7 +364,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
 <main class="wrap">
   <section class="device" id="device" aria-label="Máy nuôi thú ảo">
     <div class="topbar">
-      <div class="brand"><span class="lamp" id="lamp" title="Đèn báo cần chăm sóc"></span>Thú Ảo Bỏ Túi</div>
+      <div class="brand"><span class="lamp" id="lamp" title="Đèn báo cần chăm sóc"></span>Thú Ảo Bỏ Túi<button type="button" class="addr" id="addrTag" hidden title="Địa chỉ nhà của bạn"></button></div>
       <div class="tools">
         <button type="button" class="tog" id="installBtn" hidden>Thêm vào màn hình chính</button>
         <button type="button" class="tog" id="sndBtn" aria-pressed="true">Âm thanh: Bật</button>
@@ -388,6 +403,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <small id="talkFoot"></small>
         <div class="talk-bar" id="talkBar" hidden><i id="talkBarFill"></i></div>
         <div class="talk-act">
+          <button type="button" class="alt" id="talkRead">Đọc tiếp ▾</button>
           <button type="button" class="alt" id="talkClose">Đóng</button>
           <button type="button" id="talkMore">Thêm nữa</button>
         </div>
@@ -446,7 +462,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <li><b>Cho ăn</b>, <b>Chơi</b> để kiếm xu, <b>Dọn</b> phân, <b>Thuốc</b> chữa ốm (2 liều), <b>Ngủ</b> khi mệt và nhớ tắt đèn.</li>
         <li><b>Tính cách và khẩu vị:</b> mỗi bé có một tính cách riêng, một món mê nhất và một món ghét. Thử cho ăn để khám phá.</li>
         <li><b>Chăm kỹ thì đẹp:</b> chăm chu đáo, bé tiến hóa thành dạng <b>ánh kim</b> lấp lánh. Bỏ bê thì bé thành dạng <b>cau có</b>.</li>
-        <li><b>Nút ✨</b> mở thêm: 📋 nhiệm vụ mỗi ngày, 🛍️ cửa hàng mũ, kính, đồ trang trí, 🎒 cho bé đi phiêu lưu, 🎓 dạy kỹ năng, 📷 album ảnh, 🖼️ thẻ khoe thú, 🏡 gửi link mời bạn bè sang chơi.</li>
+        <li><b>Nút ✨</b> mở thêm: 📋 nhiệm vụ mỗi ngày, 🛍️ cửa hàng mũ, kính, đồ trang trí, 🎲 ghé một nhà người chơi bất kỳ (khi chơi offline là 🎒 cho bé đi phiêu lưu), 🎓 dạy kỹ năng, 📷 album ảnh, 🖼️ thẻ khoe thú, 🏡 gửi link mời bạn bè sang chơi.</li>
         <li><b>Điểm danh mỗi ngày</b> để nhận quà, ngày thứ 7 có quà lớn. Dịp Tết, Trung thu, Halloween, Giáng sinh có trang trí và món ăn đặc biệt.</li>
       </ul>
       <p class="note">Âm thanh bắt đầu sau lần chạm hoặc bấm đầu tiên. Có thể tắt âm thanh hoặc nhạc nền bằng nút phía trên màn hình. Tuổi của bé tính theo thời gian thực. Bầu trời ngoài cửa sổ đổi theo giờ thật. Khi bạn đóng trang, bé vẫn sống nhưng chậm hơn. Dữ liệu chỉ lưu trên trình duyệt này.</p>
@@ -1238,7 +1254,7 @@ function startIdle(T) {
 }
 
 /* ---------- petting & pointer ---------- */
-const toLogical = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LW, y: (e.clientY - r.top) / r.height * LH }; };
+const toLogical = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LW, y: (e.clientY - r.top) / r.height * (LH + padTop) - padTop }; };
 function hitPet(p) {
   if (!state) return false;
   if (!state.hatched) return Math.hypot(p.x - 640, p.y - (GROUND - 130)) < 140;
@@ -1368,7 +1384,7 @@ function openTalk(kind, auto = false) {
   const c = makeTalk(kind), box = $('talk'), p = $('talkText'), meta = $('talkMeta');
   c.text = splitSentences(c.text).join('\n');
   talk = { kind, typing: true, auto, closeAt: 0 };
-  box.hidden = false; box.dataset.kind = kind; box.classList.remove('full');
+  box.hidden = false; box.dataset.kind = kind; box.classList.remove('full'); $('talkRead').textContent = 'Đọc tiếp ▾';
   const today = new Date().toDateString();
   if (auto && kind === 'fortune' && state.lastDaily !== today) {
     state.lastDaily = today; c.label = `Quẻ hôm nay của ${state.name}`;
@@ -1407,8 +1423,10 @@ function openTalk(kind, auto = false) {
 function closeTalk() { clearInterval(typer); talk = null; $('talk').hidden = true; }
 $('talkClose').addEventListener('click', () => { closeTalk(); syncMode(true); });
 $('talkMore').addEventListener('click', () => { if (talk) openTalk(talk.kind); });
-// on phones the card shows three lines; tapping the text opens the rest (and the lucky details) or folds it again
-$('talkText').addEventListener('click', () => $('talk').classList.toggle('full'));
+// on phones the card shows two lines; "Đọc tiếp" (or tapping the text) opens the rest, and folds it again
+const toggleTalk = () => { const full = $('talk').classList.toggle('full'); $('talkRead').textContent = full ? 'Thu gọn ▴' : 'Đọc tiếp ▾'; if (talk && talk.auto) { talk.auto = false; talk.closeAt = 0; } };
+$('talkText').addEventListener('click', toggleTalk);
+$('talkRead').addEventListener('click', toggleTalk);
 // touching the card means the player is reading it: stop the auto-close
 $('talk').addEventListener('pointerenter', () => { if (talk && talk.auto) { talk.auto = false; talk.closeAt = 0; $('talkBar').hidden = true; } });
 function autoTalk(T) {
@@ -1730,11 +1748,11 @@ const ICON_LABEL = {
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
   'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ hôm nay', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
   'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
-  'x-hood': 'Hàng xóm: mã nhà, ghé thăm, quà', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
+  'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
 };
 // the extras menu uses emoji pictures
 const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
-  'x-hood': '🏘️', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
+  'x-hood': '🏘️', 'x-rand': '🎲', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -2078,6 +2096,7 @@ function act(a) {
   if (a.startsWith('g-')) { gameMenu = false; startGame(a.slice(2)); syncMode(true); renderSide(); save(); return; }
   idle = null; bubble = null;
   if (talk && !['fortune', 'news', 'fact', 'talk'].includes(a)) closeTalk();
+  if (a === 'x-rand') { randomVisit(); return; }
   if (a.startsWith('h-')) {
     if (!house) return;
     if (a === 'h-home') leaveHouse();
@@ -2087,6 +2106,7 @@ function act(a) {
   }
   if (a.startsWith('x-')) {
     if (a === 'x-recall') { if (s.trip) endTrip(true); }
+    else if (a === 'x-rand') { randomVisit(); return; }
     else openPanel(a.slice(2));
     syncMode(true); renderSide(); save(); return;
   }
@@ -2103,7 +2123,7 @@ function act(a) {
     case 'back': foodMenu = false; break;
     case 'play': gameMenu = true; say('Chọn một trò chơi nhé!', 3000); break;
     case 'back3': gameMenu = false; break;
-    case 'more': moreMenu = true; say('Nhiệm vụ, cửa hàng, phiêu lưu, kỹ năng, album, thẻ khoe và thăm nhà bạn bè.', 3500); break;
+    case 'more': moreMenu = true; say(Net.online ? 'Nhiệm vụ, cửa hàng, ghé nhà bất kỳ, kỹ năng, album, thẻ khoe và hàng xóm.' : 'Nhiệm vụ, cửa hàng, phiêu lưu, kỹ năng, album, thẻ khoe và thăm nhà bạn bè.', 3500); break;
     case 'back4': moreMenu = false; closePanel(); break;
     case 'quit': if (game) endGame(true); break;
     case 'clean': startAnim('clean', 2600); say(`Xoẹt xoẹt! Cầm chổi quét dọn cho ${s.name}...`); break;
@@ -2147,9 +2167,9 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep'], ['more', 'm-more']],
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
   trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
-  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note'], ['h-home', 'h-home']],
+  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note'], ['x-rand', 'x-rand'], ['h-home', 'h-home']],
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
@@ -2319,14 +2339,14 @@ const QUESTS = {
   clean: { text: 'Dọn dẹp cho bé 1 lần', goal: 1, coin: 6 },
   pet: { text: 'Vuốt ve bé 5 lần', goal: 5, coin: 5 },
   talk: { text: 'Nghe bé kể chuyện hoặc bói 2 lần', goal: 2, coin: 6 },
-  trip: { text: 'Cho bé đi phiêu lưu 1 chuyến', goal: 1, coin: 10 },
+  trip: { text: 'Ghé thăm nhà 1 người chơi khác', goal: 1, coin: 10, online: true },
   fav: { text: 'Cho bé ăn đúng món bé thích nhất', goal: 1, coin: 12 },
   train: { text: 'Dạy bé 1 bài kỹ năng', goal: 1, coin: 8 },
   game: { text: 'Chơi trọn 2 ván mini game', goal: 2, coin: 8 },
 };
 function ensureQuests() {
   const d = dayKey(); if (meta.quests.day === d) return;
-  meta.quests = { day: d, list: shuffle(Object.keys(QUESTS)).slice(0, 3).map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta();
+  meta.quests = { day: d, list: shuffle(Object.keys(QUESTS).filter(k => Net.online || !QUESTS[k].online)).slice(0, 3).map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta();
 }
 function quest(id, n = 1) {
   if (!state || !state.hatched || !state.alive) return;
@@ -2578,7 +2598,8 @@ const snapshot = title => shotQ.push(title);
 function takeShots() {
   while (shotQ.length) {
     const c = document.createElement('canvas'); c.width = 384; c.height = 216;
-    try { c.getContext('2d').drawImage(cv, 0, 0, 384, 216); addAlbum(shotQ.shift(), c.toDataURL('image/jpeg', 0.72)); } catch (e) { shotQ.shift(); }
+    const pp = Math.round(padTop * cv.width / LW);
+    try { c.getContext('2d').drawImage(cv, 0, pp, cv.width, cv.height - pp, 0, 0, 384, 216); addAlbum(shotQ.shift(), c.toDataURL('image/jpeg', 0.72)); } catch (e) { shotQ.shift(); }
   }
 }
 function addAlbum(title, img) { meta.album.unshift({ t: now(), title, img }); meta.album = meta.album.slice(0, 16); saveMeta(); }
@@ -2708,7 +2729,8 @@ const Net = {
   },
   // runs before the game starts: sign in (or offer offline play), then bring the cloud save into this browser
   async boot() {
-    if (!SUPA_URL || !SUPA_KEY) return;
+    // online play only on the game's own site (and while testing locally); the Claude preview and the installed file stay offline
+    if (!SUPA_URL || !SUPA_KEY || !/vercel\.app$|^localhost$|^127\./.test(location.hostname)) return;
     if (!(await this.loadLib())) { this.note = 'Không tải được phần kết nối mạng, đang chơi ngoại tuyến.'; return; }
     try { this.sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, storageKey: 'thu-ao-auth', autoRefreshToken: true } }); } catch (e) { return; }
     let session = null;
@@ -2759,7 +2781,7 @@ const Net = {
         if (state) log(`@${st.username} đã lẻn vào nhà lấy mất ${name.toLowerCase()}!`);
         queueBanner({ title: 'Bị trộm!', sub: `@${st.username} lẻn vào nhà lấy mất ${name.toLowerCase()}`, color: '#495057', dur: 5500 });
       });
-      saveMeta(); if (state && state.hatched) { setFace('angry', 3000); setEmote('vein', 3000); }
+      saveMeta(); renderPanel.hoodAt = 0; if (state && state.hatched) { setFace('angry', 3000); setEmote('vein', 3000); }
       try { await this.rpc('ack_steals'); } catch (e) {}
       this.push();
     }
@@ -2801,16 +2823,36 @@ function authDialog() {
 
 /* visiting someone's house (online) */
 let house = null;
+// a house address is the owner's login name (@minh1234); old 6-letter house codes and links still work
+async function houseCodeFor(input) {
+  const raw = String(input).trim().replace(/^.*[?&]nha=/, '').replace(/^[@#]/, '').split(/[&\s]/)[0];
+  const name = raw.toLowerCase();
+  if (/^[a-z0-9_]{3,16}$/.test(name)) {
+    const { data } = await Net.sb.from('profiles').select('house_code').eq('username', name).maybeSingle();
+    if (data && data.house_code) return data.house_code;
+  }
+  return raw.toUpperCase();
+}
 async function visitHouse(code) {
   if (!Net.online) { say('Cần đăng nhập để ghé thăm nhà người khác.', 3500); return; }
   try {
-    const h = await Net.rpc('visit_house', { code: String(code).replace('#', '') });
+    const h = await Net.rpc('visit_house', { code: await houseCodeFor(code) });
     if (h.mine) { say('Đây là nhà của bạn mà!', 3000); return; }
-    house = { ...h, t0: now(), mood: '', moodUntil: 0 };
+    house = { ...h, t0: now(), mood: '', moodUntil: 0 }; quest('trip');
     closePanel(); moreMenu = false; idle = null; bubble = null; closeTalk();
     say(h.pet ? `Bạn đang ở nhà @${h.username}. ${h.pet.alive ? `${h.pet.name} ra chào bạn!` : 'Bé thú nhà này đã rời đi.'}` : `Nhà @${h.username} chưa có thú.`, 5000);
     Sound.play('ping'); syncMode(true);
   } catch (e) { say(errText(e), 4000); }
+}
+// 🎲 knock on a random neighbour's door (someone who played recently and has a pet)
+async function randomVisit() {
+  if (!Net.online) { say('Cần đăng nhập để ghé nhà người chơi khác.', 3500); return; }
+  try {
+    const list = (await Net.rpc('list_houses')) || [], pool = list.filter(x => !house || x.code !== house.code);
+    if (!pool.length) { say('Chưa có hàng xóm nào khác. Rủ bạn bè cùng chơi nhé!', 4000); return; }
+    const x = pick(pool); say(`Cốc cốc... gõ cửa nhà @${x.username}!`, 2000); Sound.play('ping');
+    await visitHouse(x.code);
+  } catch (e) { say(errText(e), 3500); }
 }
 function leaveHouse() { house = null; BAKED.base = ''; say('Về nhà rồi!', 2500); syncMode(true); }
 function stealReason() {
@@ -2890,7 +2932,7 @@ function drawHouse(t) {
     ctx.fillText(p ? 'Bé thú nhà này đã rời đi' : 'Nhà này chưa có thú', 820, GROUND - 120);
   }
   if (state && state.hatched && state.alive && !state.trip) { const b = drawCreatureAt(curSp(), state.stageIdx, 440, curDef().R * 0.85, t + 1, 'happy', 1, meta.wear, state.variant); pillLabel(`${state.name} (khách)`, 440, b.cy - b.ry - b.R * 0.7); }
-  scaled(640, 44, () => pillLabelRaw(`🏠 Nhà của @${h.username} · #${h.code}`, 640, 44));
+  scaled(640, 44, () => pillLabelRaw(`🏠 Nhà của @${h.username}`, 640, 44));
 }
 
 /* the extras card */
@@ -2917,18 +2959,30 @@ function renderPanel() {
   if (panelKind === 'hood') {
     const ib = Net.inbox || {}, ago = t => { const m = Math.round((now() - new Date(t)) / 60000); return m < 60 ? `${Math.max(1, m)} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
     const nb = renderPanel.hood || [];
-    h = `<div class="p-head"><span>Nhà của <b>@${esc(Net.username)}</b> · mã nhà</span><span class="p-code">#${Net.code}</span><button class="p-btn alt" data-p="copycode">Sao chép link nhà</button></div>
-      <p class="muted">Gửi mã nhà hoặc link cho bạn bè để họ ghé thăm, tặng quà, để lại lời nhắn. Cẩn thận: người có bé thú lớn tuổi hơn và hiếm hơn bé nhà bạn có thể lẻn vào lấy đồ!</p>
+    h = `<div class="p-head"><span>Địa chỉ nhà của bạn</span><span class="p-code">@${esc(Net.username)}</span><button class="p-btn alt" data-p="copycode">Sao chép link nhà</button></div>
+      <p class="muted">Địa chỉ nhà chính là tên đăng nhập. Gửi địa chỉ hoặc link cho bạn bè để họ ghé thăm, tặng quà, để lại lời nhắn. Cẩn thận: người có bé thú lớn tuổi hơn và hiếm hơn bé nhà bạn có thể lẻn vào lấy đồ!</p>
       ${Net.gifts ? `<div class="p-row"><span>🎁 <b>${Net.gifts} món quà</b> đang chờ bạn</span><button class="p-btn" data-p="claim">Nhận quà</button></div>` : ''}
-      <div class="p-row"><input class="p-input" id="hoodCode" placeholder="Nhập mã nhà, vd: A7K2QX" maxlength="8" autocapitalize="characters"><button class="p-btn" data-p="go">Ghé thăm</button></div>
+      <div class="p-row"><input class="p-input" id="hoodCode" placeholder="Nhập địa chỉ nhà, vd: minh1234" maxlength="40" autocapitalize="none" spellcheck="false"><button class="p-btn" data-p="go">Ghé thăm</button></div>
       <div class="p-sec">Hàng xóm vừa chơi</div>
       <div class="p-list">${nb.length ? nb.map(x => { const sp = SPECIES.find(s => s.id === x.species); return `<div class="p-row"><span><b>@${esc(x.username)}</b> · ${esc(x.pet || '')}<small>${sp ? `${sp.stages[Math.min(x.stage, sp.stages.length - 1)].name} · ${RARITY[sp.rarity].label}` : ''} · ${ago(x.last_seen)}</small></span><button class="p-btn alt" data-p="go:${x.code}">Ghé</button></div>`; }).join('') : '<p class="muted">Đang tải...</p>'}</div>
       ${(ib.visits || []).length ? `<div class="p-sec">Ai vừa ghé nhà bạn</div><p>${ib.visits.map(v => `<a href="#" data-p="go:${v.code}">@${esc(v.username)}</a> (${ago(v.at)})`).join(', ')}</p>` : ''}
+      ${(() => {
+        // theft history: what was taken from this house, and what this player took from others
+        const st = renderPanel.steals || [], iname = id => ((shopItem(id) || {}).name || id).toLowerCase();
+        const lost = st.filter(x => x.victim === Net.uid), took = st.filter(x => x.thief === Net.uid);
+        return `<div class="p-sec">🦝 Lịch sử bị lấy đồ</div>` + (lost.length
+          ? `<div class="p-list">${lost.map(x => `<div class="p-row"><span><b>@${esc((x.thief_p || {}).username || '?')}</b> lấy mất ${esc(iname(x.item))}<small>${ago(x.created_at)}</small></span>${x.thief_p ? `<button class="p-btn alt" data-p="go:${esc(x.thief_p.username)}">Ghé lại</button>` : ''}</div>`).join('')}</div>`
+          : `<p class="muted">${renderPanel.steals ? 'Chưa ai lấy được gì từ nhà bạn.' : 'Đang tải...'}</p>`)
+          + (took.length ? `<div class="p-sec">Bạn đã lấy</div><div class="p-list">${took.map(x => `<div class="p-row"><span>${esc(iname(x.item))} từ nhà <b>@${esc((x.victim_p || {}).username || '?')}</b><small>${ago(x.created_at)}</small></span></div>`).join('')}</div>` : '');
+      })()}
       ${(ib.book || []).length ? `<div class="p-sec">Lời nhắn để lại</div><div class="p-list">${ib.book.map(b => `<div class="p-row"><span>"${esc(b.note)}"<small>@${esc(b.username)} · ${ago(b.created_at)}</small></span></div>`).join('')}</div>` : ''}
       <div class="p-acts"><button class="p-btn alt" data-p="logout">Đăng xuất</button></div>`;
     if (!renderPanel.hoodAt || now() - renderPanel.hoodAt > 30000) {
       renderPanel.hoodAt = now();
       Net.rpc('list_houses').then(list => { renderPanel.hood = shuffle(list || []).slice(0, 8); if (panelKind === 'hood') renderPanel(); }).catch(() => {});
+      Net.sb.from('steals').select('item, created_at, thief, victim, thief_p:profiles!steals_thief_fkey(username), victim_p:profiles!steals_victim_fkey(username)')
+        .or(`victim.eq.${Net.uid},thief.eq.${Net.uid}`).order('created_at', { ascending: false }).limit(20)
+        .then(({ data }) => { renderPanel.steals = data || []; if (panelKind === 'hood') renderPanel(); });
       Net.poll();
     }
   }
@@ -3008,7 +3062,7 @@ $('panelBody').addEventListener('click', async e => {
   if (cmd === 'sharecard' && renderPanel.blob) { try { await navigator.share({ files: [new File([renderPanel.blob], `thu-ao-${state.name}.png`, { type: 'image/png' })], title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} nhà mình nè! Nuôi thú cùng mình: ${siteUrl()}` }); } catch (er) {} return; }
   if (cmd === 'copy') { const inp = $('visitMine'); inp.select(); try { await navigator.clipboard.writeText(inp.value); } catch (er) { document.execCommand && document.execCommand('copy'); } b.textContent = 'Đã chép'; return; }
   if (cmd === 'sharelink') { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} muốn sang nhà bạn chơi!`, url: visitLink() }); } catch (er) {} return; }
-  if (cmd === 'copycode') { const link = `${siteUrl()}?nha=${Net.code}`; try { await navigator.clipboard.writeText(link); b.textContent = 'Đã chép link'; } catch (er) { say(link, 8000); } if (navigator.share && matchMedia('(pointer: coarse)').matches) { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Ghé nhà mình chơi nhé! Mã nhà #${Net.code}`, url: link }); } catch (er) {} } return; }
+  if (cmd === 'copycode') { const link = `${siteUrl()}?nha=${Net.username}`; try { await navigator.clipboard.writeText(link); b.textContent = 'Đã chép link'; } catch (er) { say(link, 8000); } if (navigator.share && matchMedia('(pointer: coarse)').matches) { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Ghé nhà mình chơi nhé! Địa chỉ nhà: @${Net.username}`, url: link }); } catch (er) {} } return; }
   if (cmd === 'go') { e.preventDefault(); const code = arg || ($('hoodCode') && $('hoodCode').value.trim()); if (code) await visitHouse(code); return; }
   if (cmd === 'claim') { await claimGifts(); renderPanel(); return; }
   if (cmd === 'logout') { if (b.dataset.armed) Net.logout(); else { b.dataset.armed = 1; b.textContent = 'Bấm lần nữa để đăng xuất'; } return; }
@@ -3073,8 +3127,76 @@ function skyFor() {
   return { a: '#121a42', b: '#33407c', orb: '#f3efcf', night: true };
 }
 
+/* ---------- detailed ("HD") look: soft shading, rim light, fur, glossy eyes ----------
+   every species uses it; each one has a surface: fur (default), feather, skin, ghost or stone */
+const HD_SPECIES = new Set(SPECIES.map(s => s.id));
+const HD_TEX = { chim: 'feather', phuong: 'feather', ech: 'skin', heo: 'skin', nam: 'skin', rua: 'skin', hoa: 'skin', long: 'skin', hai: 'skin', ma: 'ghost', da: 'stone' };
+const texOf = id => HD_TEX[id] || 'fur';
+// rows of small overlapping feather edges
+function hdFeather(cx, cy, rx, ry, col, R) {
+  ctx.strokeStyle = rgba(shade(col, -0.32), 0.3); ctx.lineWidth = R * 0.016; ctx.lineCap = 'round';
+  for (let row = 0; row < 4; row++) {
+    const yy = cy - ry * 0.35 + row * ry * 0.3, n = row % 2 ? 4 : 5;
+    for (let i = 0; i < n; i++) { const xx = cx - rx * 0.72 + (i + (row % 2) * 0.5) * rx * 1.44 / 4.5; ctx.beginPath(); ctx.arc(xx, yy, R * 0.075, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke(); }
+  }
+}
+// light and dark flecks, for stone
+function hdSpeckle(cx, cy, rx, ry, col, R, seed, n) {
+  for (let i = 0; i < n; i++) {
+    const a = rnd(seed + i) * TAU, d = Math.sqrt(rnd(seed + i + 31)) * 0.85, s = R * (0.015 + rnd(seed + i + 7) * 0.03);
+    ell(cx + Math.cos(a) * rx * d, cy + Math.sin(a) * ry * d, s, s * 0.8, rgba(shade(col, i % 2 ? -0.4 : 0.45), 0.4));
+  }
+}
+// what a surface adds on top of the shading
+function hdSurface(tex, cx, cy, rx, ry, col, R, seed, part) {
+  if (tex === 'fur') hdFur(cx, cy, rx, ry, col, R, seed, part === 'head' ? 18 : 12);
+  if (tex === 'feather' && part === 'body') hdFeather(cx, cy, rx, ry, col, R);
+  if (tex === 'stone') hdSpeckle(cx, cy, rx, ry, col, R, seed, 22);
+  if (tex === 'skin') ell(cx - rx * 0.42, cy - ry * 0.55, rx * 0.16, ry * 0.08, 'rgba(255,255,255,.55)', -0.5);
+  if (tex === 'ghost') { const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry)); g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2); }
+}
+// light falls from the upper left: a soft core shadow lower right, warm light bounced up from the ground, a rim of light and a sheen
+function hdShade(cx, cy, rx, ry, col, R) {
+  const m = Math.max(rx, ry);
+  let g = ctx.createRadialGradient(cx - rx * 0.32, cy - ry * 0.42, m * 0.15, cx - rx * 0.12, cy - ry * 0.12, m * 1.22);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.58, 'rgba(0,0,0,0)'); g.addColorStop(1, rgba(shade(col, -0.6), 0.55));
+  ctx.fillStyle = g; ctx.fillRect(cx - rx * 1.3, cy - ry * 1.3, rx * 2.6, ry * 2.6);
+  g = ctx.createLinearGradient(0, cy + ry * 0.45, 0, cy + ry); g.addColorStop(0, 'rgba(255,214,160,0)'); g.addColorStop(1, 'rgba(255,214,160,.3)');
+  ctx.fillStyle = g; ctx.fillRect(cx - rx * 1.3, cy + ry * 0.45, rx * 2.6, ry * 0.6);
+  ctx.strokeStyle = 'rgba(255,248,230,.6)'; ctx.lineWidth = R * 0.045; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.95, ry * 0.95, 0, -0.42 * Math.PI, 0.02 * Math.PI); ctx.stroke();
+  g = ctx.createRadialGradient(cx - rx * 0.36, cy - ry * 0.5, 0, cx - rx * 0.36, cy - ry * 0.5, m * 0.5);
+  g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(cx - rx * 1.3, cy - ry * 1.3, rx * 2.6, ry * 2.6);
+}
+// short hair strokes, lighter and darker, combed outward from the centre
+function hdFur(cx, cy, rx, ry, col, R, seed, n) {
+  ctx.lineCap = 'round'; ctx.lineWidth = R * 0.013;
+  const lt = rgba(shade(col, 0.5), 0.32), dk = rgba(shade(col, -0.4), 0.13);
+  for (let i = 0; i < n; i++) {
+    const a = rnd(seed + i) * TAU, d = 0.25 + Math.sqrt(rnd(seed + i + 77)) * 0.68, px = cx + Math.cos(a) * rx * d, py = cy + Math.sin(a) * ry * d, l = R * (0.04 + rnd(seed + i + 9) * 0.04);
+    ctx.strokeStyle = i % 3 ? lt : dk; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a + 0.35) * l, py + Math.sin(a + 0.35) * l); ctx.stroke();
+  }
+}
+// pointed tufts along an arc of an ellipse; drawn before the shape itself, so only their tips stick out and the outline looks furry
+function furTufts(cx, cy, rx, ry, a0, a1, n, len, fill, line, lw, seed) {
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (a1 - a0) * (i + 0.5) / n, w = Math.abs(a1 - a0) / n * 0.62, l = len * (0.7 + rnd(seed + i) * 0.6), bend = (a1 > a0 ? 1 : -1) * w * 0.45;
+    const P = (q, k) => [cx + Math.cos(q) * rx * k, cy + Math.sin(q) * ry * k];
+    const [x1, y1] = P(a - w, 0.97), [x2, y2] = P(a + w, 0.97), [tx, ty] = [cx + Math.cos(a + bend) * (rx + l), cy + Math.sin(a + bend) * (ry + l)];
+    const [c1x, c1y] = P(a - w * 0.3, 1.04), [c2x, c2y] = P(a + w * 0.5, 1.02);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(c1x, c1y, tx, ty); ctx.quadraticCurveTo(c2x, c2y, x2, y2); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+}
+// a tapered brush stroke (thick in the middle, pointed ends), for stripes
+function brush(x1, y1, x2, y2, w, fill) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L * w, ny = dx / L * w, mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(mx + nx, my + ny, x2, y2); ctx.quadraticCurveTo(mx - nx * 0.6, my - ny * 0.6, x1, y1); ctx.fillStyle = fill; ctx.fill();
+}
+
 /* ---------- creature parts ---------- */
-function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep) {
+function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line = shade(col, -0.34)) {
   if (!type) return;
   for (const sd of [-1, 1]) {
     ctx.save();
@@ -3083,15 +3205,38 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep) {
       ctx.translate(x + sd * rx * 0.52, cy - ry * 0.66);
       const twitch = (t + sd * 0.7) % 4.3 < 0.2 ? Math.sin(t * 70) * 0.13 * sd : 0;
       ctx.rotate(sd * (type === 'pointy' ? 0.45 : 0.32) + (asleep ? sd * 0.3 : 0) + twitch);
+      if (hd && (type === 'cat' || type === 'fox')) {
+        // shaded ear with an outline, an inner ear (pink for cats, pale for foxes, whose tips are darker) and a few tufts of fur
+        const k = h / 0.48, fox = type === 'fox';
+        const earPath = () => { ctx.beginPath(); ctx.moveTo(-R * w, R * 0.22); ctx.quadraticCurveTo(-R * w * 0.55, -R * h * 0.4, -R * 0.02, -R * h); ctx.quadraticCurveTo(R * w * 0.62, -R * h * 0.35, R * w, R * 0.22); ctx.closePath(); };
+        const eg = ctx.createLinearGradient(-R * w, 0, R * w, -R * h); eg.addColorStop(0, shade(col, -0.12)); eg.addColorStop(0.5, col); eg.addColorStop(1, shade(col, sd > 0 ? -0.2 : 0.25));
+        earPath(); ctx.fillStyle = eg; ctx.fill();
+        if (fox) { ctx.save(); earPath(); ctx.clip(); ell(0, -R * h, R * w * 0.6, R * h * 0.38, shade(acc, -0.15)); ctx.restore(); }
+        earPath(); ctx.strokeStyle = line; ctx.lineWidth = R * 0.04; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-R * 0.16, R * 0.14); ctx.quadraticCurveTo(-R * 0.09, -R * 0.12 * k, -R * 0.01, -R * 0.31 * k); ctx.quadraticCurveTo(R * 0.1, -R * 0.1 * k, R * 0.16, R * 0.14); ctx.closePath();
+        const ig = ctx.createLinearGradient(0, -R * 0.31 * k, 0, R * 0.14); ig.addColorStop(0, fox ? shade(acc, 0.3) : '#ff8fa8'); ig.addColorStop(1, fox ? '#ffffff' : '#ffd0d9'); ctx.fillStyle = ig; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = R * 0.018; ctx.lineCap = 'round';
+        for (const [a, l] of [[-0.25, 0.2], [0, 0.24], [0.25, 0.18]]) { ctx.beginPath(); ctx.moveTo(a * R * 0.25, R * 0.14); ctx.lineTo(a * R * 0.42, R * (0.14 - l)); ctx.stroke(); }
+        ctx.restore(); continue;
+      }
       tri(-R * w, R * 0.22, 0, -R * h, R * w, R * 0.22, col, 16);
       if (type === 'cat') tri(-R * 0.15, R * 0.12, 0, -R * 0.28, R * 0.15, R * 0.12, '#ffb3c1');
       else tri(-R * w * 0.5, -R * h * 0.5, 0, -R * h, R * w * 0.5, -R * h * 0.5, type === 'pointy' ? '#2a1d24' : acc, 8);
     } else if (type === 'long') {
       ctx.translate(x + sd * rx * 0.35, cy - ry * 0.8);
       ctx.rotate(sd * (0.18 + Math.sin(t * 2 + sd) * 0.05) + (asleep ? sd * 0.9 : 0));
-      ell(0, -R * 0.45, R * 0.17, R * 0.5, col); ell(0, -R * 0.42, R * 0.08, R * 0.38, '#ffb3c1');
+      if (hd) {
+        const lg = ctx.createLinearGradient(-R * 0.17, 0, R * 0.17, 0); lg.addColorStop(0, shade(col, 0.15)); lg.addColorStop(1, shade(col, -0.18));
+        ell(0, -R * 0.45, R * 0.17, R * 0.5, lg); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.ellipse(0, -R * 0.45, R * 0.17, R * 0.5, 0, 0, TAU); ctx.stroke();
+        const ig = ctx.createLinearGradient(0, -R * 0.8, 0, -R * 0.05); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffe0e8'); ell(0, -R * 0.42, R * 0.08, R * 0.38, ig);
+      } else { ell(0, -R * 0.45, R * 0.17, R * 0.5, col); ell(0, -R * 0.42, R * 0.08, R * 0.38, '#ffb3c1'); }
     } else if (type === 'round') {
-      ell(x + sd * rx * 0.62, cy - ry * 0.72, R * 0.26, R * 0.26, col); ell(x + sd * rx * 0.62, cy - ry * 0.72, R * 0.14, R * 0.14, '#ffb3c1');
+      const ex = x + sd * rx * 0.62, ey = cy - ry * 0.72;
+      if (hd) {
+        const rg = ctx.createRadialGradient(ex - R * 0.08, ey - R * 0.1, 0, ex, ey, R * 0.28); rg.addColorStop(0, shade(col, 0.25)); rg.addColorStop(1, shade(col, -0.2));
+        ell(ex, ey, R * 0.26, R * 0.26, rg); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.arc(ex, ey, R * 0.26, 0, TAU); ctx.stroke();
+        const ig = ctx.createRadialGradient(ex, ey + R * 0.04, 0, ex, ey, R * 0.15); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffd0d9'); ell(ex, ey, R * 0.14, R * 0.14, ig);
+      } else { ell(ex, ey, R * 0.26, R * 0.26, col); ell(ex, ey, R * 0.14, R * 0.14, '#ffb3c1'); }
     } else if (type === 'fin') {
       ctx.translate(x + sd * rx * 0.88, cy - ry * 0.3); ctx.scale(sd, 1); ctx.rotate(-0.4 + Math.sin(t * 3) * 0.06);
       ctx.beginPath(); ctx.moveTo(0, -R * 0.1); ctx.quadraticCurveTo(R * 0.45, -R * 0.55, R * 0.6, -R * 0.1);
@@ -3131,9 +3276,12 @@ function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc)
       ctx.restore(); break;
     }
     case 'flame': {
-      const fx = bx + sd * R * 0.6, fy = by - R * 0.55 + w * 6;
-      ctx.strokeStyle = col; ctx.lineWidth = R * 0.16; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.55, by, fx, fy + R * 0.15); ctx.stroke();
-      flame(fx, fy, R * 0.32, t); break;
+      const fx = bx + sd * R * 0.6, fy = by - R * 0.55 + w * 6, hd = HD_SPECIES.has(sp.id);
+      const tailPath = () => { ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.55, by, fx, fy + R * 0.15); };
+      if (hd) { ctx.strokeStyle = shade(col, -0.34); ctx.lineWidth = R * 0.25; tailPath(); ctx.stroke(); glow(fx, fy, R * 0.75, '#ffb347', 0.35); }
+      ctx.strokeStyle = col; ctx.lineWidth = R * 0.16; tailPath(); ctx.stroke();
+      if (hd) { ctx.strokeStyle = rgba(shade(col, 0.4), 0.7); ctx.lineWidth = R * 0.05; ctx.beginPath(); ctx.moveTo(bx + sd * R * 0.06, by - R * 0.04); ctx.quadraticCurveTo(bx + sd * R * 0.5, by - R * 0.05, fx - sd * R * 0.04, fy + R * 0.12); ctx.stroke(); }
+      flame(fx, fy, R * 0.32, t); if (hd) flame(fx, fy + R * 0.04, R * 0.2, t * 1.4 + 1, ['#ffd23f', '#fff2a8', '#ffffff']); break;
     }
     case 'bolt': {
       ctx.save(); ctx.translate(bx, by); ctx.scale(sd * R / 100, R / 100); ctx.rotate(w * 0.06);
@@ -3248,7 +3396,8 @@ function drawCreature(o) {
   const { x, cy, R, gy, sp, def, t, md, look, dir, sick, asleep, hop = 0 } = o;
   let { rx, ry } = o;
   const col = def.col || sp.col, acc = def.acc || sp.acc, ex = def.extras || [], has = k => ex.includes(k);
-  const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), line = shade(col, -0.34);
+  const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), line = shade(col, -0.34), hd = HD_SPECIES.has(sp.id);
+  const tex = texOf(sp.id), furry = hd && tex === 'fur', muzzle = furry && def.ears && def.ears !== 'fin' && !has('beak') && !has('snout');
   if (shape === 'tall') { rx *= 0.86; ry *= 1.08; }
   if (shape === 'wide') { rx *= 1.14; ry *= 0.88; }
   const topY = cy - ry * (shape === 'drop' ? 1.12 : 1);
@@ -3287,7 +3436,24 @@ function drawCreature(o) {
     ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(R * 0.5, 0, R * 0.56, R * 0.22, 0, 0, TAU); ctx.stroke();
     ctx.restore();
   }
-  if (has('mane')) {
+  if (has('mane') && hd) {
+    // a mane of flame-like locks in two layers: deep red behind, golden in front, tips flickering
+    // species with their own mane colours (the unicorn's pastel rainbow) colour each lock from that list
+    const pal = sp.mane;
+    for (const [n, r0, len, c0, c1, ph] of [[13, 0.62, 0.48, '#c92a2a', '#ff7a2b', 0], [11, 0.6, 0.34, '#ff8a2b', '#ffd23f', 0.5]]) {
+      for (let i = 0; i < n; i++) {
+        const lc0 = pal ? shade(pal[i % pal.length], ph ? 0 : -0.15) : c0, lc1 = pal ? shade(pal[i % pal.length], ph ? 0.45 : 0.15) : c1;
+        const a = (i + ph) / n * TAU + Math.sin(t * 2.2) * 0.03, flick = Math.sin(t * 6 + i * 1.7) * 0.04, L = R * (len + flick + (Math.abs(Math.sin(a)) < 0.4 ? 0.06 : 0));
+        const bx = x + Math.cos(a) * R * r0, byy = hy + Math.sin(a) * R * r0 * 0.88, tx = x + Math.cos(a + 0.3) * (R * r0 + L), ty = hy + Math.sin(a + 0.3) * (R * r0 + L) * 0.88, w = R * 0.24;
+        const nx = -Math.sin(a) * w, ny = Math.cos(a) * w;
+        const g = ctx.createLinearGradient(bx, byy, tx, ty); g.addColorStop(0, lc0); g.addColorStop(1, lc1);
+        ctx.beginPath(); ctx.moveTo(bx + nx, byy + ny); ctx.quadraticCurveTo(bx + nx * 0.4 + (tx - bx) * 0.6, byy + ny * 0.4 + (ty - byy) * 0.6, tx, ty);
+        ctx.quadraticCurveTo(bx - nx * 0.9 + (tx - bx) * 0.45, byy - ny * 0.9 + (ty - byy) * 0.45, bx - nx, byy - ny); ctx.closePath();
+        ctx.fillStyle = g; ctx.fill();
+      }
+    }
+    glow(x, hy, R * 1.5, pal ? '#ffffff' : '#ff8a3c', pal ? 0.12 : 0.18);
+  } else if (has('mane')) {
     const mc = sp.mane || ['#ff6a2b', '#ffb02e'];
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * TAU + Math.sin(t * 3) * 0.04, d = R * 0.88 + Math.sin(t * 8 + i) * 3;
@@ -3302,6 +3468,13 @@ function drawCreature(o) {
     ell(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc);
     ctx.strokeStyle = shade(acc, -0.35); ctx.lineWidth = R * 0.04; ctx.beginPath(); ctx.ellipse(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, 0, 0, TAU); ctx.stroke();
     const plate = shade(acc, 0.22);
+    if (hd) {
+      // a domed shell: shaded, with a rim of plates and growth rings in each one
+      ctx.save(); ctx.beginPath(); ctx.ellipse(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, 0, 0, TAU); ctx.clip();
+      hdShade(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc, R); ctx.restore();
+      ctx.strokeStyle = rgba(shade(acc, -0.4), 0.6); ctx.lineWidth = R * 0.02;
+      for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, px = x + Math.cos(a) * rx * 1.12, py = cy - ry * 0.08 + Math.sin(a) * ry * 0.95; ell(px, py, R * 0.1, R * 0.08, plate, a); ctx.beginPath(); ctx.ellipse(px, py, R * 0.1, R * 0.08, a, 0, TAU); ctx.stroke(); }
+    }
     for (const sd of [-1, 1]) { ell(x + sd * rx * 1.07, cy - ry * 0.1, R * 0.11, R * 0.24, plate); ell(x + sd * rx * 0.72, cy - ry * 0.86, R * 0.2, R * 0.12, plate, sd * 0.5); }
     ell(x, cy - ry * 1.0, R * 0.3, R * 0.12, plate);
   }
@@ -3357,7 +3530,7 @@ function drawCreature(o) {
       }
     }
   }
-  drawEars(def.ears, x, cy, rx, ry, R, col, acc, t, asleep);
+  drawEars(def.ears, x, cy, rx, ry, R, col, acc, t, asleep, hd, line);
   const marks = (sp.marks || []).concat(def.marks || []), mk = k => marks.includes(k);
   const footCol = mk('socks') ? (sp.sock || shade(col, -0.35)) : dark, OUT = R * 0.045;
   if (def.feet && !floating) for (const sd of [-1, 1]) {
@@ -3372,7 +3545,13 @@ function drawCreature(o) {
   };
   const legacy = (part, r) => {
     if (has('bands') && part === 'body') { ctx.fillStyle = acc; [-0.35, 0.25].forEach(k => ctx.fillRect(r.x - r.rx * 1.3, r.y + r.ry * k, r.rx * 2.6, r.ry * 0.28)); }
-    if (has('stripes')) {
+    if (has('stripes') && hd) {
+      // tiger-like brush stripes that taper at both ends
+      const sc = shade(col, -0.42);
+      if (part === 'head') [[-0.24, 0.13], [0, 0.17], [0.24, 0.13]].forEach(([dx, w]) => brush(r.x + dx * R, r.y - r.ry * 1.02, r.x + dx * R * 0.7, r.y - r.ry * (0.55 - Math.abs(dx)), R * w * 0.45, sc));
+      if (part === 'head') for (const sd of [-1, 1]) for (let j = 0; j < 2; j++) brush(r.x + sd * r.rx * 1.02, r.y - r.ry * (0.05 - j * 0.22), r.x + sd * r.rx * 0.7, r.y - r.ry * (0.0 - j * 0.24), R * 0.05, sc);
+      if (part === 'body') for (const sd of [-1, 1]) for (let j = 0; j < 3; j++) brush(r.x + sd * r.rx * 1.05, r.y + r.ry * (-0.45 + j * 0.38), r.x + sd * r.rx * (0.5 - j * 0.04), r.y + r.ry * (-0.32 + j * 0.38), R * 0.06, sc);
+    } else if (has('stripes')) {
       ctx.strokeStyle = shade(col, -0.34); ctx.lineWidth = R * 0.07; ctx.lineCap = 'round';
       if (part === 'head') for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(r.x + i * R * 0.22, r.y - r.ry * 0.98); ctx.lineTo(r.x + i * R * 0.17, r.y - r.ry * 0.62); ctx.stroke(); }
       if (part === 'body') for (const sd of [-1, 1]) for (let j = 0; j < 2; j++) { ctx.beginPath(); ctx.moveTo(r.x + sd * r.rx * 1.02, r.y + r.ry * (-0.3 + j * 0.45)); ctx.lineTo(r.x + sd * r.rx * 0.62, r.y + r.ry * (-0.2 + j * 0.45)); ctx.stroke(); }
@@ -3388,16 +3567,27 @@ function drawCreature(o) {
     const B = region('body', brx, bry, x, by);
     ell(x, by, brx, bry, fillFor(x, by, brx, bry));
     ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx, bry, 0, 0, TAU); ctx.clip();
-    ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, sp.belly ? sp.belly + 'f0' : 'rgba(255,255,255,.35)');
+    if (hd && sp.belly) {
+      // the light belly patch, softly graded; furry pets get a scalloped fluffy edge on the chest
+      const bg2 = ctx.createRadialGradient(x - brx * 0.1, by - bry * 0.1, 0, x, by + bry * 0.2, brx * 0.8); bg2.addColorStop(0, '#ffffff'); bg2.addColorStop(1, sp.belly);
+      ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, bg2);
+      if (furry) for (let i = 0; i < 5; i++) ell(x + (i - 2) * brx * 0.22, by - bry * 0.52 + Math.abs(i - 2) * bry * 0.12, brx * 0.16, bry * 0.2, sp.belly);
+    } else ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, sp.belly ? sp.belly + 'f0' : 'rgba(255,255,255,.35)');
     legacy('body', B); drawMarks('body', marks, B, R, col, acc, sp, t);
-    ell(x + brx * 0.45, by + bry * 0.55, brx * 0.9, bry * 0.55, 'rgba(0,0,0,.09)');
+    if (hd) { hdSurface(tex, x, by, brx, bry, col, R, 11, 'body'); hdShade(x, by, brx, bry, col, R); ell(x, by - bry * 0.95, hrx * 0.7, bry * 0.32, 'rgba(40,10,0,.2)'); }
+    else ell(x + brx * 0.45, by + bry * 0.55, brx * 0.9, bry * 0.55, 'rgba(0,0,0,.09)');
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - brx * 1.3, by - bry * 1.3, brx * 2.6, bry * 2.6); }
     ctx.restore();
     ctx.strokeStyle = line; ctx.lineWidth = OUT; ctx.beginPath(); ctx.ellipse(x, by, brx, bry, 0, 0, TAU); ctx.stroke();
     /* arms */
     if (!has('birdwings') && !mk('noarms')) for (const sd of [-1, 1]) {
       ctx.save(); ctx.translate(x + sd * brx * 0.9, by - bry * 0.25); ctx.rotate(sd * (0.55 + Math.sin(t * 2 + sd) * 0.08));
-      ell(0, R * 0.13, R * 0.14, R * 0.23, shade(col, -0.04));
+      if (hd) {
+        // a shaded arm with a lighter paw and little toe lines
+        const ag = ctx.createLinearGradient(-R * 0.14, 0, R * 0.14, 0); ag.addColorStop(0, shade(col, sd > 0 ? -0.22 : 0.12)); ag.addColorStop(1, shade(col, sd > 0 ? 0.08 : -0.22));
+        ell(0, R * 0.13, R * 0.14, R * 0.23, ag); ell(0, R * 0.3, R * 0.11, R * 0.07, sp.belly || shade(col, 0.35));
+        ctx.strokeStyle = rgba(line, 0.7); ctx.lineWidth = R * 0.014; for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(k * R * 0.035, R * 0.27); ctx.lineTo(k * R * 0.035, R * 0.33); ctx.stroke(); }
+      } else ell(0, R * 0.13, R * 0.14, R * 0.23, shade(col, -0.04));
       if (mk('socks')) ell(0, R * 0.27, R * 0.12, R * 0.09, footCol);
       ctx.strokeStyle = line; ctx.lineWidth = OUT * 0.8; ctx.beginPath(); ctx.ellipse(0, R * 0.13, R * 0.14, R * 0.23, 0, 0, TAU); ctx.stroke();
       ctx.restore();
@@ -3409,12 +3599,30 @@ function drawCreature(o) {
     }
     /* head */
     const H = region('head', hrx, hry, x, hy);
+    if (furry) {
+      // fluffy cheeks poke out from behind the head
+      const hf = fillFor(x, hy, hrx, hry);
+      furTufts(x, hy, hrx, hry, 0.04 * Math.PI, 0.24 * Math.PI, 2, R * 0.1, hf, line, OUT * 0.75, 3);
+      furTufts(x, hy, hrx, hry, 0.96 * Math.PI, 0.76 * Math.PI, 2, R * 0.1, hf, line, OUT * 0.75, 7);
+    }
     ell(x, hy, hrx, hry, fillFor(x, hy, hrx, hry));
     ctx.save(); ctx.beginPath(); ctx.ellipse(x, hy, hrx, hry, 0, 0, TAU); ctx.clip();
     legacy('head', H); drawMarks('head', marks, H, R, col, acc, sp, t, fx, fy);
-    ell(x + hrx * 0.45, hy + hry * 0.55, hrx * 0.9, hry * 0.5, 'rgba(0,0,0,.07)');
-    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.ellipse(x - hrx * 0.04, hy - hry * 0.04, hrx * 0.84, hry * 0.82, 0, Math.PI * 1.12, Math.PI * 1.42); ctx.stroke();
+    if (hd) {
+      hdSurface(tex, x, hy, hrx, hry, col, R, 5, 'head'); hdShade(x, hy, hrx, hry, col, R);
+      if (muzzle) {
+        // a soft muzzle: two puffy light cheeks under the nose, with a faint shadow beneath
+        const mz = sp.belly || shade(col, 0.4);
+        ell(fx, fy + R * 0.25, R * 0.24, R * 0.09, 'rgba(60,20,0,.12)');
+        for (const sd of [-1, 1]) { const mg = ctx.createRadialGradient(fx + sd * R * 0.1, fy + R * 0.12, 0, fx + sd * R * 0.11, fy + R * 0.16, R * 0.15); mg.addColorStop(0, '#ffffff'); mg.addColorStop(1, mz); ell(fx + sd * R * 0.11, fy + R * 0.16, R * 0.135, R * 0.1, mg); }
+        for (const sd of [-1, 1]) [[0.17, 0.13], [0.2, 0.18], [0.14, 0.19]].forEach(([a, b]) => ell(fx + sd * R * a, fy + R * b, R * 0.011, R * 0.011, rgba(shade(col, -0.5), 0.6)));
+      }
+      for (const sd of [-1, 1]) { const cg2 = ctx.createRadialGradient(fx + sd * R * 0.5, fy + R * 0.12, 0, fx + sd * R * 0.5, fy + R * 0.12, R * 0.16); cg2.addColorStop(0, 'rgba(255,110,130,.45)'); cg2.addColorStop(1, 'rgba(255,110,130,0)'); ctx.fillStyle = cg2; ctx.fillRect(fx + sd * R * 0.5 - R * 0.2, fy - R * 0.08, R * 0.4, R * 0.4); }
+    } else {
+      ell(x + hrx * 0.45, hy + hry * 0.55, hrx * 0.9, hry * 0.5, 'rgba(0,0,0,.07)');
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.ellipse(x - hrx * 0.04, hy - hry * 0.04, hrx * 0.84, hry * 0.82, 0, Math.PI * 1.12, Math.PI * 1.42); ctx.stroke();
+    }
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - hrx * 1.3, hy - hry * 1.3, hrx * 2.6, hry * 2.6); }
     ctx.restore();
     ctx.strokeStyle = line; ctx.lineWidth = OUT; ctx.beginPath(); ctx.ellipse(x, hy, hrx, hry, 0, 0, TAU); ctx.stroke();
@@ -3431,9 +3639,14 @@ function drawCreature(o) {
     ell(x, cy + ry * 0.38, rx * 0.6, ry * 0.46, sp.belly ? sp.belly + 'e0' : 'rgba(255,255,255,.32)');
     legacy('head', W); legacy('body', region('body', rx, ry * 0.6, x, cy + ry * 0.4));
     drawMarks('head', marks, W, R, col, acc, sp, t, fx, fy); drawMarks('body', marks, region('body', rx * 0.8, ry * 0.55, x, cy + ry * 0.4), R, col, acc, sp, t);
-    ell(x + rx * 0.45, cy + ry * 0.55, rx * 0.9, ry * 0.5, 'rgba(0,0,0,.07)');
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.ellipse(x - rx * 0.04, cy - ry * 0.04, rx * 0.84, ry * 0.84, 0, Math.PI * 1.12, Math.PI * 1.42); ctx.stroke();
+    if (hd) {
+      hdSurface(tex, x, cy, rx, ry, col, R, 17, 'body'); hdShade(x, cy, rx, ry, col, R);
+      if (shape === 'square') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.moveTo(x - rx * 0.6, cy - ry * 0.95); ctx.lineTo(x - rx * 0.2, cy - ry * 0.3); ctx.lineTo(x + rx * 0.55, cy - ry * 0.55); ctx.moveTo(x - rx * 0.2, cy - ry * 0.3); ctx.lineTo(x - rx * 0.35, cy + ry * 0.5); ctx.stroke(); }
+    } else {
+      ell(x + rx * 0.45, cy + ry * 0.55, rx * 0.9, ry * 0.5, 'rgba(0,0,0,.07)');
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.ellipse(x - rx * 0.04, cy - ry * 0.04, rx * 0.84, ry * 0.84, 0, Math.PI * 1.12, Math.PI * 1.42); ctx.stroke();
+    }
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - rx * 1.4, cy - ry * 1.6, rx * 2.8, ry * 3.2); }
     ctx.restore();
     bodyPath(shape, x, cy, rx, ry); ctx.lineWidth = OUT; ctx.strokeStyle = line; ctx.lineJoin = 'round'; ctx.stroke();
@@ -3441,7 +3654,15 @@ function drawCreature(o) {
   ctx.restore();
 
   /* ---- face ---- */
-  drawFace(fx, fy, R, md, t, look, def.eye || 'dot', sp.iris || acc, col);
+  drawFace(fx, fy, R, md, t, look, def.eye || 'dot', sp.iris || acc, col, hd);
+  if (muzzle) {
+    // a small nose with a shine: pink for cats and rabbits, dark for the others
+    const ny = fy + R * 0.085, nw = R * 0.065, pink = def.ears === 'cat' || def.ears === 'long';
+    ctx.beginPath(); ctx.moveTo(fx - nw, ny - nw * 0.45); ctx.quadraticCurveTo(fx, ny - nw * 0.75, fx + nw, ny - nw * 0.45); ctx.quadraticCurveTo(fx + nw * 0.5, ny + nw * 0.55, fx, ny + nw * 0.75); ctx.quadraticCurveTo(fx - nw * 0.5, ny + nw * 0.55, fx - nw, ny - nw * 0.45);
+    const ng = ctx.createLinearGradient(0, ny - nw, 0, ny + nw); ng.addColorStop(0, pink ? '#ff9fb3' : '#6b4a44'); ng.addColorStop(1, pink ? '#d9536f' : '#2a1d24'); ctx.fillStyle = ng; ctx.fill();
+    ctx.strokeStyle = 'rgba(90,20,30,.6)'; ctx.lineWidth = R * 0.012; ctx.stroke();
+    ell(fx - nw * 0.3, ny - nw * 0.3, nw * 0.3, nw * 0.16, 'rgba(255,255,255,.8)', -0.2);
+  }
   if (has('snout')) {
     ell(fx, fy + R * 0.1, R * 0.17, R * 0.11, shade(col, -0.08));
     ctx.strokeStyle = shade(col, -0.32); ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.ellipse(fx, fy + R * 0.1, R * 0.17, R * 0.11, 0, 0, TAU); ctx.stroke();
@@ -3546,7 +3767,7 @@ function drop(x, y, s, c) {
   ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, y - s * 1.6);
   ctx.quadraticCurveTo(x + s * 1.1, y, x, y + s * 0.8); ctx.quadraticCurveTo(x - s * 1.1, y, x, y - s * 1.6); ctx.fill();
 }
-function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24', col = '#ffffff') {
+function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24', col = '#ffffff', hd = false) {
   const [eyes, mouth] = FACES[md] || FACES.neutral;
   const ex = R * 0.34, ey = fy - R * 0.08, er = R * 0.12, ink = '#2a1d24', lip = '#7a2335';
   const c11 = t % 11.3, canBlink = eyes === 'open' || eyes === 'sad' || eyes === 'angry';
@@ -3577,6 +3798,32 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
         ctx.beginPath(); ctx.moveTo(cx - er * 1.05, ey - er * 0.05); ctx.lineTo(cx + er * 1.05, ey - er * 0.05); ctx.stroke(); break;
       default: {
         const lx = look * er * 0.18;
+        if (hd) {
+          // a big glossy eye: white with a lid shadow, a coloured iris that darkens at the rim and glows at the bottom, a pupil and two catchlights
+          const sharp = eyeStyle === 'sharp', dot = eyeStyle === 'dot', ew = er * (dot ? 0.98 : 1.08), eh = er * (dot ? 1.28 : 1.3), il = look * er * (dot ? 0.18 : 0.35);
+          ell(cx, ey, ew, eh, dot ? ink : '#ffffff');
+          ctx.save(); ctx.beginPath(); ctx.ellipse(cx, ey, ew, eh, 0, 0, TAU); ctx.clip();
+          const ir = dot ? ew * 0.95 : er * 0.78, iy = ey + er * (dot ? 0.04 : 0.12);
+          const ig = ctx.createRadialGradient(cx + il, iy + ir * 0.35, ir * 0.1, cx + il, iy, ir * 1.05);
+          ig.addColorStop(0, shade(iris, 0.55)); ig.addColorStop(0.55, iris); ig.addColorStop(1, shade(iris, -0.55));
+          ctx.fillStyle = ig; ctx.beginPath(); ctx.ellipse(cx + il, iy, ir, ir * (dot ? 1.3 : 1.15), 0, 0, TAU); ctx.fill();
+          ctx.strokeStyle = 'rgba(20,8,12,.55)'; ctx.lineWidth = R * 0.014; ctx.stroke();
+          ell(cx + il, iy, ir * (sharp ? 0.32 : 0.48), ir * (sharp ? 0.95 : 0.62), ink);
+          const lg = ctx.createLinearGradient(0, ey - eh, 0, ey - eh * 0.2); lg.addColorStop(0, 'rgba(40,10,20,.45)'); lg.addColorStop(1, 'rgba(40,10,20,0)');
+          ctx.fillStyle = lg; ctx.fillRect(cx - ew * 1.2, ey - eh * 1.1, ew * 2.4, eh);
+          if (sharp) { ctx.fillStyle = shade(col, -0.05); ctx.beginPath(); ctx.moveTo(cx - er * 1.4, ey - er * 1.5); ctx.lineTo(cx + er * 1.4, ey - er * 1.5); ctx.lineTo(cx + er * 1.4, ey - er * (sd > 0 ? 0.72 : 0.2)); ctx.lineTo(cx - er * 1.4, ey - er * (sd > 0 ? 0.2 : 0.72)); ctx.closePath(); ctx.fill(); }
+          ctx.restore();
+          ell(cx + il - er * 0.32, ey - er * 0.32, er * 0.3, er * 0.34, '#ffffff');
+          ell(cx + il + er * 0.3, ey + er * 0.42, er * 0.13, er * 0.13, 'rgba(255,255,255,.9)');
+          starPath(cx + il - er * 0.05, ey - er * 0.62, er * 0.12, 0.35); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill();
+          // upper lid with a little outer flick
+          ctx.save(); ctx.lineWidth = R * 0.045; ctx.beginPath();
+          if (sharp) { ctx.moveTo(cx - er * 1.15, ey - er * (sd > 0 ? 0.1 : 0.7)); ctx.lineTo(cx + er * 1.15, ey - er * (sd > 0 ? 0.7 : 0.1)); }
+          else { ctx.ellipse(cx, ey, ew * 1.04, eh * 1.02, 0, Math.PI * 1.08, Math.PI * 1.92); }
+          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(cx + sd * ew * 0.92, ey - eh * 0.45); ctx.lineTo(cx + sd * ew * 1.32, ey - eh * 0.78); ctx.stroke(); ctx.restore();
+          break;
+        }
         if (eyeStyle === 'dot') {
           ell(cx + lx, ey, er * 0.85, er * 1.15, ink);
           ell(cx + lx - er * 0.3, ey - er * 0.42, er * 0.32, er * 0.36, '#fff');
@@ -5209,21 +5456,33 @@ function drawGone(t) {
   ctx.font = '800 56px "Baloo 2", sans-serif'; ctx.fillText(`Tạm biệt ${state.name}`, 640, 470);
   ctx.font = '500 26px "Be Vietnam Pro", sans-serif'; ctx.fillStyle = 'rgba(242,245,255,.8)'; ctx.fillText('Bấm "Nuôi bé mới" để ấp một quả trứng khác', 640, 530);
 }
+// phones show a taller screen: the extra height (padTop, in 1280px space) is sky above the scene, filled by stretching the top of each frame
+let padTop = 0;
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   const w = Math.min(2560, Math.max(LW, Math.round(cv.clientWidth * dpr)));
-  if (cv.width !== w) { cv.width = w; cv.height = Math.round(w * 9 / 16); $('res').textContent = `${cv.width}×${cv.height}`; }
+  padTop = cv.clientWidth ? Math.max(0, Math.round(cv.clientHeight / cv.clientWidth * LW - LH)) : 0;
+  if (padTop < 20) padTop = 0;
+  const h = Math.round(w * (LH + padTop) / LW);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; $('res').textContent = `${cv.width}×${cv.height}`; }
 }
+function fillBand() {
+  if (!padTop) return;
+  const k = cv.width / LW, pp = Math.round(padTop * k), strip = Math.round(LH * 0.12 * k);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(cv, 0, pp, cv.width, strip, 0, 0, cv.width, pp + strip); ctx.restore();
+}
+const worldSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, padTop * k); };
+const topSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0); };
 let lastTs = performance.now();
 // on-screen labels are drawn in 1280px space; on small screens they are enlarged so they stay readable
 let uiK = 1;
 const scaled = (ax, ay, fn) => { ctx.save(); ctx.translate(ax, ay); ctx.scale(uiK, uiK); ctx.translate(-ax, -ay); fn(); ctx.restore(); };
 function render(ts) {
   const dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts; const t = ts / 1000;
-  resize(); const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0);
+  resize(); worldSpace();
   uiK = Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
-  if (house) { drawHouse(t); drawParticles(dt); drawBanner(); requestAnimationFrame(render); return; }
-  if (state && state.hatched && !state.alive) { drawGone(t); requestAnimationFrame(render); return; }
+  if (house) { drawHouse(t); drawParticles(dt); fillBand(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
+  if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
   if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t); } else drawRoom(t);
   if (!state || !state.hatched) drawEgg(t);
   else if (state.trip) { drawPoops(t); drawTripSign(t); }
@@ -5265,10 +5524,13 @@ function render(ts) {
   drawParticles(dt);
   if (state && state.hatched && state.alive) { updateWind(t, dt); drawWeatherFront(t, dt); }
   if (state && state.hatched && !game) scaled(22, LH - 20, drawBadge);
-  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
-  if (bubble && lastBody && state && state.hatched) drawBubble(lastBody, t);
   if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, 0, LW, LH); } }
+  // the sky band (phones), then everything that sits on top of the picture: the stats strip at the very top, banners, the chat bubble
+  fillBand(); topSpace();
+  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
   drawBanner();
+  worldSpace();
+  if (bubble && lastBody && state && state.hatched) drawBubble(lastBody, t);
   if (shotQ.length) takeShots();
   requestAnimationFrame(render);
 }
@@ -5313,7 +5575,9 @@ function start(snap) {
   window.addEventListener('pagehide', () => { save(); Net.push(); });
   if (Net.online) {
     setInterval(() => Net.poll(), 45000); setTimeout(() => Net.poll(), 3000);
-    say(`Chào @${Net.username}! Mã nhà của bạn là #${Net.code}.`, 5000);
+    say(`Chào @${Net.username}! Địa chỉ nhà của bạn là @${Net.username}.`, 5000);
+    const tag = $('addrTag'); tag.textContent = '@' + Net.username; tag.hidden = false;
+    tag.addEventListener('click', () => { if (state && state.hatched && state.alive && !game && !house) { moreMenu = true; openPanel('hood'); syncMode(true); } });
     const nq = new URLSearchParams(location.search).get('nha');
     if (nq) { try { history.replaceState(null, '', location.pathname); } catch (e) {} setTimeout(() => visitHouse(nq), 2000); }
   } else if (Net.note) say(Net.note, 5000);
@@ -5327,7 +5591,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030091913';
+  const BUILD = '20261030101636';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
