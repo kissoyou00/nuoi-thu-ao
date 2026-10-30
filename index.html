@@ -152,6 +152,14 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .p-card { width: min(100%, 280px); justify-self: center; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
 .p-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .p-input { flex: 1; min-width: 0; font: 500 14px var(--body); padding: 9px 12px; border-radius: 10px; border: 1px solid #dcd3c8; background: #fff; color: #2b2220; }
+.auth { z-index: 8; width: min(420px, calc(100% - 24px)); }
+.auth-form { display: grid; gap: 10px; }
+.auth-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; }
+.auth-err { color: #c92a2a; font-size: 13.5px; min-height: 0; margin: 0; }
+.auth-err:empty { display: none; }
+.p-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.p-code { font: 800 22px var(--display); letter-spacing: .12em; background: #fff4e6; border-radius: 10px; padding: 2px 10px; }
+.p-sec { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8a7a72; margin-top: 4px; }
 .pip { position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: #fa5252; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 @media (max-width: 640px) {
   .panel { position: static; transform: none; width: auto; max-height: none; margin-top: 8px; box-shadow: none; padding: 10px 12px 12px; }
@@ -359,6 +367,19 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
       <div class="panel" id="panel" hidden role="dialog" aria-labelledby="panelTitle">
         <div class="panel-head"><b id="panelTitle"></b><button type="button" class="panel-x" id="panelClose" aria-label="Đóng">✕</button></div>
         <div id="panelBody"></div>
+      </div>
+      <div class="panel auth" id="auth" hidden role="dialog" aria-labelledby="authTitle">
+        <div class="panel-head"><b id="authTitle">Thú Ảo Bỏ Túi</b></div>
+        <div class="p-acts"><button type="button" class="p-btn" data-tab="in" id="tabIn">Đăng nhập</button><button type="button" class="p-btn alt" data-tab="up" id="tabUp">Tạo tài khoản</button></div>
+        <form id="authForm" class="auth-form">
+          <label>Tên đăng nhập<input class="p-input" id="authUser" autocomplete="username" maxlength="16" placeholder="vd: bong_123" autocapitalize="none" spellcheck="false"></label>
+          <label>Mật khẩu<input class="p-input" id="authPass" type="password" autocomplete="current-password"></label>
+          <label id="authPass2Row" hidden>Nhập lại mật khẩu<input class="p-input" id="authPass2" type="password" autocomplete="new-password"></label>
+          <p class="muted" id="authHint">Đăng nhập để có nhà riêng, ghé thăm và tặng quà người chơi khác. Bé thú được lưu trên mạng, chơi máy nào cũng được.</p>
+          <p class="auth-err" id="authErr" role="alert"></p>
+          <button class="p-btn" type="submit" id="authGo">Đăng nhập</button>
+        </form>
+        <button type="button" class="p-btn alt" id="authOffline">Chơi ngoại tuyến (không có hàng xóm)</button>
       </div>
       <div class="talk" id="talk" hidden aria-live="polite">
         <div class="talk-k" id="talkKind"></div>
@@ -804,7 +825,7 @@ function newState(name, shell) {
 const ageMin = () => state && state.hatched ? (now() - state.born) / 60000 : 0;
 function log(text) { state.log.unshift({ t: now(), text }); state.log = state.log.slice(0, 7); renderSide(); }
 function say(text, ms = 4000) { $('say').textContent = text; sayUntil = now() + ms; }
-function save() { if (!state) return; state.last = now(); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function save() { if (!state) return; state.last = now(); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} Net.queue(); }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
@@ -1394,7 +1415,7 @@ function autoTalk(T) {
   if (talk && talk.auto && talk.closeAt && T > talk.closeAt) { closeTalk(); return; }
   const s = state;
   if (bubble && (s.asleep || game || !s.alive)) bubble = null;
-  if (talk || bubble || !s.hatched || !s.alive || s.asleep || s.trip || game || anim || phys.held || phys.air || foodMenu || talkMenu || panelKind || visitor || document.hidden) return;
+  if (talk || bubble || !s.hatched || !s.alive || s.asleep || s.trip || game || anim || phys.held || phys.air || foodMenu || talkMenu || panelKind || visitor || house || document.hidden) return;
   if (T < nextAuto) return;
   nextAuto = T + 55000 + Math.random() * 10000;
   startBubble(AUTO_KINDS[autoTurn++ % AUTO_KINDS.length]);
@@ -1709,9 +1730,11 @@ const ICON_LABEL = {
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
   'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ hôm nay', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
   'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
+  'x-hood': 'Hàng xóm: mã nhà, ghé thăm, quà', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
 };
 // the extras menu uses emoji pictures
-const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣' };
+const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
+  'x-hood': '🏘️', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -2055,6 +2078,13 @@ function act(a) {
   if (a.startsWith('g-')) { gameMenu = false; startGame(a.slice(2)); syncMode(true); renderSide(); save(); return; }
   idle = null; bubble = null;
   if (talk && !['fortune', 'news', 'fact', 'talk'].includes(a)) closeTalk();
+  if (a.startsWith('h-')) {
+    if (!house) return;
+    if (a === 'h-home') leaveHouse();
+    if (a === 'h-steal') doSteal();
+    if (a === 'h-gift' || a === 'h-note') openPanel(a.slice(2));
+    syncMode(true); return;
+  }
   if (a.startsWith('x-')) {
     if (a === 'x-recall') { if (s.trip) endTrip(true); }
     else openPanel(a.slice(2));
@@ -2097,6 +2127,7 @@ function clearPet() {
   state = null; game = null; anim = null; banner = null; foodMenu = false; parts.length = 0; drag = null;
   Object.assign(phys, { y: GROUND, vx: 0, vy: 0, rot: 0, vr: 0, held: false, air: false });
   try { localStorage.removeItem(KEY); } catch (e) {}
+  house = null; Net.push();
   $('say').textContent = 'Đặt tên và chọn màu máy để bắt đầu ấp trứng.'; sayUntil = 0;
   syncMode(true); renderSide(); renderDex();
 }
@@ -2116,8 +2147,9 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep'], ['more', 'm-more']],
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], ['x-visit', 'x-visit'], ['back4', 'back']],
-  trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-album', 'x-album']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
+  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note'], ['h-home', 'h-home']],
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
@@ -2126,12 +2158,12 @@ const MENU_ICONS = {
 };
 const iconBtn = (act, icon, dis) => `<button type="button" class="icon" data-act="${act}" id="btn-${act}" title="${ICON_LABEL[icon]}" aria-label="${ICON_LABEL[icon]}"${dis ? ' disabled' : ''}><canvas width="104" height="104" data-icon="${icon}"></canvas></button>`;
 function syncMode(force) {
-  const m = !state ? 'setup' : !state.hatched ? 'egg' : !state.alive ? 'gone' : game ? 'game' : state.trip ? 'trip' : state.asleep ? 'sleep' : foodMenu ? 'food' : moreMenu ? 'more' : talkMenu ? 'talkmenu' : gameMenu ? 'gamemenu' : 'main';
+  const m = !state ? 'setup' : !state.hatched ? 'egg' : !state.alive ? 'gone' : game ? 'game' : house ? 'house' : state.trip ? 'trip' : state.asleep ? 'sleep' : foodMenu ? 'food' : moreMenu ? 'more' : talkMenu ? 'talkmenu' : gameMenu ? 'gamemenu' : 'main';
   if (talk && m !== 'talkmenu' && m !== 'main') closeTalk();
-  if (panelKind && !['more', 'trip'].includes(m)) closePanel();
+  if (panelKind && !['more', 'trip', 'house'].includes(m)) closePanel();
   $('setup').hidden = m !== 'setup';
   $('pad').hidden = m === 'setup' || m === 'egg';
-  const ready = questReady(), key = m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '') + (ready ? 'q' : '') + (eventNow() || '');
+  const ready = questReady() || Net.gifts > 0, key = (Net.online ? 'o' : '') + m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '') + (ready ? 'q' : '') + (eventNow() || '');
   if (!force && key === syncMode.last) return;
   syncMode.last = key;
   $('pad').parentElement.classList.toggle('wide', m === 'food' || m === 'more');
@@ -2149,7 +2181,7 @@ function syncMode(force) {
     $('pad').style.setProperty('--n', items.length);
   }
   // a red dot when a finished quest is waiting to be claimed
-  if (ready) ['btn-more', 'btn-x-quest'].forEach(id => { const b = $(id); if (b) b.insertAdjacentHTML('beforeend', '<i class="pip"></i>'); });
+  if (ready) [questReady() ? 'btn-x-quest' : '', Net.gifts ? 'btn-x-hood' : '', 'btn-more'].filter(Boolean).forEach(id => { const b = $(id); if (b) b.insertAdjacentHTML('beforeend', '<i class="pip"></i>'); });
   drawFoodButtons();
 }// hovering or focusing a dish shows its name and effects in the speech strip
 ['pointerover', 'focusin'].forEach(ev => $('pad').addEventListener(ev, e => {
@@ -2251,7 +2283,7 @@ const defaultMeta = () => ({ streak: { day: '', n: 0 }, quests: { day: '', list:
 function loadMeta() { try { return Object.assign(defaultMeta(), JSON.parse(localStorage.getItem(META_KEY)) || {}); } catch (e) { return defaultMeta(); } }
 let meta = loadMeta();
 // photos can fill the browser's storage: drop the oldest and try again
-function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { if (meta.album.length) { meta.album.pop(); saveMeta(); } } }
+function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { if (meta.album.length) { meta.album.pop(); saveMeta(); return; } } Net.queue(); }
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
 const bannerQ = [];
@@ -2439,13 +2471,13 @@ function drawWear(x, cy, ry, R, t) {
   at(w.eyes, faceAt.x, faceAt.y - R * 0.08);
   at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
 }
-function drawDecorItem(id, x, y, t) {
+function drawDecorItem(id, x, y, t, name = state ? state.name : '') {
   switch (id) {
     case 'house':
       ell(x, y + 4, 90, 12, 'rgba(30,20,10,.22)');
       rr(x - 72, y - 96, 144, 98, 6, '#c98a4a'); tri(x - 88, y - 92, x + 88, y - 92, x, y - 160, '#a0522d');
       ctx.fillStyle = '#5c3a1e'; ctx.beginPath(); ctx.moveTo(x - 26, y + 2); ctx.lineTo(x - 26, y - 46); ctx.arc(x, y - 46, 26, Math.PI, 0); ctx.lineTo(x + 26, y + 2); ctx.fill();
-      rr(x - 34, y - 86, 68, 18, 6, '#f8e7c9'); ctx.font = '700 12px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5c3a1e'; ctx.fillText(state ? state.name : '', x, y - 77, 62); break;
+      rr(x - 34, y - 86, 68, 18, 6, '#f8e7c9'); ctx.font = '700 12px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5c3a1e'; ctx.fillText(name, x, y - 77, 62); break;
     case 'lamp': {
       const lit = todNow() !== 'day';
       rr(x - 5, y - 230, 10, 232, 4, '#3d4450'); rr(x - 16, y - 6, 32, 10, 4, '#3d4450');
@@ -2652,6 +2684,215 @@ function remind(needNow) {
   else { try { new Notification(title, opts); } catch (e) {} }
 }
 
+/* ---------- online: accounts (Supabase), cloud save, houses, gifts, stealing, guestbook ---------- */
+// fill these two from Supabase → Project Settings → API (the anon key is meant to be public); left empty, the game stays offline
+const SUPA_URL = 'https://qtpcbhvnszgacyzmgkby.supabase.co',
+  SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0cGNiaHZuc3pnYWN5em1na2J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMTQ0MTUsImV4cCI6MjEwODg5MDQxNX0.IDmw8rclMndDG3Fq6BcKmpuMaRmz0pY8oF8ptdFBf5s';
+const SUPA_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+const OWNER_KEY = 'thu-ao-owner', USER_DOMAIN = 'thuao.app';
+const NET_ERR = {
+  not_logged_in: 'Bạn cần đăng nhập.', no_house: 'Không tìm thấy nhà có mã này.', self: 'Đây là nhà của bạn mà!',
+  gift_limit: 'Mỗi ngày chỉ được tặng quà 5 lần.', not_enough_coins: 'Không đủ xu.', no_item: 'Bạn không còn món đồ này.', empty_gift: 'Hãy chọn xu hoặc một món đồ để tặng.',
+  no_pet: 'Bạn cần có một bé thú còn sống.', their_no_pet: 'Nhà này chưa có thú.', too_young: 'Bé nhà bạn phải lớn tuổi hơn bé nhà này mới dám lẻn vào.',
+  too_common: 'Bé nhà bạn phải thuộc loài hiếm hơn bé nhà này mới dám lẻn vào.', already_today: 'Hôm nay bạn đã lẻn vào nhà này rồi.', steal_limit: 'Mỗi ngày chỉ được lẻn vào nhà người khác 3 lần.',
+  nothing_to_steal: 'Nhà này chẳng có món đồ nào để lấy.', empty_note: 'Hãy viết vài chữ đã.', note_limit: 'Mỗi ngày chỉ để lại 3 lời nhắn cho một nhà.',
+  'Invalid login credentials': 'Sai tên đăng nhập hoặc mật khẩu.', 'User already registered': 'Tên đăng nhập này đã có người dùng.', 'already registered': 'Tên đăng nhập này đã có người dùng.',
+};
+const errText = e => { const m = String((e && (e.message || e.error_description || e.msg)) || e || ''); const k = Object.keys(NET_ERR).find(x => m.includes(x)); return k ? NET_ERR[k] : 'Lỗi kết nối, thử lại sau nhé.'; };
+const RANK = { common: 1, rare: 2, epic: 3, legend: 4, mythic: 5 };
+const Net = {
+  sb: null, uid: '', username: '', code: '', online: false, gifts: 0, inbox: null, pushTimer: 0, pushing: false,
+  loadLib() {
+    if (window.supabase) return Promise.resolve(true);
+    return new Promise(res => { const s = document.createElement('script'); s.src = SUPA_LIB; s.onload = () => res(!!window.supabase); s.onerror = () => res(false); document.head.appendChild(s); setTimeout(() => res(!!window.supabase), 8000); });
+  },
+  // runs before the game starts: sign in (or offer offline play), then bring the cloud save into this browser
+  async boot() {
+    if (!SUPA_URL || !SUPA_KEY) return;
+    if (!(await this.loadLib())) { this.note = 'Không tải được phần kết nối mạng, đang chơi ngoại tuyến.'; return; }
+    try { this.sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true, storageKey: 'thu-ao-auth', autoRefreshToken: true } }); } catch (e) { return; }
+    let session = null;
+    try { session = (await this.sb.auth.getSession()).data.session; } catch (e) {}
+    if (!session) { if (!(await authDialog())) return; session = (await this.sb.auth.getSession()).data.session; }
+    if (!session) return;
+    this.uid = session.user.id;
+    try { await this.pull(); this.online = true; } catch (e) { this.note = 'Không kết nối được máy chủ, đang chơi ngoại tuyến.'; }
+  },
+  async rpc(name, args = {}) { const { data, error } = await this.sb.rpc(name, args); if (error) throw error; return data; },
+  // the cloud save wins when it is newer, or when this browser holds someone else's save; photos stay on this device
+  async pull() {
+    const p = await this.rpc('my_profile');
+    this.username = p.username; this.code = p.code;
+    let local = null, localMeta = null; try { local = JSON.parse(localStorage.getItem(KEY)); localMeta = JSON.parse(localStorage.getItem(META_KEY)); } catch (e) {}
+    const owner = localStorage.getItem(OWNER_KEY), mineHere = !owner || owner === this.uid;
+    const cloudNewer = p.state && (!local || !mineHere || (p.state.last || 0) >= (local.last || 0));
+    if (p.state || p.meta && Object.keys(p.meta).length) {
+      if (cloudNewer || !mineHere) {
+        if (p.state) localStorage.setItem(KEY, JSON.stringify(p.state)); else localStorage.removeItem(KEY);
+        const m = { ...(p.meta || {}) }; if (m.dex) { localStorage.setItem(DEX_KEY, JSON.stringify(m.dex)); delete m.dex; }
+        m.album = mineHere && localMeta ? localMeta.album || [] : [];
+        localStorage.setItem(META_KEY, JSON.stringify(m));
+      }
+    } else if (!mineHere) { [KEY, META_KEY, DEX_KEY].forEach(k => localStorage.removeItem(k)); }
+    localStorage.setItem(OWNER_KEY, this.uid);
+    meta = loadMeta();
+  },
+  metaForCloud() { return { ...meta, album: [], dex }; },
+  queue() { if (!this.online || this.pushTimer) return; this.pushTimer = setTimeout(() => { this.pushTimer = 0; this.push(); }, 15000); },
+  async push() {
+    if (!this.online || this.pushing) return;
+    clearTimeout(this.pushTimer); this.pushTimer = 0; this.pushing = true;
+    try { if (state) state.last = now(); await this.rpc('push_save', { p_state: state, p_meta: this.metaForCloud() }); } catch (e) {} finally { this.pushing = false; }
+  },
+  // what others did to my house: gifts waiting, things stolen, visitors, notes
+  async poll() {
+    if (!this.online || document.hidden) return;
+    let ib; try { ib = await this.rpc('my_inbox'); } catch (e) { return; }
+    this.inbox = ib;
+    const before = this.gifts; this.gifts = ib.gifts || 0;
+    if (this.gifts > before) { queueBanner({ title: 'Có quà!', sub: `Bạn nhận được ${this.gifts} món quà. Mở ✨ → 🏘️ để nhận.`, color: '#e64980', dur: 5000 }); Sound.play('win'); }
+    if (ib.steals && ib.steals.length) {
+      ib.steals.forEach(st => {
+        const name = (shopItem(st.item) || {}).name || st.item;
+        meta.owned = meta.owned.filter(x => x !== st.item); meta.decor = meta.decor.filter(x => x !== st.item);
+        Object.keys(meta.wear).forEach(k => { if (meta.wear[k] === st.item) meta.wear[k] = ''; });
+        if (state) log(`@${st.username} đã lẻn vào nhà lấy mất ${name.toLowerCase()}!`);
+        queueBanner({ title: 'Bị trộm!', sub: `@${st.username} lẻn vào nhà lấy mất ${name.toLowerCase()}`, color: '#495057', dur: 5500 });
+      });
+      saveMeta(); if (state && state.hatched) { setFace('angry', 3000); setEmote('vein', 3000); }
+      try { await this.rpc('ack_steals'); } catch (e) {}
+      this.push();
+    }
+    syncMode(true); if (panelKind === 'hood') renderPanel();
+  },
+  async logout() { await this.push(); try { await this.sb.auth.signOut(); } catch (e) {} localStorage.removeItem(OWNER_KEY); [KEY, META_KEY, DEX_KEY].forEach(k => localStorage.removeItem(k)); location.reload(); },
+};
+// the sign-in card; resolves true once signed in, false when the player picks offline play
+function authDialog() {
+  const box = $('auth'); let mode = 'in';
+  const setMode = m => {
+    mode = m; $('tabIn').classList.toggle('alt', m !== 'in'); $('tabUp').classList.toggle('alt', m !== 'up');
+    $('authPass2Row').hidden = m !== 'up'; $('authGo').textContent = m === 'up' ? 'Tạo tài khoản' : 'Đăng nhập'; $('authErr').textContent = '';
+    $('authPass').autocomplete = m === 'up' ? 'new-password' : 'current-password';
+    $('authHint').textContent = m === 'up' ? 'Tên đăng nhập 3–16 ký tự: chữ thường không dấu, số hoặc dấu gạch dưới. Mật khẩu ít nhất 6 ký tự. Hãy nhớ kỹ, chưa có cách lấy lại mật khẩu.' : 'Đăng nhập để có nhà riêng, ghé thăm và tặng quà người chơi khác. Bé thú được lưu trên mạng, chơi máy nào cũng được.';
+  };
+  box.hidden = false; setMode('in'); setTimeout(() => $('authUser').focus(), 50);
+  return new Promise(resolve => {
+    $('tabIn').onclick = () => setMode('in'); $('tabUp').onclick = () => setMode('up');
+    $('authOffline').onclick = () => { box.hidden = true; resolve(false); };
+    $('authForm').onsubmit = async e => {
+      e.preventDefault();
+      const u = $('authUser').value.trim().toLowerCase(), pw = $('authPass').value, err = $('authErr');
+      if (!/^[a-z0-9_]{3,16}$/.test(u)) { err.textContent = 'Tên đăng nhập 3–16 ký tự, chỉ gồm chữ thường không dấu, số và dấu gạch dưới.'; return; }
+      if (pw.length < 6) { err.textContent = 'Mật khẩu cần ít nhất 6 ký tự.'; return; }
+      if (mode === 'up' && pw !== $('authPass2').value) { err.textContent = 'Hai mật khẩu chưa khớp.'; return; }
+      $('authGo').disabled = true; err.textContent = '';
+      try {
+        const email = `${u}@${USER_DOMAIN}`;
+        const r = mode === 'up' ? await Net.sb.auth.signUp({ email, password: pw, options: { data: { username: u } } }) : await Net.sb.auth.signInWithPassword({ email, password: pw });
+        if (r.error) throw r.error;
+        if (!r.data.session) throw new Error('Tài khoản đã tạo nhưng máy chủ đang bật xác nhận email. Chủ game cần tắt "Confirm email" trong Supabase.');
+        box.hidden = true; resolve(true);
+      } catch (er) { err.textContent = er.message && er.message.includes('Supabase') ? er.message : errText(er); }
+      finally { $('authGo').disabled = false; }
+    };
+  });
+}
+
+/* visiting someone's house (online) */
+let house = null;
+async function visitHouse(code) {
+  if (!Net.online) { say('Cần đăng nhập để ghé thăm nhà người khác.', 3500); return; }
+  try {
+    const h = await Net.rpc('visit_house', { code: String(code).replace('#', '') });
+    if (h.mine) { say('Đây là nhà của bạn mà!', 3000); return; }
+    house = { ...h, t0: now(), mood: '', moodUntil: 0 };
+    closePanel(); moreMenu = false; idle = null; bubble = null; closeTalk();
+    say(h.pet ? `Bạn đang ở nhà @${h.username}. ${h.pet.alive ? `${h.pet.name} ra chào bạn!` : 'Bé thú nhà này đã rời đi.'}` : `Nhà @${h.username} chưa có thú.`, 5000);
+    Sound.play('ping'); syncMode(true);
+  } catch (e) { say(errText(e), 4000); }
+}
+function leaveHouse() { house = null; BAKED.base = ''; say('Về nhà rồi!', 2500); syncMode(true); }
+function stealReason() {
+  const h = house, p = h && h.pet, s = state;
+  if (!s || !s.hatched || !s.alive) return NET_ERR.no_pet;
+  if (!p || !p.alive) return NET_ERR.their_no_pet;
+  if (!(s.born < p.born)) return NET_ERR.too_young;
+  if (!(RANK[curSp().rarity] > RANK[spById(p.species).rarity])) return NET_ERR.too_common;
+  if (!h.items) return NET_ERR.nothing_to_steal;
+  return '';
+}
+async function doSteal() {
+  const why = stealReason(); if (why) { say(why, 4500); Sound.play('lose'); return; }
+  try {
+    await Net.push();
+    const r = await Net.rpc('steal', { code: house.code });
+    applyCloud(r);
+    const name = (shopItem(r.item) || {}).name || r.item;
+    house.items = Math.max(0, house.items - 1); house.mood = 'angry'; house.moodUntil = now() + 3500;
+    Sound.play('magic');
+    queueBanner({ title: 'Lấy được rồi!', sub: r.bonus ? `${name} (đã có nên đổi thành +${r.bonus} xu)` : `Mang về ${name.toLowerCase()} từ nhà @${house.username}`, color: '#495057', dur: 4500 });
+    log(`Lẻn vào nhà @${house.username} lấy ${name.toLowerCase()}.`);
+    say(`${state.name} rón rén lẻn vào và mang về ${name.toLowerCase()}! Chủ nhà sẽ biết là bạn đấy.`, 5000);
+  } catch (e) { say(errText(e), 4500); Sound.play('lose'); }
+  save(); renderSide();
+}
+// coins and items changed on the server: take them as they are there
+function applyCloud(r) {
+  if (!r) return;
+  if (state && typeof r.coins === 'number') state.coins = r.coins;
+  if (r.meta) { ['owned', 'wear', 'decor'].forEach(k => { if (r.meta[k] !== undefined) meta[k] = r.meta[k]; }); saveMeta(); }
+}
+async function sendGift(coins, item) {
+  const note = ($('giftNote') && $('giftNote').value) || '';
+  try {
+    await Net.push();
+    applyCloud(await Net.rpc('send_gift', { code: house.code, coins, item: item || '', note }));
+    house.mood = 'love'; house.moodUntil = now() + 3500; Sound.play('win');
+    const what = item ? ((shopItem(item) || {}).name || item).toLowerCase() : `${coins} xu`;
+    queueBanner({ title: 'Đã gửi quà!', sub: `Tặng @${house.username} ${what}`, color: '#e64980', dur: 4000 });
+    log(`Tặng @${house.username} ${what}.`); closePanel();
+  } catch (e) { say(errText(e), 4000); }
+  save(); renderSide(); syncMode(true);
+}
+async function claimGifts() {
+  try {
+    await Net.push();
+    const r = await Net.rpc('claim_gifts'); applyCloud(r); Net.gifts = 0;
+    (r.gifts || []).forEach(g => {
+      const what = [g.coins ? `${g.coins} xu` : '', g.item ? ((shopItem(g.item) || {}).name || g.item).toLowerCase() : ''].filter(Boolean).join(' và ');
+      log(`@${g.username} tặng ${what}${g.note ? `: "${g.note}"` : ''}.`);
+    });
+    if ((r.gifts || []).length) { queueBanner({ title: 'Nhận quà!', sub: `${r.gifts.length} món quà từ bạn bè`, color: '#e64980', dur: 4000 }); Sound.play('win'); if (state && state.hatched) { setFace('love', 2000); setEmote('heart', 2000); } }
+  } catch (e) { say(errText(e), 4000); }
+  save(); renderSide(); syncMode(true);
+}
+// their home: their habitat, their decorations, their pet (and mine, visiting)
+function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant) {
+  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = R || def.R, bob = Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
+  ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(30,20,10,.2)');
+  ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
+  drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob });
+  ctx.filter = 'none'; const mine = meta.wear; meta.wear = wear || {}; drawWear(x, cy, ry, Rr, t); meta.wear = mine; ctx.restore();
+  return { cy, ry, R: Rr };
+}
+function drawHouse(t) {
+  const h = house, p = h.pet, sp = p ? spById(p.species) : null;
+  const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
+  drawBackdrop(theme, tod); BACKDROPS[theme].live(t, tod);
+  (h.decor || []).forEach(id => { if (DECOR_X[id]) drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); });
+  if (p && p.alive) {
+    const md = h.moodUntil > now() ? h.mood : 'happy', b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
+    if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 820, b.cy - b.ry, b.R, t);
+    pillLabel(p.name, 820, b.cy - b.ry - b.R * 0.7);
+  } else {
+    ctx.font = '700 30px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillText(p ? 'Bé thú nhà này đã rời đi' : 'Nhà này chưa có thú', 820, GROUND - 120);
+  }
+  if (state && state.hatched && state.alive && !state.trip) { const b = drawCreatureAt(curSp(), state.stageIdx, 440, curDef().R * 0.85, t + 1, 'happy', 1, meta.wear, state.variant); pillLabel(`${state.name} (khách)`, 440, b.cy - b.ry - b.R * 0.7); }
+  scaled(640, 44, () => pillLabelRaw(`🏠 Nhà của @${h.username} · #${h.code}`, 640, 44));
+}
+
 /* the extras card */
 let panelKind = null, moreMenu = false, shareUrl = '';
 function openPanel(kind) { panelKind = kind; renderPanel(); $('panel').hidden = false; }
@@ -2669,9 +2910,39 @@ function drawItemCanvases() {
 }
 function renderPanel() {
   const s = state, body = $('panelBody'); if (!panelKind || !s) return;
-  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè' }[panelKind];
+  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
+    hood: '🏘️ Hàng xóm', gift: '🎁 Tặng quà', note: '✍️ Sổ lưu bút' }[panelKind];
   $('panelTitle').textContent = title;
   let h = '';
+  if (panelKind === 'hood') {
+    const ib = Net.inbox || {}, ago = t => { const m = Math.round((now() - new Date(t)) / 60000); return m < 60 ? `${Math.max(1, m)} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
+    const nb = renderPanel.hood || [];
+    h = `<div class="p-head"><span>Nhà của <b>@${esc(Net.username)}</b> · mã nhà</span><span class="p-code">#${Net.code}</span><button class="p-btn alt" data-p="copycode">Sao chép link nhà</button></div>
+      <p class="muted">Gửi mã nhà hoặc link cho bạn bè để họ ghé thăm, tặng quà, để lại lời nhắn. Cẩn thận: người có bé thú lớn tuổi hơn và hiếm hơn bé nhà bạn có thể lẻn vào lấy đồ!</p>
+      ${Net.gifts ? `<div class="p-row"><span>🎁 <b>${Net.gifts} món quà</b> đang chờ bạn</span><button class="p-btn" data-p="claim">Nhận quà</button></div>` : ''}
+      <div class="p-row"><input class="p-input" id="hoodCode" placeholder="Nhập mã nhà, vd: A7K2QX" maxlength="8" autocapitalize="characters"><button class="p-btn" data-p="go">Ghé thăm</button></div>
+      <div class="p-sec">Hàng xóm vừa chơi</div>
+      <div class="p-list">${nb.length ? nb.map(x => { const sp = SPECIES.find(s => s.id === x.species); return `<div class="p-row"><span><b>@${esc(x.username)}</b> · ${esc(x.pet || '')}<small>${sp ? `${sp.stages[Math.min(x.stage, sp.stages.length - 1)].name} · ${RARITY[sp.rarity].label}` : ''} · ${ago(x.last_seen)}</small></span><button class="p-btn alt" data-p="go:${x.code}">Ghé</button></div>`; }).join('') : '<p class="muted">Đang tải...</p>'}</div>
+      ${(ib.visits || []).length ? `<div class="p-sec">Ai vừa ghé nhà bạn</div><p>${ib.visits.map(v => `<a href="#" data-p="go:${v.code}">@${esc(v.username)}</a> (${ago(v.at)})`).join(', ')}</p>` : ''}
+      ${(ib.book || []).length ? `<div class="p-sec">Lời nhắn để lại</div><div class="p-list">${ib.book.map(b => `<div class="p-row"><span>"${esc(b.note)}"<small>@${esc(b.username)} · ${ago(b.created_at)}</small></span></div>`).join('')}</div>` : ''}
+      <div class="p-acts"><button class="p-btn alt" data-p="logout">Đăng xuất</button></div>`;
+    if (!renderPanel.hoodAt || now() - renderPanel.hoodAt > 30000) {
+      renderPanel.hoodAt = now();
+      Net.rpc('list_houses').then(list => { renderPanel.hood = shuffle(list || []).slice(0, 8); if (panelKind === 'hood') renderPanel(); }).catch(() => {});
+      Net.poll();
+    }
+  }
+  if (panelKind === 'gift' && house) {
+    const own = meta.owned;
+    h = `<p>Tặng @${esc(house.username)} (tối đa 5 lần mỗi ngày). Bạn có <b>${s.coins} xu</b>.</p>
+      <input class="p-input" id="giftNote" maxlength="80" placeholder="Lời chúc kèm theo (không bắt buộc)">
+      <div class="p-sec">Tặng xu</div><div class="p-acts">${[5, 10, 20, 50].map(c => `<button class="p-btn" data-p="giftc:${c}"${s.coins < c ? ' disabled' : ''}>${c} xu</button>`).join('')}</div>
+      <div class="p-sec">Tặng đồ của bạn</div>${own.length ? `<div class="p-grid">${own.map(id => `<div class="p-item">${itemCanvas(id)}<b>${(shopItem(id) || {}).name || id}</b><button class="p-btn" data-p="gifti:${id}">Tặng</button></div>`).join('')}</div>` : '<p class="muted">Bạn chưa có món đồ nào. Mua ở cửa hàng nhé.</p>'}`;
+  }
+  if (panelKind === 'note' && house) {
+    h = `<div class="p-row"><input class="p-input" id="noteText" maxlength="120" placeholder="Viết lời nhắn cho @${esc(house.username)}"><button class="p-btn" data-p="sign">Gửi</button></div>
+      <div class="p-list">${(house.book || []).length ? house.book.map(b => `<div class="p-row"><span>"${esc(b.note)}"<small>@${esc(b.username)} · ${new Date(b.created_at).toLocaleDateString('vi-VN')}</small></span></div>`).join('') : '<p class="muted">Chưa có ai để lại lời nhắn. Hãy là người đầu tiên!</p>'}</div>`;
+  }
   if (panelKind === 'quest') {
     ensureQuests();
     h = `<p class="muted">Chuỗi điểm danh: <b>${meta.streak.n} ngày</b>. Mỗi ngày quay lại được quà, ngày thứ 7 có quà lớn. Nhiệm vụ đổi mới mỗi ngày.</p><div class="p-list">` +
@@ -2737,6 +3008,17 @@ $('panelBody').addEventListener('click', async e => {
   if (cmd === 'sharecard' && renderPanel.blob) { try { await navigator.share({ files: [new File([renderPanel.blob], `thu-ao-${state.name}.png`, { type: 'image/png' })], title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} nhà mình nè! Nuôi thú cùng mình: ${siteUrl()}` }); } catch (er) {} return; }
   if (cmd === 'copy') { const inp = $('visitMine'); inp.select(); try { await navigator.clipboard.writeText(inp.value); } catch (er) { document.execCommand && document.execCommand('copy'); } b.textContent = 'Đã chép'; return; }
   if (cmd === 'sharelink') { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} muốn sang nhà bạn chơi!`, url: visitLink() }); } catch (er) {} return; }
+  if (cmd === 'copycode') { const link = `${siteUrl()}?nha=${Net.code}`; try { await navigator.clipboard.writeText(link); b.textContent = 'Đã chép link'; } catch (er) { say(link, 8000); } if (navigator.share && matchMedia('(pointer: coarse)').matches) { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Ghé nhà mình chơi nhé! Mã nhà #${Net.code}`, url: link }); } catch (er) {} } return; }
+  if (cmd === 'go') { e.preventDefault(); const code = arg || ($('hoodCode') && $('hoodCode').value.trim()); if (code) await visitHouse(code); return; }
+  if (cmd === 'claim') { await claimGifts(); renderPanel(); return; }
+  if (cmd === 'logout') { if (b.dataset.armed) Net.logout(); else { b.dataset.armed = 1; b.textContent = 'Bấm lần nữa để đăng xuất'; } return; }
+  if (cmd === 'giftc') { await sendGift(+arg, ''); return; }
+  if (cmd === 'gifti') { await sendGift(0, arg); return; }
+  if (cmd === 'sign') {
+    const note = $('noteText').value.trim(); if (!note) return;
+    try { await Net.rpc('sign_book', { code: house.code, note }); const h2 = await Net.rpc('visit_house', { code: house.code }); house.book = h2.book; house.mood = 'love'; house.moodUntil = now() + 3000; say('Đã để lại lời nhắn!', 3000); } catch (er) { say(errText(er), 4000); }
+    renderPanel(); return;
+  }
   if (cmd === 'invite') { const v = parseVisit($('visitIn').value); if (!v) { say('Mã hoặc link chưa đúng, kiểm tra lại nhé.', 3500); return; } if (startVisit(v)) { closePanel(); syncMode(true); } return; }
   renderPanel(); syncMode(true); renderSide(); save();
 });
@@ -4940,6 +5222,7 @@ function render(ts) {
   const dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts; const t = ts / 1000;
   resize(); const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0);
   uiK = Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
+  if (house) { drawHouse(t); drawParticles(dt); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); requestAnimationFrame(render); return; }
   if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t); } else drawRoom(t);
   if (!state || !state.hatched) drawEgg(t);
@@ -5026,18 +5309,25 @@ function start(snap) {
   requestAnimationFrame(render);
   setInterval(logic, 100);
   setInterval(tick, 1000);
-  document.addEventListener('visibilitychange', save);
-  window.addEventListener('pagehide', save);
+  document.addEventListener('visibilitychange', () => { save(); if (document.hidden) Net.push(); else Net.poll(); });
+  window.addEventListener('pagehide', () => { save(); Net.push(); });
+  if (Net.online) {
+    setInterval(() => Net.poll(), 45000); setTimeout(() => Net.poll(), 3000);
+    say(`Chào @${Net.username}! Mã nhà của bạn là #${Net.code}.`, 5000);
+    const nq = new URLSearchParams(location.search).get('nha');
+    if (nq) { try { history.replaceState(null, '', location.pathname); } catch (e) {} setTimeout(() => visitHouse(nq), 2000); }
+  } else if (Net.note) say(Net.note, 5000);
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { $('dexGrid').querySelectorAll('.card').forEach(c => c.dataset.k = ''); renderDex(); });
 }
 window.claude?.hot?.snapshot?.(() => ({ state, pet, dex }));
-window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+// sign in first (when the game is connected to its server), then start
+Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {}));
 })();
 </script>
 
 <script>
 (() => {
-  const BUILD = '20261030075505';
+  const BUILD = '20261030091913';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
