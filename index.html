@@ -2992,8 +2992,72 @@ function drawDecor(t, dt = 0) {
     if (id === 'balloon') o.tug = T < toy.tugUntil ? 1 : 0;
     if (DECOR_X[id] != null) drawDecorItem(id, id === 'ball' ? toy.ballX : DECOR_X[id], GROUND + 10, t, undefined, o);
   });
-  // moths flutter round the lamp after dark
-  if (d.includes('lamp') && todNow() !== 'day') for (let i = 0; i < 3; i++) { const a = t * (2.2 + i * 0.5) + i * 2, mx = DECOR_X.lamp + Math.cos(a) * (28 + i * 10), my = GROUND - 230 + Math.sin(a * 1.7) * 18; ell(mx, my, 5, 3, 'rgba(255,248,220,.9)', Math.sin(t * 30 + i)); }
+  drawDecorFX(t, d, id => id === 'ball' ? toy.ballX : DECOR_X[id], { ballRolling: Math.abs(toy.ballV) > 20, ballY: toy.ballY, hug: T < toy.hugUntil, built: toy.built, inside: T > toy.inFrom && T < toy.inTo });
+}
+/* each kind of decoration has its own little life: smoke from the house chimney and a warm doorway at night, a cone of
+   lamplight with moths and dust motes, a butterfly by day and fireflies by night round the plant, glints on the balloons,
+   the ball and the blocks, hearts from the teddy, squeaky notes from the duck, sparkles on the rug, shimmering water and a
+   night glow in the aquarium, and little stars over the bed after dark. Used at home and in friends' houses. */
+function drawDecorFX(t, list, xOf, st = {}) {
+  const has = id => list.includes(id) && DECOR_X[id] != null, y = GROUND + 10, night = todNow() !== 'day';
+  ctx.save();
+  if (has('house')) {
+    const x = xOf('house'), cx = x + 42;
+    rr(cx - 9, y - 152, 18, 36, 3, '#8b4a2b'); rr(cx - 12, y - 156, 24, 8, 3, '#6e3a20');
+    for (let i = 0; i < 5; i++) { const ph = (t * 0.25 + i / 5) % 1; ctx.globalAlpha = (1 - ph) * 0.55; ell(cx + Math.sin(ph * 5 + i) * 10 + ph * 24, y - 160 - ph * 90, 9 + ph * 16, 8 + ph * 13, '#e9ecef'); }
+    ctx.globalAlpha = 1;
+    if (night || st.inside) glow(x, y - 30, 70, '#ffc870', night ? 0.4 : 0.22);
+  }
+  if (has('lamp')) {
+    const x = xOf('lamp'), ly = y - 236;
+    if (night) {
+      ctx.fillStyle = vgrad(ly, y, 'rgba(255,220,130,.28)', 'rgba(255,220,130,.04)'); ctx.beginPath(); ctx.moveTo(x - 14, ly + 14); ctx.lineTo(x + 14, ly + 14); ctx.lineTo(x + 95, y + 6); ctx.lineTo(x - 95, y + 6); ctx.closePath(); ctx.fill();
+      ell(x, y + 6, 100, 16, 'rgba(255,224,140,.25)');
+      for (let i = 0; i < 3; i++) { const a = t * (2.2 + i * 0.5) + i * 2; ell(x + Math.cos(a) * (28 + i * 10), ly + 6 + Math.sin(a * 1.7) * 18, 5, 3, 'rgba(255,248,220,.9)', Math.sin(t * 30 + i)); }
+      for (let i = 0; i < 10; i++) { const ph = (t * 0.08 + rnd(i + 60)) % 1, k = ph * 0.9; ell(x + (rnd(i + 61) - 0.5) * 2 * (14 + k * 80), ly + 20 + k * (y - ly - 20), 1.6, 1.6, `rgba(255,240,200,${0.7 * Math.sin(ph * Math.PI)})`); }
+    } else glow(x, ly, 40, '#fffbe6', 0.25);
+  }
+  if (has('plant')) {
+    const x = xOf('plant');
+    if (night) for (let i = 0; i < 4; i++) { const a = t * 0.6 + i * 1.7, fx = x + Math.cos(a) * (40 + i * 8), fy = y - 90 + Math.sin(a * 1.3 + i) * 30, b = Math.max(0, Math.sin(t * 2.5 + i * 2)); glow(fx, fy, 14, '#d8ff6a', b * 0.8); ell(fx, fy, 2, 2, `rgba(240,255,170,${0.4 + b * 0.6})`); }
+    else {
+      const a = t * 0.9, bx = x + Math.cos(a) * 48, by = y - 115 + Math.sin(a * 2) * 18, f = Math.abs(Math.sin(t * 14));
+      ctx.save(); ctx.translate(bx, by); for (const sd of [-1, 1]) { ell(sd * 7 * f, -3, 8 * f + 1, 6, '#ff922b', sd * 0.4); ell(sd * 5 * f, 4, 5 * f + 1, 4, '#ffd43b', -sd * 0.4); } ell(0, 0, 1.6, 6, '#3b2a20'); ctx.restore();
+      twinkle(x - 14, y - 96, 6, t, 0); twinkle(x + 18, y - 80, 5, t, 2.5);
+    }
+  }
+  if (has('balloon')) { const x = xOf('balloon'); [[-30, -210], [8, -236], [36, -200]].forEach(([dx, dy], i) => twinkle(x + dx + Math.sin(t * 1.3 + i * 1.7) * 8 - 9, y + dy - 12, 7, t * 0.8, i * 2.1)); }
+  if (has('ball')) {
+    const x = xOf('ball');
+    if (st.ballRolling && (st.ballY || 0) < 4) for (let i = 0; i < 3; i++) { const ph = (t * 3 + i / 3) % 1; ctx.globalAlpha = (1 - ph) * 0.5; ell(x - Math.sign(toy.ballV || 1) * (20 + ph * 30), y - 4 - ph * 10, 6 + ph * 6, 4 + ph * 4, '#d8c8b0'); }
+    ctx.globalAlpha = 1; twinkle(x - 10, y - 40 - (st.ballY || 0), 6, t, 1.3);
+  }
+  if (has('teddy')) {
+    const x = xOf('teddy'), n = st.hug ? 4 : 1;
+    for (let i = 0; i < n; i++) { const ph = (t * (st.hug ? 0.8 : 0.25) + i / n) % 1; if (!st.hug && ph > 0.5) continue; const p = st.hug ? ph : ph * 2; ctx.globalAlpha = 1 - p; heartPath(x + 18 + Math.sin(p * 6 + i) * 8, y - 110 - p * 60, 8 + i % 2 * 3); ctx.fillStyle = '#ff6b9e'; ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  if (has('blocks')) { const x = xOf('blocks'), top = (st.built != null ? st.built : 6) >= 6; twinkle(x + (top ? 0 : -34), y - (top ? 100 : 32) - 4, 9, t, 0); twinkle(x + 34, y - 34, 6, t, 2.4); }
+  if (has('duck')) {
+    const x = xOf('duck'), c = t % 5;
+    if (c < 1.2) { const p = c / 1.2; ctx.globalAlpha = 1 - p; ctx.font = '800 22px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f08c00'; ctx.fillText('♪', x + 44 + p * 14, y - 60 - p * 40); ctx.fillText('♫', x + 60 + p * 10, y - 46 - p * 52); ctx.globalAlpha = 1; }
+  }
+  if (has('rug')) { const x = xOf('rug'); for (let i = 0; i < 4; i++) twinkle(x + (rnd(i + 80) - 0.5) * 200, y + 6 + (rnd(i + 81) - 0.5) * 30, 6, t * 0.7, i * 1.6); }
+  if (has('aquarium')) {
+    const x = xOf('aquarium'), tx = x - 66, ty = y - 150, tw = 132, th = 98;
+    ctx.save(); ctx.beginPath(); ctx.rect(tx, ty, tw, th); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 3;
+    for (let j = 0; j < 3; j++) { ctx.beginPath(); for (let k = 0; k <= 12; k++) { const xx = tx + k * tw / 12, yy = ty + 22 + j * 22 + Math.sin(k * 1.1 + t * 2 + j * 2) * 4; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+    if (night) { ctx.fillStyle = 'rgba(120,220,255,.18)'; ctx.fillRect(tx, ty, tw, th); }
+    ctx.restore();
+    if (night) glow(x, ty + th / 2, 120, '#7fd8ff', 0.3);
+    const ph = (t * 0.7) % 1; if (ph < 0.3) { ctx.strokeStyle = `rgba(255,255,255,${1 - ph / 0.3})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx + 100, ty - 4 - ph * 30, 3 + ph * 8, 0, TAU); ctx.stroke(); }
+  }
+  if (has('bed')) {
+    const x = xOf('bed');
+    if (night) for (let i = 0; i < 3; i++) twinkle(x - 40 + i * 40, y - 70 - Math.sin(t + i) * 8, 7, t, i * 2);
+    else twinkle(x + 30, y - 26, 6, t * 0.6, 0.5);
+  }
+  ctx.restore();
 }
 // pets walk over to a decoration and play with it now and then
 const PLAY_WITH = { ball: 'kick', house: 'house', lamp: 'lamp', plant: 'plant', duck: 'squeak', blocks: 'build', teddy: 'hug', aquarium: 'watch', balloon: 'reach' };
@@ -3548,6 +3612,7 @@ function drawHouse(t) {
   h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), theme, hour: new Date().getHours() };
   drawSkyLife(t, theme, tod, h.weather.kind, h.weather.wind);
   (h.decor || []).forEach(id => { if (DECOR_X[id]) drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); });
+  drawDecorFX(t, h.decor || [], id => DECOR_X[id]);
   fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
   if (p && p.alive) {
     const md = h.moodUntil > now() ? h.mood : 'happy', b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
@@ -6568,7 +6633,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030161720';
+  const BUILD = '20261030162303';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
