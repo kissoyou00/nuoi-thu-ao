@@ -107,6 +107,10 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .talk[data-kind=fortune] { background: linear-gradient(#f7f0ff, #e6d6ff); box-shadow: inset 4px 0 0 #8e4fd0, 0 12px 32px rgba(0,0,0,.28); }
 .talk[data-kind=news] { background: linear-gradient(#fff6ec, #ffdcc0); box-shadow: inset 4px 0 0 #d9480f, 0 12px 32px rgba(0,0,0,.28); }
 .talk[data-kind=fact] { background: linear-gradient(#f0fbf3, #cdeed7); box-shadow: inset 4px 0 0 #2b8a3e, 0 12px 32px rgba(0,0,0,.28); }
+.talk[data-kind=joke] { background: linear-gradient(#fff9db, #ffec99); box-shadow: inset 4px 0 0 #f08c00, 0 12px 32px rgba(0,0,0,.28); }
+.talk[data-kind=riddle] { background: linear-gradient(#edf2ff, #d0dcff); box-shadow: inset 4px 0 0 #4263eb, 0 12px 32px rgba(0,0,0,.28); }
+.talk[data-kind=joke] .talk-k { color: #e67700; }
+.talk[data-kind=riddle] .talk-k { color: #3b5bdb; }
 .talk p { margin: 0; font-size: 16px; line-height: 1.55; min-height: 3em; white-space: pre-line; }
 .talk dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; font-size: 13.5px; }
 .talk dt { color: #7a6a62; } .talk dd { margin: 0; font-weight: 500; }
@@ -475,8 +479,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
       <ul class="how">
         <li><b>Trứng nở ngẫu nhiên</b> ra 1 trong 20 loài. Loài càng hiếm càng có nhiều giai đoạn tiến hóa, loài Thần thoại có tới 5 dạng.</li>
         <li><b>Tiến hóa</b> tự động theo thời gian thực, kể cả khi đóng trang: loài Thường cứ 3 giờ một lần, Hiếm 4 giờ 30 phút, Quý hiếm 6 giờ, Huyền thoại 7 giờ 30 phút, Thần thoại 9 giờ. Bé cần sức khỏe từ 30 trở lên và không ốm.</li>
-        <li><b>Bé tự trò chuyện:</b> khoảng 1 phút một lần, bé lần lượt gieo quẻ bói, đọc bản tin Làng Thú và kể chuyện thật thú vị trong khung chat ngay trên màn hình. Quẻ đầu tiên mỗi ngày là "Quẻ hôm nay". Chạm vào khung chat để tắt.</li>
-        <li><b>Trò chuyện</b> để bé bói vui cho bạn, đọc bản tin hài hước của Làng Thú, hoặc kể một chuyện thật thú vị về thế giới.</li>
+        <li><b>Trò chuyện (nút 💬):</b> bé bói vui cho bạn, đọc bản tin hài hước của Làng Thú, kể chuyện thật thú vị về thế giới, kể chuyện cười hoặc đố vui. Bé chỉ trò chuyện khi bạn bấm, không tự bật lên làm phiền.</li>
         <li><b>Nơi ở</b> của bé đổi theo hệ (12 khung cảnh), loài càng hiếm nền càng lung linh.</li>
         <li><b>Chạm vào bé</b> để vuốt ve, bé sẽ vui hơn. Đừng vuốt liên tục kẻo bé chóng mặt.</li>
         <li><b>Nắm và kéo</b> để nhấc bé lên, vung tay rồi thả để ném. Ném nhẹ bé thích, ném mạnh hoặc đập tường bé sẽ chóng mặt. Có thể bắt bé giữa không trung.</li>
@@ -674,6 +677,20 @@ const FORTUNE = {
     'Câu hỏi bạn ngại hỏi lại chính là câu cả lớp đang thắc mắc.',
     'Sự chăm chỉ tuần này sẽ được đền đáp sớm hơn bạn nghĩ.',
   ],
+  'Ăn uống': [
+    'Món bạn thèm nhất hôm nay sẽ tự xuất hiện trước mặt. Có thể do ai đó mời, có thể do bạn tự đi mua.',
+    'Hôm nay ăn gì cũng thấy ngon, kể cả rau. Đừng lo, đó là dấu hiệu tốt.',
+    'Miếng bánh cuối cùng trong hộp đang chờ bạn. Hãy nhanh tay trước khi mèo nhà bên phát hiện.',
+    'Một ly nước mát lúc trưa sẽ khiến bạn sảng khoái như vừa được tưới cây.',
+    'Bạn sẽ khám phá ra một quán ăn mới, ngon đến mức muốn kể cho cả làng nghe.',
+  ],
+  'Vui chơi': [
+    'Một bài hát cũ sẽ vang lên đúng lúc, khiến bạn nhún nhảy mà không cần lý do.',
+    'Trò chơi hôm nay bạn chơi sẽ thắng liên tục. Nếu thua thì chắc tại bàn phím.',
+    'Có một chuyến đi chơi bất ngờ đang chờ. Hãy chuẩn bị sẵn đôi giày thoải mái nhất.',
+    'Bạn sẽ cười to vì một đoạn video ngắn, rồi gửi cho cả nhóm xem ít nhất ba lần.',
+    'Buổi tối nay hợp để xem một bộ phim hoạt hình và ôm gối thật chặt.',
+  ],
 };
 const FORTUNE_OPEN = [
   'Quả cầu pha lê vừa sáng lên một màu ấm áp.',
@@ -691,6 +708,8 @@ const FORTUNE_MORE = {
   'Sức khỏe': ['Ngủ sớm hơn mười lăm phút tối nay sẽ giúp ngày mai tràn đầy năng lượng.', 'Một đĩa trái cây sẽ làm cơ thể bạn cảm ơn rối rít.', 'Mỗi khi thấy căng thẳng, hãy hít thở thật sâu ba lần.'],
   'Bạn bè': ['Một bức ảnh cũ sẽ gợi lại kỷ niệm rất vui.', 'Bạn sẽ được rủ tham gia một kế hoạch thú vị vào cuối tuần.', 'Lời khen bạn dành cho bạn bè hôm nay sẽ được đáp lại gấp đôi.'],
   'Học hành': ['Thử giải thích bài học cho một chú thú cưng nghe, bạn sẽ nhớ lâu hơn hẳn.', 'Một video ngắn sẽ giúp bạn hiểu điều mà cả cuốn sách chưa nói rõ.', 'Cứ học hai mươi lăm phút thì nghỉ năm phút, hiệu quả sẽ bất ngờ.'],
+  'Ăn uống': ['Ăn chậm một chút, món ngon sẽ ngon gấp đôi.', 'Chia một nửa món ăn vặt cho người bên cạnh, niềm vui cũng nhân đôi.', 'Nhớ uống nước trước khi ăn tráng miệng nhé.'],
+  'Vui chơi': ['Rủ thêm một người bạn, cuộc vui sẽ dài hơn.', 'Đừng quên chụp vài tấm ảnh, sau này xem lại sẽ rất vui.', 'Chơi xong nhớ nghỉ ngơi, mai còn chơi tiếp.'],
 };
 const NEWS_MORE = [
   'Phóng viên Làng Thú có mặt tại hiện trường cho biết không khí rất vui vẻ và ai cũng được phát kẹo.',
@@ -747,6 +766,18 @@ const NEWS = [
   'Tin vắn: Hôm nay {name} được khen là ngoan nhất nhà. {name} xác nhận thông tin này hoàn toàn chính xác.',
   'Nông nghiệp: Vườn rau của {thu} bội thu nhờ được hát ru mỗi tối. Bắp cải to bằng quả bóng.',
   'Hàng không: Hãng bay {thu} Air bổ sung chỗ ngồi có gối ôm. Hành khách đề nghị chuyến bay dài thêm.',
+  'Siêu thị: Quầy bánh ngọt hết hàng sau {so} giây mở cửa. Nghi phạm là {thu}, hiện vẫn còn kem dính trên mép.',
+  'Thể thao: Trận bóng giữa đội {thu} và đội {thu2} kết thúc với tỉ số 0-0 vì quả bóng lăn đi ngủ trưa.',
+  'Khí tượng: Cầu vồng hôm nay có thêm màu thứ tám là màu trà sữa. Các nhà khoa học vẫn đang uống thử để nghiên cứu.',
+  'Văn hóa: Cuộc thi hát karaoke Làng Thú có {so} thí sinh, nhưng micro chỉ có một. {thu} giữ micro suốt buổi.',
+  'Tin vui: {thu} vừa học được cách huýt sáo. Hàng xóm vui mừng, rồi hơi mệt, rồi xin {thu} nghỉ một chút.',
+  'Phỏng vấn: Hỏi bí quyết lông mượt, {thu} chia sẻ: "Ngủ đủ, ăn ngon, và đừng bao giờ quên chải lông trước khi soi gương."',
+  'Kỷ lục: {thu} xếp được tháp bánh quy cao {so} tầng. Tháp chỉ đứng vững ba giây trước khi bị chính chủ ăn mất.',
+  'Bưu điện: Thư gửi cho {thu} nhiều tới mức người đưa thư phải thuê thêm một chiếc xe kéo bằng ốc sên. Thư sẽ tới vào năm sau.',
+  'Ẩm thực: Món mới "lẩu kẹo bông" ra mắt. Nồi lẩu tan hết trước khi kịp bật bếp.',
+  'Lễ hội: Làng Thú tổ chức thi gáy sáng. {thu} thắng giải dù không phải gà, nhờ báo thức đặt lúc 5 giờ.',
+  'Giáo dục: {thu} xin nghỉ học vì "bài tập về nhà đã bị {thu2} ăn mất". Cô giáo xác nhận {thu2} trông rất no.',
+  'Tin khẩn: Một chiếc tất bị mất tích bí ẩn tại nhà {name}. Chiếc còn lại đang rất buồn và mong được đoàn tụ.',
 ];
 const FACTS = [
   'Rái cá biển hay nắm tay nhau khi ngủ trên mặt nước để không bị trôi xa nhau.',
@@ -777,6 +808,55 @@ const FACTS = [
   'Tim cá voi xanh nặng hàng trăm ki-lô-gam, là trái tim lớn nhất trong thế giới động vật.',
   'Ốc sên có hàng nghìn chiếc răng siêu nhỏ xếp thành hàng trên lưỡi.',
   'Mèo có thể xoay tai khoảng 180 độ để nghe rõ âm thanh từ nhiều hướng.',
+  'Kiến không có phổi, chúng thở qua những lỗ nhỏ dọc hai bên thân.',
+  'Chuột hamster có thể nhét đầy thức ăn vào hai bên má để mang về tổ.',
+  'Cầu vồng thực ra là một vòng tròn, nhưng đứng dưới mặt đất ta chỉ thấy được một nửa.',
+  'Bông tuyết thường có sáu cánh, và hiếm khi có hai bông giống hệt nhau.',
+  'Ếch không uống nước bằng miệng mà thấm nước qua da.',
+  'Cá vàng không hề có trí nhớ ba giây như lời đồn, chúng có thể nhớ mọi thứ trong nhiều tháng.',
+  'Hà mã có thể nín thở dưới nước khoảng năm phút.',
+  'Chim ruồi là loài chim có thể bay lùi về phía sau.',
+  'Mèo dành khoảng hai phần ba cuộc đời để ngủ.',
+  'Sao Thổ nhẹ đến mức nếu có một bồn nước đủ lớn, nó có thể nổi lềnh bềnh.',
+  'Lông gấu Bắc Cực trông màu trắng, nhưng da của chúng lại màu đen.',
+  'Ốc sên có thể ngủ một mạch nhiều tháng khi thời tiết quá khô.',
+];
+// jokes the pet tells: little pet-world stories with a silly ending
+const JOKES = [
+  'Sáng nay {name} định chạy bộ. Nhưng chăn ấm quá nên {name} quyết định chạy bộ trong mơ. Kết quả: về đích sớm nhất!',
+  'Cô giáo hỏi: "Một cộng một bằng mấy?" {thu} trả lời: "Bằng hai cái bánh, nếu cô cho em thêm một cái ạ!"',
+  '{thu} soi gương rồi thở dài: "Đẹp thế này thì biết làm sao!" Cái gương im lặng vì không muốn cãi nhau.',
+  'Bác sĩ dặn {thu} ăn ít đồ ngọt thôi. {thu} rất nghe lời, từ hôm đó chỉ ăn bánh vào... ban ngày và ban đêm.',
+  '{name} hỏi con cá vàng: "Cậu có nhớ tớ không?" Cá vàng ngơ ngác: "Ơ, tớ là ai cơ?"',
+  '{thu} mở tiệm cắt tóc. Vị khách đầu tiên là một quả trứng. Tiệm đóng cửa sau năm phút vì không biết cắt chỗ nào.',
+  '{thu} được giao trông nhà. Mười phút sau, ngôi nhà vẫn ở đó, còn {thu} thì ngủ mất. Nhiệm vụ hoàn thành xuất sắc!',
+  'Mẹ hỏi: "Sao con ăn hết bánh mà không chừa cho ai?" {thu} đáp: "Con có chừa mà mẹ, chừa lại cái hộp đấy ạ."',
+  '{name} tập đếm cừu để dễ ngủ. Đếm tới con thứ ba thì con cừu thứ tư ngáp, thế là cả đàn cừu ngủ trước.',
+  '{thu} đi thi ăn kem. Trọng tài chưa kịp bấm giờ thì cây kem đã biến mất. {thu} đoạt giải nhanh nhất lịch sử.',
+  'Ốc sên bị nhắc vì đi học muộn. Ốc sên giải thích: "Em xuất phát từ tuần trước rồi mà cô!"',
+  '{thu} nhắn tin hỏi bạn: "Đang làm gì đấy?" Bạn trả lời: "Đang trả lời tin nhắn của cậu."',
+  'Cô giáo hỏi cả lớp: "Con vật nào ngủ nhiều nhất?" Cả lớp quay sang nhìn {thu}. Nhưng {thu} đang ngủ nên không nghe thấy.',
+  '{name} nấu cơm lần đầu, cơm hơi khê. {name} tự an ủi: "Đây là món cơm cháy cao cấp nhé!"',
+  '{thu} mua một chiếc đồng hồ báo thức thật to. Sáng hôm sau, cả làng dậy đúng giờ, trừ {thu}.',
+  '{thu} hỏi {thu2}: "Sao cậu cứ cười mãi thế?" {thu2} đáp: "Vì tớ vừa nhớ ra là tớ quên mất mình định cười vì chuyện gì."',
+];
+const JOKE_TAIL = ['{name} kể xong tự cười lăn lộn.', 'Bạn có cười không? {name} đang chờ kìa!', '{name} hứa lần sau sẽ kể chuyện còn buồn cười hơn.', '{name} cười tới mức nấc cụt luôn.', 'Ha ha! {name} vỗ tay khen chính mình kể hay.'];
+// riddles: the answer comes after a little pause in the typing
+const RIDDLES = [
+  ['Cái gì càng lau càng ướt?', 'Cái khăn lau.'],
+  ['Cái gì có cổ nhưng không có đầu?', 'Cái áo.'],
+  ['Con gì đầu dê mình ốc?', 'Con dốc (dê + ốc).'],
+  ['Cái gì đen khi mua về, đỏ khi dùng và xám khi vứt đi?', 'Cục than.'],
+  ['Cái gì đi thì nằm, đứng cũng nằm, nhưng nằm thì lại đứng?', 'Bàn chân.'],
+  ['Một con vịt đi trước hai con vịt, một con vịt đi sau hai con vịt, một con vịt đi giữa hai con vịt. Hỏi có mấy con vịt?', 'Ba con vịt đi thành một hàng.'],
+  ['Cái gì luôn ở phía trước mà ta không bao giờ nhìn thấy?', 'Tương lai.'],
+  ['Cái gì càng lấy đi càng to ra?', 'Cái hố.'],
+  ['Cái gì là của bạn nhưng người khác dùng nhiều hơn bạn?', 'Tên của bạn.'],
+  ['Tháng nào có 28 ngày?', 'Tháng nào cũng có ít nhất 28 ngày!'],
+  ['Cái gì có răng mà không bao giờ cắn?', 'Cái lược.'],
+  ['Cái gì có bốn chân mà không đi được?', 'Cái bàn.'],
+  ['Cái gì có rất nhiều lỗ nhưng vẫn giữ được nước?', 'Miếng bọt biển.'],
+  ['Quả gì không ăn được?', 'Quả bóng.'],
 ];
 const bags = {};
 // shuffled bag per kind so nothing repeats until every item has been shown
@@ -804,6 +884,15 @@ function makeTalk(kind) {
     const text = [NEWS[bagPick('news', NEWS.length)], NEWS_MORE[m1], NEWS_MORE[m2]].join(' ')
       .replaceAll('{thu}', a).replaceAll('{thu2}', b).replaceAll('{so}', String(2 + Math.floor(Math.random() * 98))).replaceAll('{name}', name);
     return { label: 'Bản tin Làng Thú', text, meta: [], foot: 'Tin bịa hoàn toàn, chỉ để vui.' };
+  }
+  if (kind === 'joke') {
+    const forms = SPECIES.flatMap(s => s.stages.map(st => st.name)), a = pick(forms); let b = pick(forms); if (b === a) b = pick(forms);
+    const text = `${JOKES[bagPick('joke', JOKES.length)]} ${pick(JOKE_TAIL)}`.replaceAll('{thu}', a).replaceAll('{thu2}', b).replaceAll('{name}', name);
+    return { label: `Chuyện cười của ${name}`, text, meta: [], foot: 'Chuyện vui bịa ra cho bạn cười.' };
+  }
+  if (kind === 'riddle') {
+    const [q, ans] = RIDDLES[bagPick('riddle', RIDDLES.length)];
+    return { label: `${name} đố bạn`, text: `${q} ${name} đếm: một... hai... ba...\n👉 Đáp án: ${ans}`, meta: [], foot: 'Bấm "Thêm nữa" để nghe câu đố khác.' };
   }
   return { label: 'Bạn có biết?', text: `${FACTS[bagPick('fact', FACTS.length)]} ${pick(FACT_MORE).replaceAll('{name}', name)}`, meta: [], foot: 'Chuyện thật về thế giới quanh ta.' };
 }
@@ -1451,6 +1540,8 @@ function openTalk(kind, auto = false) {
   if (kind === 'fortune' && !auto) say(`${state.name} nhìn vào quả cầu pha lê...`, 3000);
   if (kind === 'news') say(`${state.name} đeo kính, giở báo đọc tin...`, 3000);
   if (kind === 'fact') say(`${state.name} vừa nghĩ ra một điều thú vị!`, 3000);
+  if (kind === 'joke') { say(`${state.name} hắng giọng: "Nghe này, buồn cười lắm!"`, 3000); setFace('laugh', 4000); }
+  if (kind === 'riddle') { say(`${state.name} nheo mắt: "Đố bạn biết đấy!"`, 3000); setFace('wink', 2500); }
 }
 function closeTalk() { clearInterval(typer); talk = null; $('talk').hidden = true; $('talk').classList.remove('full'); $('talk').parentElement.classList.remove('talk-full'); }
 $('talkClose').addEventListener('click', () => { closeTalk(); syncMode(true); });
@@ -1461,14 +1552,10 @@ $('talkText').addEventListener('click', toggleTalk);
 $('talkRead').addEventListener('click', toggleTalk);
 // touching the card means the player is reading it: stop the auto-close
 $('talk').addEventListener('pointerenter', () => { if (talk && talk.auto) { talk.auto = false; talk.closeAt = 0; $('talkBar').hidden = true; } });
+// the pet no longer starts talking by itself: stories, fortunes, jokes and riddles only come when the player asks (💬)
 function autoTalk(T) {
   if (talk && talk.auto && talk.closeAt && T > talk.closeAt) { closeTalk(); return; }
-  const s = state;
-  if (bubble && (s.asleep || game || !s.alive)) bubble = null;
-  if (talk || bubble || !s.hatched || !s.alive || s.asleep || s.trip || game || anim || phys.held || phys.air || foodMenu || talkMenu || panelKind || visitor || house || document.hidden) return;
-  if (T < nextAuto) return;
-  nextAuto = T + 55000 + Math.random() * 10000;
-  startBubble(AUTO_KINDS[autoTurn++ % AUTO_KINDS.length]);
+  if (bubble && (state.asleep || game || !state.alive)) bubble = null;
 }
 
 /* ---------- chat bubble: the pet tells a fortune, a village news story or a fact inside the screen ---------- */
@@ -1776,15 +1863,15 @@ const ICON_LABEL = {
   left: 'Bên trái', right: 'Bên phải', roll: 'Tung xúc xắc', rock: 'Búa', paper: 'Bao', scissors: 'Kéo', higher: 'Cao hơn', lower: 'Thấp hơn',
   cup0: 'Ly bên trái', cup1: 'Ly ở giữa', cup2: 'Ly bên phải', quit: 'Thoát trò chơi', back: 'Quay lại',
   'm-feed': 'Cho ăn', 'm-play': 'Chơi', 'm-talk': 'Trò chuyện', 'm-clean': 'Dọn dẹp', 'm-med': 'Uống thuốc', 'm-sleep': 'Đi ngủ',
-  't-fortune': 'Bói vui', 't-news': 'Bản tin Làng Thú', 't-fact': 'Bạn có biết?',
+  't-fortune': 'Bói vui', 't-news': 'Bản tin Làng Thú', 't-fact': 'Bạn có biết?', 't-joke': 'Chuyện cười', 't-riddle': 'Đố vui',
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
   'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ hôm nay', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
   'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
-  'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
+  'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
 };
 // the extras menu uses emoji pictures
 const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
-  'x-hood': '🏘️', 'x-rand': '🎲', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
+  'x-closet': '👗', 'x-hood': '🏘️', 'x-rand': '🎲', 't-joke': '😂', 't-riddle': '🤔', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -2127,7 +2214,7 @@ function act(a) {
   if (a.startsWith('gm-')) { gameInput(a.slice(3)); return; }
   if (a.startsWith('g-')) { gameMenu = false; startGame(a.slice(2)); syncMode(true); renderSide(); save(); return; }
   idle = null; bubble = null;
-  if (talk && !['fortune', 'news', 'fact', 'talk'].includes(a)) closeTalk();
+  if (talk && !['fortune', 'news', 'fact', 'joke', 'riddle', 'talk'].includes(a)) closeTalk();
   if (a === 'x-rand') { randomVisit(); return; }
   if (a.startsWith('h-')) {
     if (!house) return;
@@ -2150,7 +2237,7 @@ function act(a) {
   switch (a) {
     case 'talk': talkMenu = true; break;
     case 'back2': talkMenu = false; break;
-    case 'fortune': case 'news': case 'fact': openTalk(a); break;
+    case 'fortune': case 'news': case 'fact': case 'joke': case 'riddle': openTalk(a); break;
     case 'feed': foodMenu = true; break;
     case 'back': foodMenu = false; break;
     case 'play': gameMenu = true; say('Chọn một trò chơi nhé!', 3000); break;
@@ -2199,10 +2286,10 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep'], ['more', 'm-more']],
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
-  trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
   house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note'], ['x-rand', 'x-rand'], ['h-home', 'h-home']],
-  talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['back2', 'back']],
+  talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
   gamemenu: () => Object.keys(GAMES).map(k => ['g-' + k, 'g-' + k]).concat([['back3', 'back']]),
@@ -2773,7 +2860,7 @@ function drawUnbox(b, p, id, t) {
   const land = Math.min(1, p / 0.14), by = gy - (1 - land * land) * 420, sq = p > 0.14 && p < 0.22 ? Math.sin((p - 0.14) / 0.08 * Math.PI) * 0.12 : 0;
   if (p >= 0.14 && !a.landed) { a.landed = 1; Sound.play('boing', 0.6); for (let i = 0; i < 6; i++) spawn('dust', bx + (i - 2.5) * 16, gy, { vx: (i - 2.5) * 40, vy: -40, max: 0.6, size: 0.7 }); }
   if (p >= 0.42 && !a.opened) { a.opened = 1; Sound.play('magic'); setTimeout(() => Sound.play('win'), 250); }
-  if (p >= 0.52 && !a.said && it) { a.said = 1; say(`${state.name} nhận được ${it.name.toLowerCase()}${a.tier ? ` (hộp ${TIER_NAME[a.tier]})` : ''}! Vào 🛍️ Cửa hàng để ${it.slot === 'decor' ? 'bày ra' : 'đeo'} nhé.`, 4500); }
+  if (p >= 0.52 && !a.said && it) { a.said = 1; say(`${state.name} nhận được ${it.name.toLowerCase()}${a.tier ? ` (hộp ${TIER_NAME[a.tier]})` : ''}! Vào 👗 Tủ đồ để ${it.slot === 'decor' ? 'bày ra' : 'đeo'} nhé.`, 4500); }
   const fade = p > 0.86 ? Math.max(0, 1 - (p - 0.86) / 0.14) : 1;
   ctx.save(); ctx.globalAlpha = fade;
   ell(bx, gy + 2, 48 * (0.6 + land * 0.4), 9, 'rgba(30,20,10,.22)');
@@ -3270,7 +3357,7 @@ function drawItemCanvases() {
 }
 function renderPanel() {
   const s = state, body = $('panelBody'); if (!panelKind || !s) return;
-  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
+  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', closet: '👗 Tủ đồ', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
     hood: '🏘️ Hàng xóm', gift: '🎁 Tặng quà', note: '✍️ Sổ lưu bút' }[panelKind];
   $('panelTitle').textContent = title;
   let h = '';
@@ -3324,14 +3411,26 @@ function renderPanel() {
   }
   if (panelKind === 'shop') {
     const owned = SHOP.filter(i => meta.owned.includes(i.id)).length;
-    h = `<p class="muted">Bạn có <b>${s.coins} xu</b>. Mỗi hộp bí mật mở ra 1 món ngẫu nhiên mà bạn chưa có. Hộp càng đắt, đồ càng hiếm. Đồ đã có dùng được cho mọi bé thú sau này.</p>
-      <div class="p-sec">🎁 Hộp bí mật</div><div class="p-grid">` +
+    // the shop only sells secret boxes; what you own lives in the wardrobe
+    h = `<p class="muted">Bạn có <b>${s.coins} xu</b>. Mỗi hộp bí mật mở ra 1 món ngẫu nhiên mà bạn chưa có. Hộp càng đắt, đồ càng hiếm.</p>
+      <div class="p-grid">` +
       BOXES.map(B => { const all = SHOP.filter(i => i.tier === B.tier), have = all.filter(i => meta.owned.includes(i.id)).length, full = have >= all.length;
-        return `<div class="p-item"><canvas width="128" height="128" data-box="${B.tier}"></canvas><b>${B.name}</b><small class="muted">${have}/${all.length} món</small><button class="p-btn" data-p="box:${B.tier}"${full || s.coins < B.cost ? ' disabled' : ''}>${full ? 'Đủ bộ ✓' : `Mở · ${B.cost} xu`}</button></div>`; }).join('') +
-      `</div><div class="p-sec">Bộ sưu tập ${owned}/${SHOP.length}</div><div class="p-grid">` +
-      SHOP.slice().sort((a, b) => (meta.owned.includes(b.id) - meta.owned.includes(a.id)) || a.tier - b.tier).map(it => { const own = meta.owned.includes(it.id), on = it.slot === 'decor' ? meta.decor.includes(it.id) : meta.wear[it.slot] === it.id;
-        return own ? `<div class="p-item${on ? ' on' : ''}">${itemCanvas(it.id)}<b>${it.name}</b><button class="p-btn${on ? ' alt' : ''}" data-p="${on ? 'off' : 'on'}:${it.id}">${on ? 'Cất đi' : it.slot === 'decor' ? 'Bày ra' : 'Đeo'}</button></div>`
-          : `<div class="p-item">${itemCanvas(it.id, true)}<b>???</b><small class="muted">Hộp ${TIER_NAME[it.tier]}</small></div>`; }).join('') + '</div>';
+        return `<div class="p-item"><canvas width="128" height="128" data-box="${B.tier}"></canvas><b>${B.name}</b><small class="muted">Đã có ${have}/${all.length} món</small><button class="p-btn" data-p="box:${B.tier}"${full || s.coins < B.cost ? ' disabled' : ''}>${full ? 'Đủ bộ ✓' : `Mở · ${B.cost} xu`}</button></div>`; }).join('') +
+      `</div><div class="p-row"><span>👗 Bạn đã sưu tầm <b>${owned}/${SHOP.length}</b> món<small>Xem, đeo và bày đồ trong Tủ đồ.</small></span><button class="p-btn" data-p="goto:closet">Mở tủ đồ</button></div>`;
+  }
+  if (panelKind === 'closet') {
+    // the wardrobe: what is worn and displayed now, then everything owned, filtered by kind
+    const tabs = [['all', 'Tất cả'], ['head', '🎩 Mũ'], ['eyes', '👓 Kính'], ['neck', '🧣 Cổ'], ['decor', '🧸 Đồ chơi']], tab = renderPanel.ctab || 'all';
+    const mine = SHOP.filter(i => meta.owned.includes(i.id)), list = mine.filter(i => tab === 'all' || i.slot === tab).sort((a, b) => b.tier - a.tier);
+    const using = [meta.wear.head, meta.wear.eyes, meta.wear.neck].filter(Boolean).concat(meta.decor || []).map(shopItem).filter(Boolean);
+    const missing = SHOP.filter(i => !meta.owned.includes(i.id) && (tab === 'all' || i.slot === tab)).length;
+    const btn = it => { const on = it.slot === 'decor' ? meta.decor.includes(it.id) : meta.wear[it.slot] === it.id; return `<button class="p-btn${on ? ' alt' : ''}" data-p="${on ? 'off' : 'on'}:${it.id}">${on ? 'Cất đi' : it.slot === 'decor' ? 'Bày ra' : 'Đeo'}</button>`; };
+    h = `<p class="muted">Đã sưu tầm <b>${mine.length}/${SHOP.length}</b> món. Đồ trong tủ dùng được cho mọi bé thú sau này.</p>
+      <div class="p-sec">Đang dùng</div>
+      ${using.length ? `<div class="p-grid">${using.map(it => `<div class="p-item on">${itemCanvas(it.id)}<b>${it.name}</b>${btn(it)}</div>`).join('')}</div>` : '<p class="muted">Bé chưa đeo hay bày món nào.</p>'}
+      <div class="p-acts" style="justify-content:flex-start">${tabs.map(([k, l]) => `<button class="p-btn${k === tab ? '' : ' alt'}" data-p="ctab:${k}">${l}</button>`).join('')}</div>
+      ${list.length ? `<div class="p-grid">${list.map(it => `<div class="p-item${(it.slot === 'decor' ? meta.decor.includes(it.id) : meta.wear[it.slot] === it.id) ? ' on' : ''}">${itemCanvas(it.id)}<b>${it.name}</b><small class="muted">Hộp ${TIER_NAME[it.tier]}</small>${btn(it)}</div>`).join('')}</div>` : '<p class="muted">Chưa có món nào ở mục này.</p>'}
+      ${missing ? `<div class="p-row"><span>Còn <b>${missing}</b> món chưa có${tab === 'all' ? '' : ' ở mục này'}<small>Mở hộp bí mật để sưu tầm thêm.</small></span><button class="p-btn alt" data-p="goto:shop">🛍️ Cửa hàng</button></div>` : ''}`;
   }
   if (panelKind === 'trip') {
     const block = tripBlock();
@@ -3376,6 +3475,8 @@ $('panelBody').addEventListener('click', async e => {
   Sound.ensure(); Sound.play('click');
   if (cmd === 'claim') claimQuest(arg);
   if (cmd === 'box') { openBox(+arg); syncMode(true); renderSide(); return; }
+  if (cmd === 'goto') { openPanel(arg); return; }
+  if (cmd === 'ctab') { renderPanel.ctab = arg; renderPanel(); return; }
   if (cmd === 'on' || cmd === 'off') useItem(arg, cmd === 'on');
   if (cmd === 'trip') { startTrip(arg); syncMode(true); renderSide(); save(); return; }
   if (cmd === 'teach') teach(arg);
@@ -5803,6 +5904,13 @@ function drawTalkProp(b, t, kind) {
     ctx.fillStyle = '#b9b1a0'; for (let i = 0; i < 4; i++) ctx.fillRect(px + w * 0.08, py + h * (0.36 + i * 0.15), w * (i % 2 ? 0.5 : 0.52), h * 0.06);
     ctx.fillStyle = '#d9d2c2'; ctx.fillRect(px + w * 0.66, py + h * 0.36, w * 0.26, h * 0.5);
     ctx.restore();
+  } else if (kind === 'joke') {
+    // laughing "ha ha" floats up while the joke is told
+    if (Math.random() < 0.03) spawn('txt', b.x + (Math.random() - 0.5) * R * 1.6, b.cy - R * 0.9, { vx: (Math.random() - 0.5) * 40, vy: -60, max: 1.3, text: pick(['Ha ha!', 'Hi hi!', 'Khà khà!']), color: pick(['#f08c00', '#e64980', '#1c7ed6']) });
+  } else if (kind === 'riddle') {
+    // a big question mark bobbing above its head
+    const qy = b.cy - b.ry - R * 0.9 + Math.sin(t * 3) * 8;
+    ctx.font = `800 ${Math.round(R * 0.6)}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 8; ctx.strokeStyle = '#ffffff'; ctx.strokeText('?', b.x + R * 0.7, qy); ctx.fillStyle = '#4263eb'; ctx.fillText('?', b.x + R * 0.7, qy);
   }
 }
 function drawParticles(dt) {
@@ -5996,7 +6104,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030122051';
+  const BUILD = '20261030123049';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
