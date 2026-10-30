@@ -1352,7 +1352,9 @@ function spawn(type, x, y, o = {}) {
   parts.push({ type, x, y, vx: o.vx ?? (Math.random() - 0.5) * 80, vy: o.vy ?? -(60 + Math.random() * 70),
     life: 0, max: o.max ?? 1.6, size: o.size ?? 1, color: o.color, text: o.text });
 }
-const petR = () => state && state.hatched ? curDef().R : 72;
+// pets are drawn 20% bigger in the zoomed-in phone view (not in minigames, which show the whole width)
+const petScale = () => zoom > 1 ? 1.2 : 1;
+const petR = () => state && state.hatched ? curDef().R * petScale() : 72;
 function petTop() { return GROUND - petR() * 1.9; }
 const ANIM_SOUND = { heart: 'love', evolve: 'evolve', clean: 'clean', pill: 'magic', no: 'lose' };
 function startAnim(type, dur, extra = {}) {
@@ -3165,7 +3167,7 @@ function startVisit(v) {
   return true;
 }
 function drawVisitor(t, dt) {
-  const v = visitor, def = v.sp.stages[v.idx], R = def.R * 0.8, T = now();
+  const v = visitor, def = v.sp.stages[v.idx], R = def.R * 0.8 * petScale(), T = now();
   const tx = T > v.until ? -260 : pet.x < 640 ? Math.min(1100, pet.x + 300) : Math.max(180, pet.x - 300);
   const d = tx - v.x, walking = Math.abs(d) > 3;
   if (walking) v.x += Math.sign(d) * Math.min(Math.abs(d), 130 * dt);
@@ -3456,7 +3458,7 @@ async function claimGifts() {
 }
 // their home: their habitat, their decorations, their pet (and mine, visiting)
 function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant) {
-  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = R || def.R, bob = Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
+  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
   ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(30,20,10,.2)');
   ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
   drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob });
@@ -5895,7 +5897,7 @@ function drawEmote(type, x, top, R, t) {
   }
 }
 function drawPet(t, dt) {
-  const s = state, sp = curSp(), def = curDef(), R = def.R, md = mood();
+  const s = state, sp = curSp(), def = curDef(), R = petR(), md = mood();
   // asleep: on its bed if it has one, otherwise in the middle of the room
   const bed = (meta.decor || []).includes('bed') ? Math.max(130 + R, DECOR_X.bed) : null;
   const target = game ? GAMES[game.type].petX : s.asleep ? (bed != null ? bed : Math.min(640, Math.max(130 + R, maxPetX()))) : pet.tx;
@@ -6439,7 +6441,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030154653';
+  const BUILD = '20261030160111';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
