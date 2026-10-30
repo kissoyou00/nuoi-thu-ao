@@ -239,8 +239,8 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .wrap { padding-block: 8px 32px; gap: 22px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
   .device { width: auto; border-radius: 22px; padding: 10px 8px 12px; gap: 10px; }
   .bezel { border-radius: 16px; padding: 5px; }
-  /* 20% taller than 16:9: the game fills the extra height with sky */
-  .bezel canvas { width: 100%; border-radius: 11px; aspect-ratio: 1280 / 864; }
+  /* the game screen takes 60% of the phone's height: the scene is zoomed in to fill it (a camera follows the pet), with some sky on top */
+  .bezel canvas { width: 100%; border-radius: 11px; aspect-ratio: auto; height: 60vh; height: 60svh; }
   /* the care log and the how-to guide take too much room on a phone */
   #foldLog, #foldHow { display: none; }
   .brand { font-size: 12px; letter-spacing: .1em; gap: 7px; min-width: 0; }
@@ -1470,7 +1470,7 @@ function startIdle(T) {
 }
 
 /* ---------- petting & pointer ---------- */
-const toLogical = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LW, y: (e.clientY - r.top) / r.height * (LH + padTop) - padTop }; };
+const toLogical = e => { const r = cv.getBoundingClientRect(); return { x: camX + (e.clientX - r.left) / r.width * viewW, y: (e.clientY - r.top) / r.height * (LH + padTop) - padTop }; };
 function hitPet(p) {
   if (!state) return false;
   if (!state.hatched) return Math.hypot(p.x - 640, p.y - (GROUND - 130)) < 140;
@@ -3073,8 +3073,9 @@ const snapshot = title => shotQ.push(title);
 function takeShots() {
   while (shotQ.length) {
     const c = document.createElement('canvas'); c.width = 384; c.height = 216;
-    const pp = Math.round(padTop * cv.width / LW);
-    try { c.getContext('2d').drawImage(cv, 0, pp, cv.width, cv.height - pp, 0, 0, 384, 216); addAlbum(shotQ.shift(), c.toDataURL('image/jpeg', 0.72)); } catch (e) { shotQ.shift(); }
+    // a 16:9 slice from the bottom of the picture (on phones the scene may be zoomed, with sky above)
+    const sh = Math.min(cv.height - Math.round(padTop * worldK()), Math.round(cv.width * 9 / 16));
+    try { c.getContext('2d').drawImage(cv, 0, cv.height - sh, cv.width, sh, 0, 0, 384, 216); addAlbum(shotQ.shift(), c.toDataURL('image/jpeg', 0.72)); } catch (e) { shotQ.shift(); }
   }
 }
 function addAlbum(title, img) { meta.album.unshift({ t: now(), title, img }); meta.album = meta.album.slice(0, 16); saveMeta(); }
@@ -5429,11 +5430,12 @@ function drawAmbientBack(t, theme) {
 // in front of the pet: rain, snow, leaves, dust, sparks, swaying grass, lightning
 function drawWeatherFront(t, dt) {
   const k = weather.kind, theme = weather.theme, w = weather.gust;
+  const top = -padTop, FH = LH + padTop;   // falling rain, snow and ash start at the top of the phone sky band too
   if (isWet()) {
-    const n = k === 'storm' ? 190 : 110, slant = w * 0.6;
+    const n = Math.round((k === 'storm' ? 190 : 110) * FH / LH), slant = w * 0.6;
     ctx.strokeStyle = k === 'storm' ? 'rgba(200,215,255,.55)' : 'rgba(190,210,255,.5)'; ctx.lineWidth = 2;
     for (let i = 0; i < n; i++) {
-      const sp = 900 + rnd(i) * 500, y = (rnd(i + 3) * LH + t * sp) % (LH + 40) - 20, x = ((rnd(i + 9) * (LW + 300) + y * slant) % (LW + 300) + LW + 300) % (LW + 300) - 150;
+      const sp = 900 + rnd(i) * 500, y = (rnd(i + 3) * FH + t * sp) % (FH + 40) - 20 + top, x = ((rnd(i + 9) * (LW + 300) + y * slant) % (LW + 300) + LW + 300) % (LW + 300) - 150;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + slant * 22, y + 22); ctx.stroke();
     }
     ctx.strokeStyle = 'rgba(220,235,255,.6)'; ctx.lineWidth = 2;
@@ -5441,15 +5443,15 @@ function drawWeatherFront(t, dt) {
     ctx.globalAlpha = 1;
   }
   if (k === 'snow' || k === 'blizzard') {
-    const n = k === 'blizzard' ? 200 : 70, drift = (k === 'blizzard' ? 380 : 60) * (w || 0.3);
+    const n = Math.round((k === 'blizzard' ? 200 : 70) * FH / LH), drift = (k === 'blizzard' ? 380 : 60) * (w || 0.3);
     for (let i = 0; i < n; i++) {
-      const sp = 40 + rnd(i) * 60, y = (rnd(i + 11) * LH + t * sp * (k === 'blizzard' ? 2.2 : 1)) % LH, x = ((rnd(i + 5) * LW + t * drift * (0.5 + rnd(i + 2)) + Math.sin(t + i) * 20) % LW + LW) % LW;
+      const sp = 40 + rnd(i) * 60, y = (rnd(i + 11) * FH + t * sp * (k === 'blizzard' ? 2.2 : 1)) % FH + top, x = ((rnd(i + 5) * LW + t * drift * (0.5 + rnd(i + 2)) + Math.sin(t + i) * 20) % LW + LW) % LW;
       ell(x, y, 2 + rnd(i + 7) * 3, 2 + rnd(i + 7) * 3, 'rgba(255,255,255,.9)');
     }
-    if (k === 'blizzard') { ctx.fillStyle = 'rgba(235,242,255,.18)'; ctx.fillRect(0, 0, LW, LH); }
+    if (k === 'blizzard') { ctx.fillStyle = 'rgba(235,242,255,.18)'; ctx.fillRect(0, top, LW, FH); }
   }
   if (k === 'dust') for (let i = 0; i < 60; i++) { const x = ((rnd(i) * LW + t * 500 * Math.sign(w || 1) * (0.6 + rnd(i + 1))) % LW + LW) % LW, y = 380 + rnd(i + 4) * 320; ctx.strokeStyle = 'rgba(210,150,90,.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sign(w || 1) * 26, y + 2); ctx.stroke(); }
-  if (k === 'ash') for (let i = 0; i < 70; i++) { const y = (rnd(i + 2) * LH + t * (25 + rnd(i) * 30)) % LH, x = ((rnd(i + 8) * LW + Math.sin(t * 0.8 + i) * 30 + t * w * 60) % LW + LW) % LW; ell(x, y, 2.5, 2, 'rgba(90,85,90,.75)'); }
+  if (k === 'ash') for (let i = 0; i < Math.round(70 * FH / LH); i++) { const y = (rnd(i + 2) * FH + t * (25 + rnd(i) * 30)) % FH + top, x = ((rnd(i + 8) * LW + Math.sin(t * 0.8 + i) * 30 + t * w * 60) % LW + LW) % LW; ell(x, y, 2.5, 2, 'rgba(90,85,90,.75)'); }
   if (k === 'current') for (let i = 0; i < 40; i++) { const x = ((rnd(i) * LW + t * 160 * Math.sign(w || 1) * (0.5 + rnd(i + 1))) % LW + LW) % LW, y = 80 + rnd(i + 3) * 520 + Math.sin(t * 2 + i) * 10; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sign(w || 1) * 40, y); ctx.stroke(); }
   if (k === 'meteor') for (let i = 0; i < 4; i++) { const cyc = (t * 0.45 + i * 0.27) % 1; if (cyc < 0.25) { const p = cyc / 0.25, x0 = 150 + rnd(i + Math.floor(t * 0.45 + i * 0.27)) * 900, x = x0 + p * 420, y = 40 + p * 200 + i * 20; ctx.strokeStyle = `rgba(255,250,220,${1 - p})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 110, y - 50); ctx.stroke(); ell(x, y, 3, 3, '#ffffff'); } }
   if (k === 'sparkle') for (let i = 0; i < 30; i++) { const a = Math.max(0, Math.sin(t * 2 + i * 1.7)); if (a > 0.6) { ctx.globalAlpha = (a - 0.6) * 2.5; starPath(rnd(i) * LW, rnd(i + 30) * 600, 6 + rnd(i + 2) * 6); ctx.fillStyle = ['#7fe7ff', '#ff8fe0', '#ffffff'][i % 3]; ctx.fill(); } } ctx.globalAlpha = 1;
@@ -6116,22 +6118,41 @@ function drawGone(t) {
   ctx.font = '800 56px "Baloo 2", sans-serif'; ctx.fillText(`Tạm biệt ${state.name}`, 640, 470);
   ctx.font = '500 26px "Be Vietnam Pro", sans-serif'; ctx.fillStyle = 'rgba(242,245,255,.8)'; ctx.fillText('Bấm "Nuôi bé mới" để ấp một quả trứng khác', 640, 530);
 }
-// phones show a taller screen: the extra height (padTop, in 1280px space) is sky above the scene, filled by stretching the top of each frame
-let padTop = 0;
+/* phones show a taller screen. Up to SKY_MAX of extra height (padTop, in 1280px space) is sky above the scene, filled by
+   stretching the top of each frame; beyond that the scene is zoomed in (zoom > 1) so it fills the height, and only viewW of
+   its 1280px width shows, starting at camX, a camera that follows the pet. Minigames always show the whole width. */
+const SKY_MAX = 260;
+let padTop = 0, zoom = 1, viewW = LW, camX = 0;
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   const w = Math.min(2560, Math.max(LW, Math.round(cv.clientWidth * dpr)));
-  padTop = cv.clientWidth ? Math.max(0, Math.round(cv.clientHeight / cv.clientWidth * LW - LH)) : 0;
+  const tall = cv.clientWidth ? cv.clientHeight / cv.clientWidth * LW : LH;   // logical height the screen has at full width
+  zoom = !game && tall > LH + SKY_MAX ? tall / (LH + SKY_MAX) : 1;
+  padTop = zoom > 1 ? SKY_MAX : Math.max(0, Math.round(tall - LH));
   if (padTop < 20) padTop = 0;
-  const h = Math.round(w * (LH + padTop) / LW);
+  viewW = LW / zoom;
+  const h = Math.round(w * (LH + padTop) * zoom / LW);
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; $('res').textContent = `${cv.width}×${cv.height}`; }
 }
+// keep the pet inside the middle of the view, gliding; visits, the egg and the farewell screen stay centred
+function moveCamera(dt) {
+  if (zoom <= 1) { camX = 0; return; }
+  const max = LW - viewW, follow = !house && state && state.hatched && state.alive;
+  let target = (LW - viewW) / 2;
+  if (follow) { const x = pet.x - camX; target = x < viewW * 0.32 ? pet.x - viewW * 0.32 : x > viewW * 0.68 ? pet.x - viewW * 0.68 : camX; }
+  target = Math.max(0, Math.min(max, target));
+  camX = Math.abs(target - camX) > viewW ? target : camX + (target - camX) * Math.min(1, dt * 4);
+  camX = Math.max(0, Math.min(max, camX));
+}
+const worldK = () => cv.width / LW * zoom;
 function fillBand() {
   if (!padTop) return;
-  const k = cv.width / LW, pp = Math.round(padTop * k), strip = Math.round(LH * 0.12 * k);
+  const k = worldK(), pp = Math.round(padTop * k), strip = Math.round(LH * 0.12 * k);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(cv, 0, pp, cv.width, strip, 0, 0, cv.width, pp + strip); ctx.restore();
 }
-const worldSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, padTop * k); };
+const worldSpace = () => { const k = worldK(); ctx.setTransform(k, 0, 0, k, -camX * k, padTop * k); };
+// draw something meant to stay put on screen (the habitat label) while the world is zoomed and panned
+const onScreen = fn => { ctx.save(); ctx.translate(camX, LH); ctx.scale(1 / zoom, 1 / zoom); ctx.translate(0, -LH); fn(); ctx.restore(); };
 const topSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0); };
 let lastTs = performance.now();
 // on-screen labels are drawn in 1280px space; on small screens they are enlarged so they stay readable
@@ -6139,12 +6160,13 @@ let uiK = 1, noteT = 0;
 const scaled = (ax, ay, fn) => { ctx.save(); ctx.translate(ax, ay); ctx.scale(uiK, uiK); ctx.translate(-ax, -ay); fn(); ctx.restore(); };
 function render(ts) {
   const dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts; const t = ts / 1000;
-  resize(); worldSpace();
-  uiK = Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
+  resize(); moveCamera(dt); worldSpace();
+  uiK =Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
   if (house) { drawHouse(t); drawParticles(dt); fillBand(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
   if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t, dt); } else drawRoom(t);
+  fillBand();   // the sky band (phones) is stretched from the bare scene, so texts, the pet and particles above it are not smeared
   if (!state || !state.hatched) drawEgg(t);
   else if (state.trip) { drawPoops(t); drawTripSign(t); }
   else {
@@ -6178,17 +6200,17 @@ function render(ts) {
       drawBroom(sx, GROUND + 16, swing);
     }
     if (state.asleep && state.lightOff) {
-      ctx.fillStyle = 'rgba(8,12,34,.74)'; ctx.fillRect(0, 0, LW, LH);
+      ctx.fillStyle = 'rgba(8,12,34,.74)'; ctx.fillRect(0, -padTop, LW, LH + padTop);
       const g = ctx.createRadialGradient(310, 210, 20, 310, 260, 420); g.addColorStop(0, 'rgba(170,190,255,.22)'); g.addColorStop(1, 'rgba(170,190,255,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
     }
   }
   drawParticles(dt);
   if (state && state.hatched && state.alive) { updateWind(t, dt); drawWeatherFront(t, dt); }
-  if (state && state.hatched && !game) scaled(22, LH - 20, drawBadge);
-  if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, 0, LW, LH); } }
-  // the sky band (phones), then everything that sits on top of the picture: the stats strip at the very top, banners, the chat bubble
-  fillBand(); topSpace();
+  if (state && state.hatched && !game) onScreen(() => scaled(22, LH - 20, drawBadge));
+  if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, -padTop, LW, LH + padTop); } }
+  // everything that sits on top of the picture: the stats strip at the very top, banners, the chat bubble
+  topSpace();
   if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
   drawBanner();
   worldSpace();
@@ -6253,7 +6275,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030144947';
+  const BUILD = '20261030150019';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
