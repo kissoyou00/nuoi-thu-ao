@@ -2121,7 +2121,8 @@ function cupPositions(T) {
   }
   return pos;
 }
-function bigText(txt, color, y = 150) { scaled(640, y, () => bigTextRaw(txt, color, y)); }
+// centred on what the camera shows (the middle of the picture unless the phone view is zoomed in)
+function bigText(txt, color, y = 150) { ctx.save(); ctx.translate(camX + viewW / 2 - 640, 0); scaled(640, y, () => bigTextRaw(txt, color, y)); ctx.restore(); }
 function bigTextRaw(txt, color, y) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '800 60px "Baloo 2", sans-serif';
   ctx.lineWidth = 10; ctx.strokeStyle = '#ffffff'; ctx.strokeText(txt, 640, y); ctx.fillStyle = color; ctx.fillText(txt, 640, y);
@@ -3455,6 +3456,7 @@ function drawHouse(t) {
   const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod); BACKDROPS[theme].live(t, tod);
   (h.decor || []).forEach(id => { if (DECOR_X[id]) drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); });
+  fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
   if (p && p.alive) {
     const md = h.moodUntil > now() ? h.mood : 'happy', b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
     if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 820, b.cy - b.ry, b.R, t);
@@ -5061,7 +5063,7 @@ const BACKDROPS = {
         const bx = 260 + (Math.floor(t / 6) % 5) * 180;
         ctx.save(); ctx.strokeStyle = '#fff6c0'; ctx.lineWidth = 5; ctx.shadowColor = '#d8e4ff'; ctx.shadowBlur = 30; ctx.lineJoin = 'round';
         ctx.beginPath(); ctx.moveTo(bx, 120); [[30, 190], [-10, 210], [40, 300], [5, 320], [50, 460]].forEach(([dx, y]) => ctx.lineTo(bx + dx, y)); ctx.stroke(); ctx.restore();
-        ctx.fillStyle = `rgba(230,236,255,${(0.2 - cyc) / 0.2 * 0.4})`; ctx.fillRect(0, 0, LW, LH);
+        ctx.fillStyle = `rgba(230,236,255,${(0.2 - cyc) / 0.2 * 0.4})`; ctx.fillRect(0, -padTop, LW, LH + padTop);
       }
       ctx.strokeStyle = 'rgba(180,200,255,.35)'; ctx.lineWidth = 1.5;
       for (let i = 0; i < 90; i++) { const y = (rnd(i + 7) * LH + t * 900 * (0.8 + rnd(i) * 0.4)) % LH, x = (rnd(i) * LW - y * 0.15 + LW) % LW; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 18); ctx.stroke(); }
@@ -5265,6 +5267,63 @@ function drawBackdrop(theme, tod) {
   if (!BAKED.img || BAKED.base !== base) { BAKED.img = bakeBackdrop(theme, tod, w); BAKED.base = base; BAKED.w = w; }
   else if (BAKED.w !== w && !BAKED.timer) BAKED.timer = setTimeout(() => { BAKED.timer = 0; BAKED.base = ''; }, 300);   // window being resized: rebake once it settles
   ctx.drawImage(BAKED.img, 0, 0, LW, LH);
+  if (padTop) { drawSkyExt(theme, tod); bandDone = true; }
+}
+/* tall phone screens: a real painting above the 16:9 backdrop instead of a stretched strip. It continues the colours at the
+   seam (with a soft mirrored blend), deepens towards the top, and adds what belongs up there in each habitat. Baked once
+   per backdrop and size, drawn in world space so it pans with the camera. */
+const EXT = { key: '', img: null };
+let bandDone = false;
+const EXT_ZENITH = { ocean: '#c9f3ff', volcano: '#080306', crystal: '#05040c', haunted: '#05030f', space: '#010107' };
+function drawSkyExt(theme, tod) {
+  const H = padTop, k = worldK(), w = Math.round(LW * k), key = [BAKED.base, w, H].join('|');
+  if (EXT.key !== key) { EXT.img = bakeSkyExt(theme, tod, w, H, k); EXT.key = key; }
+  ctx.drawImage(EXT.img, 0, -H, LW, H);
+}
+function bakeSkyExt(theme, tod, w, H, k) {
+  const hp = Math.max(1, Math.round(H * k)), c = document.createElement('canvas'); c.width = w; c.height = hp;
+  const g = c.getContext('2d'), src = BAKED.img, saved = ctx;
+  // the colour along the top edge of the backdrop, smoothed sideways, and its average
+  const row = document.createElement('canvas'); row.width = 32; row.height = 1; const rg = row.getContext('2d');
+  rg.drawImage(src, 0, 0, src.width, Math.max(2, Math.round(src.height * 0.02)), 0, 0, 32, 1);
+  const px = rg.getImageData(0, 0, 32, 1).data; let ar = 0, ag = 0, ab = 0; for (let i = 0; i < 32; i++) { ar += px[i * 4]; ag += px[i * 4 + 1]; ab += px[i * 4 + 2]; }
+  const avg = toHex([ar / 32, ag / 32, ab / 32]);
+  g.imageSmoothingEnabled = true; g.drawImage(row, 0, 0, 32, 1, 0, 0, w, hp);
+  try {
+    ctx = g; ctx.setTransform(k, 0, 0, k, 0, H * k);   // draw with y from -H (top) to 0 (the seam)
+    const outdoor = OUTDOOR.includes(theme), night = tod === 'night';
+    const zen = EXT_ZENITH[theme] || (night ? '#01030f' : tod === 'dusk' ? '#151a4a' : theme === 'storm' ? '#14162a' : mixC(avg, '#0a2a6e', 0.55));
+    ctx.fillStyle = vgrad(-H, 0, rgba(zen, 1), rgba(zen, 0)); ctx.fillRect(0, -H, LW, H);
+    const stars = n => { for (let i = 0; i < n; i++) { const x = rnd(i + 9400) * LW, y = -rnd(i + 9500) * H * 0.95, b = rnd(i + 9600); ctx.fillStyle = `rgba(255,255,255,${(0.25 + b * 0.75) * Math.min(1, -y / H * 1.6)})`; ctx.beginPath(); ctx.arc(x, y, 0.6 + b * b * 1.6, 0, TAU); ctx.fill(); } };
+    const clouds = (n, tone, a, sc = 1) => { for (let i = 0; i < n; i++) drawCloud(rnd(i + 9700) * LW, -H * (0.25 + rnd(i + 9701) * 0.6), (0.6 + rnd(i + 9702) * 0.6) * sc, i, tone, a); };
+    if (theme === 'space') { stars(Math.round(H * 1.1)); for (let i = 0; i < 8; i++) glow(rnd(i + 9800) * LW, -rnd(i + 9801) * H, 120 + rnd(i + 9802) * 160, ['#ff4fa8', '#7a5cff', '#2fd0ff'][i % 3], 0.08); }
+    else if (theme === 'haunted') { stars(Math.round(H * 0.5)); clouds(3, 'night', 0.35); }
+    else if (theme === 'ocean') {
+      // towards the surface: light rays, a rippling bright surface at the very top, a few bubbles
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 9; i++) { const x = rnd(i + 9900) * LW, wd = 30 + rnd(i + 9901) * 60; ctx.fillStyle = vgrad(-H, 0, 'rgba(220,250,255,.12)', 'rgba(220,250,255,0)'); ctx.beginPath(); ctx.moveTo(x - wd, -H); ctx.lineTo(x + wd, -H); ctx.lineTo(x + wd * 2.2 + 80, 0); ctx.lineTo(x - wd * 0.4 + 80, 0); ctx.closePath(); ctx.fill(); }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3;
+      for (let r = 0; r < 3; r++) { ctx.beginPath(); for (let x = 0; x <= LW; x += 16) { const y = -H + 14 + r * 16 + Math.sin(x * 0.03 + r * 2) * 5; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 26; i++) { ctx.beginPath(); ctx.arc(rnd(i + 9950) * LW, -rnd(i + 9951) * H * 0.85, 3 + rnd(i + 9952) * 7, 0, TAU); ctx.stroke(); }
+    } else if (theme === 'volcano') { clouds(5, 'ash', 0.8, 1.2); for (let i = 0; i < 40; i++) ell(rnd(i + 9990) * LW, -rnd(i + 9991) * H, 2, 2, rgba('#ffb347', 0.5 + rnd(i + 9992) * 0.5)); }
+    else if (theme === 'crystal') {
+      // a cave ceiling: hanging rock and glowing crystals
+      for (let i = 0; i < 26; i++) { const x = rnd(i + 9300) * LW, len = H * (0.15 + rnd(i + 9301) * 0.4), wd = 18 + rnd(i + 9302) * 40; tri(x - wd, -H, x + wd, -H, x + (rnd(i + 9303) - 0.5) * 20, -H + len, i % 2 ? '#141026' : '#1d1736'); }
+      for (let i = 0; i < 9; i++) shard(rnd(i + 9350) * LW, -H, 0.6 + rnd(i + 9351) * 0.6, ['#9be7ff', '#d0a8ff', '#ff9ad5'][i % 3], true);
+    } else if (outdoor) {
+      if (night) { stars(Math.round(H * 0.9)); clouds(2, 'night', 0.4); }
+      else if (theme === 'storm') clouds(6, tod === 'dusk' ? 'dusk' : 'storm', 0.95, 1.3);
+      else clouds(theme === 'sky' ? 5 : 3, theme === 'fairy' && tod === 'day' ? 'pink' : tod, 0.85);
+    }
+    // a soft mirrored copy of the backdrop's top edge hides the seam
+    const m = Math.min(H, 70), mp = Math.round(m * k), mc = document.createElement('canvas'); mc.width = w; mc.height = mp;
+    const mg = mc.getContext('2d'); mg.translate(0, mp); mg.scale(1, -1); mg.drawImage(src, 0, 0, src.width, Math.round(src.height * m / LH), 0, 0, w, mp);
+    mg.setTransform(1, 0, 0, 1, 0, 0); mg.globalCompositeOperation = 'destination-in'; const fg = mg.createLinearGradient(0, 0, 0, mp); fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, 'rgba(0,0,0,.85)'); mg.fillStyle = fg; mg.fillRect(0, 0, w, mp);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(mc, 0, hp - mp);
+  } finally { ctx = saved; }
+  return c;
 }
 const RAR_FX = {
   rare: { spark: 12, col: ['#9fd0ff'] },
@@ -5291,7 +5350,7 @@ function drawRarityFX(t, rar) {
     starPath(x, y, 5 + rnd(i + 9) * 6); ctx.fillStyle = fx.col ? fx.col[i % fx.col.length] : `hsl(${(i * 47 + t * 60) % 360},90%,75%)`; ctx.fill();
   }
   ctx.globalAlpha = 1;
-  if (fx.vig) { const g = ctx.createRadialGradient(640, 360, 320, 640, 360, 820); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, fx.vig); ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH); }
+  if (fx.vig) { const g = ctx.createRadialGradient(640, 360, 320, 640, 360, 820); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, fx.vig); ctx.fillStyle = g; ctx.fillRect(0, -padTop, LW, LH + padTop); }
 }
 function drawScene(t) {
   const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
@@ -5416,11 +5475,11 @@ function drawBird(b, t) {
 function drawAmbientBack(t, theme) {
   const dt = 1 / 60;
   if (isWet() || weather.kind === 'blizzard' || weather.kind === 'dust' || weather.kind === 'ash') {
-    const g = ctx.createLinearGradient(0, 0, 0, LH), dark = weather.kind === 'storm' ? 0.42 : weather.kind === 'dust' ? 0 : 0.22;
+    const g = ctx.createLinearGradient(0, -padTop, 0, LH), dark = weather.kind === 'storm' ? 0.42 : weather.kind === 'dust' ? 0 : 0.22;
     if (weather.kind === 'dust') { g.addColorStop(0, 'rgba(230,170,110,.35)'); g.addColorStop(1, 'rgba(230,170,110,.15)'); }
     else if (weather.kind === 'ash') { g.addColorStop(0, 'rgba(60,50,55,.35)'); g.addColorStop(1, 'rgba(60,50,55,.1)'); }
     else { g.addColorStop(0, `rgba(25,30,55,${dark})`); g.addColorStop(1, `rgba(25,30,55,${dark * 0.4})`); }
-    ctx.fillStyle = g; ctx.fillRect(0, 0, LW, LH);
+    ctx.fillStyle = g; ctx.fillRect(0, -padTop, LW, LH + padTop);   // (also over the phone sky band)
     if (isWet() || weather.kind === 'blizzard') for (let i = 0; i < 4; i++) drawCloud(((t * (20 + Math.abs(weather.wind) * 60) * Math.sign(weather.wind || 1) + i * 380) % 1700 + 1700) % 1700 - 200, 150 + (i % 2) * 40, 1.3, i, weather.kind === 'storm' ? 'storm' : 'rain', 0.9);
   }
   weather.birds.forEach(b => { b.x += (b.vx + weather.gust * 60) * dt; b.y += Math.sin(t * 2 + b.ph) * 0.3; drawBird(b, t); });
@@ -5476,7 +5535,7 @@ function drawWeatherFront(t, dt) {
   // lightning
   const fl = now() - weather.flash;
   if (fl < 260) {
-    ctx.fillStyle = `rgba(255,255,245,${(1 - fl / 260) * 0.6})`; ctx.fillRect(0, 0, LW, LH);
+    ctx.fillStyle = `rgba(255,255,245,${(1 - fl / 260) * 0.6})`; ctx.fillRect(0, -padTop, LW, LH + padTop);
     if (fl < 160) {
       ctx.save(); ctx.strokeStyle = '#fff8c4'; ctx.lineWidth = 7; ctx.shadowColor = '#fff8c4'; ctx.shadowBlur = 30; ctx.lineJoin = 'round';
       const bx = weather.boltX; ctx.beginPath(); ctx.moveTo(bx, 0); [[30, 120], [-15, 135], [40, 260], [0, 275], [55, 440]].forEach(([dx, y]) => ctx.lineTo(bx + dx, y)); ctx.stroke(); ctx.restore();
@@ -6137,7 +6196,7 @@ function resize() {
 // keep the pet inside the middle of the view, gliding; visits, the egg and the farewell screen stay centred
 function moveCamera(dt) {
   if (zoom <= 1) { camX = 0; return; }
-  const max = LW - viewW, follow = !house && state && state.hatched && state.alive;
+  const max = LW - viewW, follow = !house && state && state.hatched && state.alive && !state.trip;
   let target = (LW - viewW) / 2;
   if (follow) { const x = pet.x - camX; target = x < viewW * 0.32 ? pet.x - viewW * 0.32 : x > viewW * 0.68 ? pet.x - viewW * 0.68 : camX; }
   target = Math.max(0, Math.min(max, target));
@@ -6145,25 +6204,28 @@ function moveCamera(dt) {
   camX = Math.max(0, Math.min(max, camX));
 }
 const worldK = () => cv.width / LW * zoom;
+// screens without a habitat backdrop (the egg room, the farewell sky) still stretch their top edge into the band
 function fillBand() {
-  if (!padTop) return;
+  if (!padTop || bandDone) return;
   const k = worldK(), pp = Math.round(padTop * k), strip = Math.round(LH * 0.12 * k);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(cv, 0, pp, cv.width, strip, 0, 0, cv.width, pp + strip); ctx.restore();
 }
-const worldSpace = () => { const k = worldK(); ctx.setTransform(k, 0, 0, k, -camX * k, padTop * k); };
+let spaceZ = 1;   // how much the current drawing space is enlarged beyond the plain full-width picture
+const worldSpace = () => { const k = worldK(); ctx.setTransform(k, 0, 0, k, -camX * k, padTop * k); spaceZ = zoom; };
 // draw something meant to stay put on screen (the habitat label) while the world is zoomed and panned
-const onScreen = fn => { ctx.save(); ctx.translate(camX, LH); ctx.scale(1 / zoom, 1 / zoom); ctx.translate(0, -LH); fn(); ctx.restore(); };
-const topSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0); };
+const onScreen = fn => { ctx.save(); ctx.translate(camX, LH); ctx.scale(1 / zoom, 1 / zoom); ctx.translate(0, -LH); spaceZ = 1; try { fn(); } finally { spaceZ = zoom; ctx.restore(); } };
+const topSpace = () => { const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0); spaceZ = 1; };
 let lastTs = performance.now();
 // on-screen labels are drawn in 1280px space; on small screens they are enlarged so they stay readable
+// (in the zoomed phone view the world is already enlarged, so labels drawn there are scaled by uiK / zoom to keep the same size on screen)
 let uiK = 1, noteT = 0;
-const scaled = (ax, ay, fn) => { ctx.save(); ctx.translate(ax, ay); ctx.scale(uiK, uiK); ctx.translate(-ax, -ay); fn(); ctx.restore(); };
+const scaled = (ax, ay, fn) => { const f = uiK / spaceZ; ctx.save(); ctx.translate(ax, ay); ctx.scale(f, f); ctx.translate(-ax, -ay); fn(); ctx.restore(); };
 function render(ts) {
   const dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts; const t = ts / 1000;
-  resize(); moveCamera(dt); worldSpace();
+  resize(); moveCamera(dt); worldSpace(); bandDone = false;
   uiK =Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
-  if (house) { drawHouse(t); drawParticles(dt); fillBand(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
+  if (house) { drawHouse(t); drawParticles(dt); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
   if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t, dt); } else drawRoom(t);
   fillBand();   // the sky band (phones) is stretched from the bare scene, so texts, the pet and particles above it are not smeared
@@ -6275,7 +6337,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030150019';
+  const BUILD = '20261030151338';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
