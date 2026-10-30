@@ -975,9 +975,9 @@ function discover(id, idx) {
   renderDex();
 }
 
-/* ---------- sound: soft synthesized effects + a music-box tune, no audio files ---------- */
+/* ---------- sound: soft synthesized effects + a cheerful background tune, no audio files ---------- */
 const Sound = (() => {
-  let ac = null, master = null, noiseBuf = null, on = true, music = true, beat = 0, rainGain = null;
+  let ac = null, master = null, noiseBuf = null, on = true, music = true, rainGain = null;
   try { const o = JSON.parse(localStorage.getItem('thu-ao-sound')); if (o) { on = o.on !== false; music = o.music !== false; } } catch (e) {}
   const persist = () => { try { localStorage.setItem('thu-ao-sound', JSON.stringify({ on, music })); } catch (e) {} };
   const N = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -1052,21 +1052,68 @@ const Sound = (() => {
       o.connect(f); f.connect(g); g.connect(master); o.start(t0); lfo.start(t0); o.stop(t0 + 1); lfo.stop(t0 + 1);
     },
   };
-  // gentle pentatonic music box; slower, lower lullaby while the pet sleeps
-  const SCALE = [60, 62, 64, 67, 69, 72, 74, 76];
+  /* background music: a bright, bouncy 16-bar tune in C (marimba melody, ukulele off-beats, bass, soft kick and shaker),
+     scheduled ahead on the audio clock so it stays in time; every third time round the melody rests and a glockenspiel
+     arpeggio plays instead. While the pet sleeps it turns into a slow, quiet lullaby. */
+  const BPM = 112, E = 60 / BPM / 2;                                    // one eighth note
+  const CHORD = { C: [60, 64, 67], G: [59, 62, 67], Am: [57, 60, 64], F: [57, 60, 65], Em: [55, 59, 64] };
+  const ROOT = { C: 36, G: 43, Am: 45, F: 41, Em: 40 };
+  const BARS = ['C', 'G', 'Am', 'F', 'C', 'G', 'F', 'G', 'F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'C'];
+  // melody per bar: [eighth, note, length in eighths]
+  const MEL = [
+    [[0, 76, 2], [2, 79, 2], [4, 84, 2], [6, 79, 2]], [[0, 83, 3], [3, 81, 1], [4, 79, 4]],
+    [[0, 76, 2], [2, 77, 1], [3, 79, 1], [4, 81, 2], [6, 84, 2]], [[0, 81, 4], [4, 77, 2], [6, 76, 2]],
+    [[0, 76, 1], [1, 77, 1], [2, 79, 2], [4, 84, 2], [6, 88, 2]], [[0, 86, 2], [2, 84, 2], [4, 83, 2], [6, 79, 2]],
+    [[0, 81, 2], [2, 84, 2], [4, 81, 2], [6, 77, 2]], [[0, 79, 6]],
+    [[0, 77, 1], [1, 79, 1], [2, 81, 2], [4, 81, 1], [5, 79, 1], [6, 77, 2]], [[0, 79, 2], [2, 74, 2], [4, 79, 2], [6, 83, 2]],
+    [[0, 83, 2], [2, 79, 2], [4, 76, 2], [6, 79, 2]], [[0, 81, 4], [4, 84, 4]],
+    [[0, 84, 2], [2, 81, 1], [3, 84, 1], [4, 89, 2], [6, 88, 2]], [[0, 86, 2], [2, 83, 2], [4, 79, 2], [6, 86, 2]],
+    [[0, 84, 3], [3, 83, 1], [4, 84, 4]], [[0, 91, 1], [1, 88, 1], [2, 84, 2]],
+  ];
+  const LULLABY = [60, 62, 64, 67, 69, 72];
+  let bus = null, nextT = 0, step = 0;
+  function note(t, f, dur, type, vol, attack = 0.006) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function kick(t) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.2);
+    g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.25);
+  }
+  function hat(t, vol) {
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = 7000;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.5); s.stop(t + 0.08);
+  }
+  function playStep(i, t, sleepy) {
+    const bar = Math.floor(i / 8) % 16, e = i % 8, loop = Math.floor(i / 128), ch = BARS[bar];
+    if (sleepy) {                                                       // lullaby: a soft pad each bar and a few low music-box notes
+      if (e === 0) CHORD[ch].forEach(n => note(t, N(n - 12), E * 8, 'sine', 0.009, 0.4));
+      if (e % 4 === 0 && Math.random() < 0.7) note(t, N(LULLABY[Math.floor(Math.random() * LULLABY.length)]), E * 6, 'triangle', 0.016, 0.03);
+      return;
+    }
+    if (e === 0 || e === 4) kick(t);
+    if (e % 2 === 1) hat(t, 0.006);
+    const r = ROOT[ch], bass = { 0: r, 3: r + 12, 4: r + 7, 6: r + 12 }[e];
+    if (bass) note(t, N(bass), e === 0 || e === 4 ? E * 1.8 : E * 0.8, 'triangle', 0.05);
+    if (e === 2 || e === 6) CHORD[ch].forEach((n, k) => note(t + k * 0.012, N(n), E * 0.9, 'triangle', 0.011));
+    if (loop % 3 === 2) { if (e % 2 === 0) note(t, N(CHORD[ch][(e / 2) % 3] + 24), E * 3, 'sine', 0.014); return; }
+    MEL[bar].forEach(([at, n, len]) => { if (at === e) { note(t, N(n), E * len * 0.9 + 0.12, 'triangle', 0.032); note(t, N(n + 12), E * len * 0.5 + 0.05, 'sine', 0.008); } });
+  }
   setInterval(() => {
-    if (!ac || !on || !music || document.hidden || ac.state !== 'running') return;
-    const sleepy = state && state.asleep;
-    beat++;
-    if (sleepy && beat % 2) return;
-    const n = SCALE[Math.floor(Math.random() * SCALE.length)] - (sleepy ? 12 : 0);
-    if (Math.random() < 0.8) tone(N(n), 1.4, { type: 'triangle', vol: 0.02, attack: 0.02 });
-    if (beat % 8 === 0) tone(N((sleepy ? 36 : 48) + [0, 5, 7, 0][(beat / 8) % 4]), 2.4, { type: 'sine', vol: 0.03, attack: 0.05 });
-  }, 650);
+    if (!ac) return;
+    if (!bus) { bus = ac.createGain(); bus.gain.value = 0; bus.connect(master); }
+    const play = on && music && !document.hidden && ac.state === 'running';
+    bus.gain.setTargetAtTime(play ? 1 : 0, ac.currentTime, play ? 0.6 : 0.15);
+    if (!play) { nextT = 0; return; }
+    const sleepy = !!(state && state.asleep);
+    if (nextT < ac.currentTime) nextT = ac.currentTime + 0.05;
+    while (nextT < ac.currentTime + 0.35) { playStep(step, nextT, sleepy); nextT += sleepy ? E * 1.6 : E; step++; }
+  }, 100);
   return {
     ensure,
     play(name, ...a) { if (on && ac && FX[name]) { try { FX[name](...a); } catch (e) {} } },
-    get on() { return on; }, get music() { return music; },
+    get on() { return on; }, get music() { return music; }, get musicStep() { return step; },
     toggle() { on = !on; persist(); }, toggleMusic() { music = !music; persist(); },
     // a soft looping hiss for rain; level 0..1, faded smoothly
     rain(level) {
@@ -6104,7 +6151,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030123049';
+  const BUILD = '20261030135649';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
