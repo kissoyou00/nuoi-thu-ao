@@ -528,7 +528,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <li><b>Cho ăn</b>, <b>Chơi</b> để kiếm xu, <b>Dọn</b> phân, <b>Thuốc</b> chữa ốm (2 liều), <b>Ngủ</b> khi mệt và nhớ tắt đèn.</li>
         <li><b>Tính cách và khẩu vị:</b> mỗi bé có một tính cách riêng, một món mê nhất và một món ghét. Thử cho ăn để khám phá.</li>
         <li><b>Chăm kỹ thì đẹp:</b> chăm chu đáo, bé tiến hóa thành dạng <b>ánh kim</b> lấp lánh. Bỏ bê thì bé thành dạng <b>cau có</b>.</li>
-        <li><b>Nút ✨</b> mở thêm: 📋 nhiệm vụ mỗi ngày, 🛍️ cửa hàng mũ, kính, đồ trang trí, 🎲 ghé một nhà người chơi bất kỳ (khi chơi offline là 🎒 cho bé đi phiêu lưu), 🎓 dạy kỹ năng, 📷 album ảnh, 🖼️ thẻ khoe thú, 🏡 gửi link mời bạn bè sang chơi.</li>
+        <li><b>Nút ✨</b> mở thêm: 📋 nhiệm vụ ngày và tuần để kiếm xu, 🛍️ cửa hàng mũ, kính, đồ trang trí, 🎲 ghé một nhà người chơi bất kỳ (khi chơi offline là 🎒 cho bé đi phiêu lưu), 🎓 dạy kỹ năng, 📷 album ảnh, 🖼️ thẻ khoe thú, 🏡 gửi link mời bạn bè sang chơi.</li>
         <li><b>Điểm danh mỗi ngày</b> để nhận quà, ngày thứ 7 có quà lớn. Dịp Tết, Trung thu, Halloween, Giáng sinh có trang trí và món ăn đặc biệt.</li>
       </ul>
       <p class="note">Âm thanh bắt đầu sau lần chạm hoặc bấm đầu tiên. Có thể tắt âm thanh hoặc nhạc nền bằng nút phía trên màn hình. Tuổi của bé tính theo thời gian thực. Bầu trời ngoài cửa sổ đổi theo giờ thật. Khi bạn đóng trang, bé vẫn sống nhưng chậm hơn. Dữ liệu chỉ lưu trên trình duyệt này.</p>
@@ -1911,6 +1911,7 @@ function feed(f) {
   if (like === 'hate') s.happy = clamp(s.happy - 8);
   if (like && s.known && !s.known[like]) { s.known[like] = true; log(like === 'fav' ? `Phát hiện: ${s.name} mê nhất ${f.name.toLowerCase()}!` : `Phát hiện: ${s.name} ghét ${f.name.toLowerCase()}.`); }
   if (['apple', 'broccoli', 'soup', 'milk'].includes(f.id)) quest('healthy');
+  quest('feed');
   startAnim('eat', EAT_MS, { food: f.id, fx: f.fx, after: f.after, mode: f.eat, like });
   if (f.cure && s.sick) { s.doses++; if (s.doses >= 2) { s.sick = false; s.doses = 0; log(`${s.name} khỏi ốm nhờ bát súp nóng.`); } }
   say(like === 'fav' ? `${f.name}! Đúng món ruột của ${s.name}, bé sướng rơn cả người!` : like === 'hate' ? `Ơ... ${s.name} ghét ${f.name.toLowerCase()} lắm, nhăn mặt ăn cho xong.` : f.say(s.name), 4500);
@@ -1965,7 +1966,7 @@ const ICON_LABEL = {
   'm-feed': 'Cho ăn', 'm-play': 'Chơi', 'm-talk': 'Trò chuyện', 'm-clean': 'Dọn dẹp', 'm-med': 'Uống thuốc', 'm-sleep': 'Đi ngủ',
   't-fortune': 'Bói vui', 't-news': 'Bản tin Làng Thú', 't-fact': 'Bạn có biết?', 't-joke': 'Chuyện cười', 't-riddle': 'Đố vui',
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
-  'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ hôm nay', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
+  'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ ngày và tuần', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
   'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
   'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
 };
@@ -2359,7 +2360,7 @@ function act(a) {
       else say(`Cần thêm một liều nữa.`); break;
     case 'sleep':
       if (s.energy > 70) { startAnim('no', 1200); say(`${s.name} chưa buồn ngủ.`); break; }
-      s.asleep = true; s.lightOff = false; Sound.play('sleep'); say(`${s.name} đi ngủ. Tắt đèn giúp bé nhé.`); log(`${s.name} đi ngủ.`); break;
+      s.asleep = true; s.lightOff = false; Sound.play('sleep'); say(`${s.name} đi ngủ. Tắt đèn giúp bé nhé.`); log(`${s.name} đi ngủ.`); quest('sleep'); break;
     case 'light': s.lightOff = !s.lightOff; say(s.lightOff ? 'Đã tắt đèn. Chúc ngủ ngon!' : 'Đã bật đèn.'); break;
     case 'wake':
       s.asleep = false; s.lightOff = false; s.happy = clamp(s.happy - 10); Sound.play('ping'); setFace('angry', 3000); setEmote('vein', 3000);
@@ -2560,7 +2561,7 @@ function pickVariant() {
   return s.variant;
 }
 
-/* daily quests and the login streak */
+/* daily quests (4 a day), weekly quests (3 a week, bigger goals) and the login streak */
 const QUESTS = {
   healthy: { text: 'Cho bé ăn 2 món tốt cho sức khỏe (táo, bông cải, súp, sữa)', goal: 2, coin: 8 },
   win: { text: 'Thắng 3 lượt mini game', goal: 3, coin: 10 },
@@ -2571,23 +2572,55 @@ const QUESTS = {
   fav: { text: 'Cho bé ăn đúng món bé thích nhất', goal: 1, coin: 12 },
   train: { text: 'Dạy bé 1 bài kỹ năng', goal: 1, coin: 8 },
   game: { text: 'Chơi trọn 2 ván mini game', goal: 2, coin: 8 },
+  feed: { text: 'Cho bé ăn 3 lần', goal: 3, coin: 6 },
+  sleep: { text: 'Cho bé đi ngủ khi bé mệt', goal: 1, coin: 6 },
+  box: { text: 'Mở 1 hộp bí mật ở 🛍️ Cửa hàng', goal: 1, coin: 10 },
+  wear: { text: 'Thay đồ hoặc bày đồ cho bé 2 lần ở 👗 Tủ đồ', goal: 2, coin: 5, need: () => meta.owned.length > 0 },
+  toy: { text: 'Xem bé chơi với đồ trong nhà 2 lần', goal: 2, coin: 6, need: () => meta.decor.length > 0 },
+  share: { text: 'Tạo 1 thẻ khoe thú', goal: 1, coin: 6 },
+  gift: { text: 'Tặng quà cho 1 người bạn', goal: 1, coin: 12, online: true },
+  note: { text: 'Để lại hoặc trả lời 1 lời nhắn', goal: 1, coin: 8, online: true },
 };
+const WEEKLY = {
+  wdaily: { text: 'Hoàn thành 15 nhiệm vụ ngày', goal: 15, coin: 60 },
+  win: { text: 'Thắng 20 lượt mini game', goal: 20, coin: 45 },
+  pet: { text: 'Vuốt ve bé 40 lần', goal: 40, coin: 30 },
+  feed: { text: 'Cho bé ăn 20 lần', goal: 20, coin: 35 },
+  clean: { text: 'Dọn dẹp cho bé 7 lần', goal: 7, coin: 30 },
+  train: { text: 'Dạy bé 4 bài kỹ năng', goal: 4, coin: 40 },
+  box: { text: 'Mở 3 hộp bí mật', goal: 3, coin: 45 },
+  trip: { text: 'Ghé thăm nhà bạn bè 5 lần', goal: 5, coin: 50, online: true },
+  gift: { text: 'Tặng quà 3 lần', goal: 3, coin: 50, online: true },
+};
+const DAILY_N = 4, DAILY_BONUS = 20, WEEKLY_N = 3, WEEKLY_BONUS = 40;
+// the Monday that starts this week
+const weekKey = (d = new Date()) => { const m = new Date(d); m.setHours(12, 0, 0, 0); m.setDate(m.getDate() - (m.getDay() + 6) % 7); return dayKey(m); };
+const questOk = (Q) => (Net.online || !Q.online) && (!Q.need || Q.need());
 function ensureQuests() {
-  const d = dayKey(); if (meta.quests.day === d) return;
-  meta.quests = { day: d, list: shuffle(Object.keys(QUESTS).filter(k => Net.online || !QUESTS[k].online)).slice(0, 3).map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta();
+  const d = dayKey(), w = weekKey();
+  if (meta.quests.day !== d) { meta.quests = { day: d, list: shuffle(Object.keys(QUESTS).filter(k => questOk(QUESTS[k]))).slice(0, DAILY_N).map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta(); }
+  if (!meta.weekly || meta.weekly.week !== w) { meta.weekly = { week: w, list: ['wdaily', ...shuffle(Object.keys(WEEKLY).filter(k => k !== 'wdaily' && questOk(WEEKLY[k]))).slice(0, WEEKLY_N - 1)].map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta(); }
 }
 function quest(id, n = 1) {
   if (!state || !state.hatched || !state.alive) return;
   ensureQuests();
-  const q = meta.quests.list.find(x => x.id === id), Q = QUESTS[id]; if (!q || q.n >= Q.goal) return;
-  q.n = Math.min(Q.goal, q.n + n); saveMeta();
-  if (q.n >= Q.goal) { Sound.play('win'); say(`Xong nhiệm vụ: ${Q.text.replace(/ \(.*\)/, '')}! Mở ✨ → 📋 để nhận ${Q.coin} xu.`, 5000); syncMode(true); }
+  const step = (list, DEF, weekly) => {
+    const q = list.find(x => x.id === id), Q = DEF[id]; if (!q || q.n >= Q.goal) return;
+    q.n = Math.min(Q.goal, q.n + n); saveMeta();
+    if (q.n >= Q.goal) { Sound.play('win'); say(`Xong nhiệm vụ ${weekly ? 'tuần' : ''}: ${Q.text.replace(/ \(.*\)/, '')}! Mở ✨ → 📋 để nhận ${Q.coin} xu.`, 5000); syncMode(true); }
+  };
+  step(meta.quests.list, QUESTS, false); step(meta.weekly.list, WEEKLY, true);
 }
-const questReady = () => meta.quests.day === dayKey() && meta.quests.list.some(q => !q.claimed && q.n >= QUESTS[q.id].goal);
-function claimQuest(id) {
-  const q = meta.quests.list.find(x => x.id === id); if (!q || q.claimed || q.n < QUESTS[id].goal) return;
-  q.claimed = true; giveCoins(QUESTS[id].coin); Sound.play('win');
-  if (!meta.quests.bonus && meta.quests.list.every(x => x.claimed)) { meta.quests.bonus = true; giveCoins(15); queueBanner({ title: 'Xong cả 3 nhiệm vụ!', sub: 'Thưởng thêm 15 xu. Mai quay lại nhé!', color: '#2b8a3e', dur: 4500 }); }
+const questReady = () => { ensureQuests(); return [[meta.quests.list, QUESTS], [meta.weekly.list, WEEKLY]].some(([l, D]) => l.some(q => !q.claimed && q.n >= D[q.id].goal)); };
+function claimQuest(id, weekly = false) {
+  const box = weekly ? meta.weekly : meta.quests, DEF = weekly ? WEEKLY : QUESTS;
+  const q = box.list.find(x => x.id === id); if (!q || q.claimed || q.n < DEF[id].goal) return;
+  q.claimed = true; giveCoins(DEF[id].coin); Sound.play('win');
+  if (!weekly) quest('wdaily');
+  if (!box.bonus && box.list.every(x => x.claimed)) {
+    box.bonus = true; giveCoins(weekly ? WEEKLY_BONUS : DAILY_BONUS);
+    queueBanner(weekly ? { title: 'Xong nhiệm vụ tuần!', sub: `Thưởng thêm ${WEEKLY_BONUS} xu. Tuần sau có nhiệm vụ mới!`, color: '#7048e8', dur: 4500 } : { title: `Xong cả ${DAILY_N} nhiệm vụ!`, sub: `Thưởng thêm ${DAILY_BONUS} xu. Mai quay lại nhé!`, color: '#2b8a3e', dur: 4500 });
+  }
   saveMeta();
 }
 function checkDay() {
@@ -3077,6 +3110,7 @@ function beginPlay(type, T) {
   const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'admire' ? pet.x + pet.dir : DECOR_X[PLAY_ITEM[type]];
   const dir = target >= pet.x ? 1 : -1; pet.dir = dir;
   idle = { type, start: T, dur: IDLE_DUR[type], dir };
+  if (type !== 'admire') quest('toy');
   pet.tx = pet.x; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
   const quiet = () => now() > sayUntil, w = Object.values(meta.wear || {}).filter(Boolean)[0];
   if (type === 'house') { toy.inFrom = T + IDLE_DUR.house * 0.22; toy.inTo = T + IDLE_DUR.house * 0.78; if (quiet()) say(`${n} chui vào nhà nghỉ một chút...`, 3000); }
@@ -3147,13 +3181,14 @@ function openBox(tier) {
   if (s.coins < B.cost) { say(`Chưa đủ xu mở ${B.name.toLowerCase()} (${B.cost} xu). Chơi trò chơi hoặc làm nhiệm vụ để kiếm thêm nhé.`, 4000); return; }
   s.coins -= B.cost; const it = pick(pool); meta.owned.push(it.id); saveMeta();
   log(`Mở ${B.name.toLowerCase()} (-${B.cost} xu): được ${it.name.toLowerCase()}.`);
-  unboxQ.push({ id: it.id, how: 'box', tier }); closePanel(); save();
+  unboxQ.push({ id: it.id, how: 'box', tier }); quest('box'); closePanel(); save();
 }
 const TIER_NAME = ['', 'Gỗ', 'Bạc', 'Vàng', 'Kim cương'];
 function useItem(id, on) {
   const it = shopItem(id); if (!it) return;
   if (it.slot === 'decor') { meta.decor = meta.decor.filter(x => x !== id); if (on) meta.decor.push(id); }
   else meta.wear[it.slot] = on ? id : '';
+  if (on) quest('wear');
   if (on && state && state.hatched) { setFace('love', 1500); setEmote('heart', 1500); say(it.slot === 'decor' ? `${state.name} rất thích ${it.name.toLowerCase()} mới!` : `${state.name} diện ${it.name.toLowerCase()} trông thật xinh!`, 3000); }
   saveMeta();
 }
@@ -3520,7 +3555,7 @@ const NotePop = {
     if (!b || this.sending) return;
     if (!text) { say('Hãy viết vài chữ đã.', 2500); $('npInput').focus(); return; }
     this.sending = true; $('npSend').disabled = true;
-    try { await Net.rpc('sign_book', { code: await houseCodeFor(b.username), note: text }); say(`Đã nhắn lại cho @${b.username}!`, 3000); Sound.play('happy'); this.done(); }
+    try { await Net.rpc('sign_book', { code: await houseCodeFor(b.username), note: text }); say(`Đã nhắn lại cho @${b.username}!`, 3000); Sound.play('happy'); quest('note'); this.done(); }
     catch (e) { say(errText(e), 4000); }
     finally { this.sending = false; $('npSend').disabled = false; }
   },
@@ -3576,7 +3611,7 @@ async function sendGift(coins, item) {
   try {
     await Net.push();
     applyCloud(await Net.rpc('send_gift', { code: house.code, coins, item: item || '', note }));
-    house.mood = 'love'; house.moodUntil = now() + 3500; Sound.play('win');
+    house.mood = 'love'; house.moodUntil = now() + 3500; Sound.play('win'); quest('gift');
     const what = item ? ((shopItem(item) || {}).name || item).toLowerCase() : `${coins} xu`;
     queueBanner({ title: 'Đã gửi quà!', sub: `Tặng @${house.username} ${what}`, color: '#e64980', dur: 4000 });
     log(`Tặng @${house.username} ${what}.`); closePanel();
@@ -3665,7 +3700,7 @@ function drawItemCanvases() {
 }
 function renderPanel() {
   const s = state, body = $('panelBody'); if (!panelKind || !s) return;
-  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', closet: '👗 Tủ đồ', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
+  const title = { quest: '📋 Nhiệm vụ', shop: '🛍️ Cửa hàng', closet: '👗 Tủ đồ', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
     hood: '🏘️ Hàng xóm', gift: '🎁 Tặng quà', note: '✍️ Sổ lưu bút' }[panelKind];
   $('panelTitle').textContent = title;
   let h = '';
@@ -3712,9 +3747,13 @@ function renderPanel() {
   }
   if (panelKind === 'quest') {
     ensureQuests();
-    h = `<p class="muted">Chuỗi điểm danh: <b>${meta.streak.n} ngày</b>. Mỗi ngày quay lại được quà, ngày thứ 7 có quà lớn. Nhiệm vụ đổi mới mỗi ngày.</p><div class="p-list">` +
-      meta.quests.list.map(q => { const Q = QUESTS[q.id], done = q.n >= Q.goal; return `<div class="p-row"><span>${Q.text}<small>${q.n}/${Q.goal} · thưởng ${Q.coin} xu</small><div class="p-bar"><i style="width:${q.n / Q.goal * 100}%"></i></div></span>${q.claimed ? '<b>✓</b>' : `<button class="p-btn" data-p="claim:${q.id}"${done ? '' : ' disabled'}>Nhận</button>`}</div>`; }).join('') +
-      `</div><p class="muted">Xong cả 3 nhiệm vụ được thưởng thêm 15 xu.</p>` +
+    const rows = (list, DEF, cmd) => list.map(q => { const Q = DEF[q.id], done = q.n >= Q.goal; return `<div class="p-row"><span>${Q.text}<small>${q.n}/${Q.goal} · thưởng ${Q.coin} xu</small><div class="p-bar"><i style="width:${q.n / Q.goal * 100}%"></i></div></span>${q.claimed ? '<b>✓</b>' : `<button class="p-btn" data-p="${cmd}:${q.id}"${done ? '' : ' disabled'}>Nhận</button>`}</div>`; }).join('');
+    const daysLeft = 7 - (new Date().getDay() + 6) % 7;
+    h = `<p class="muted">Chuỗi điểm danh: <b>${meta.streak.n} ngày</b>. Mỗi ngày quay lại được quà, ngày thứ 7 có quà lớn.</p>
+      <div class="p-sec">Hôm nay · đổi mới mỗi ngày</div><div class="p-list">${rows(meta.quests.list, QUESTS, 'claim')}</div>
+      <p class="muted">Xong cả ${meta.quests.list.length} nhiệm vụ hôm nay được thưởng thêm ${DAILY_BONUS} xu.</p>
+      <div class="p-sec">Tuần này · còn ${daysLeft} ngày</div><div class="p-list">${rows(meta.weekly.list, WEEKLY, 'wclaim')}</div>
+      <p class="muted">Xong cả ${meta.weekly.list.length} nhiệm vụ tuần được thưởng thêm ${WEEKLY_BONUS} xu.</p>` +
       (typeof Notification !== 'undefined' ? `<div class="p-row"><span>🔔 Nhắc khi bé cần chăm sóc<small>Hoạt động khi trình duyệt còn mở game ở nền.</small></span><button class="p-btn${meta.notify ? ' alt' : ''}" data-p="notify">${meta.notify ? 'Tắt' : 'Bật'}</button></div>` : '');
   }
   if (panelKind === 'shop') {
@@ -3761,7 +3800,7 @@ function renderPanel() {
       if (panelKind !== 'share') return;
       shareCard().toBlob(blob => {
         if (!blob || panelKind !== 'share') return;
-        if (shareUrl) URL.revokeObjectURL(shareUrl); shareUrl = URL.createObjectURL(blob); renderPanel.blob = blob;
+        if (shareUrl) URL.revokeObjectURL(shareUrl); shareUrl = URL.createObjectURL(blob); renderPanel.blob = blob; quest('share');
         const canFile = navigator.canShare && navigator.canShare({ files: [new File([blob], 'thu-ao.png', { type: 'image/png' })] });
         body.innerHTML = `<img class="p-card" src="${shareUrl}" alt="Thẻ khoe thú"><div class="p-acts">${canFile ? '<button class="p-btn" data-p="sharecard">Chia sẻ</button>' : ''}<a class="p-btn${canFile ? ' alt' : ''}" href="${shareUrl}" download="thu-ao-${esc(s.name)}.png" style="text-decoration:none">Tải ảnh</a></div><p class="muted">Gửi ảnh lên Zalo, Facebook để khoe bé và rủ bạn bè cùng nuôi.</p>`;
       }, 'image/png');
@@ -3781,7 +3820,9 @@ $('panelBody').addEventListener('click', async e => {
   const b = e.target.closest('[data-p]'); if (!b || !state) return;
   const [cmd, arg] = b.dataset.p.split(':');
   Sound.ensure(); Sound.play('click');
-  if (cmd === 'claim') claimQuest(arg);
+  // (a quest's "Nhận" carries the quest id; the gifts button in the neighbours panel is a bare "claim", handled below)
+  if (cmd === 'claim' && arg) { claimQuest(arg); renderPanel(); renderSide(); syncMode(true); return; }
+  if (cmd === 'wclaim') { claimQuest(arg, true); renderPanel(); renderSide(); syncMode(true); return; }
   if (cmd === 'box') { openBox(+arg); syncMode(true); renderSide(); return; }
   if (cmd === 'goto') { openPanel(arg); return; }
   if (cmd === 'ctab') { renderPanel.ctab = arg; renderPanel(); return; }
@@ -3803,7 +3844,7 @@ $('panelBody').addEventListener('click', async e => {
   if (cmd === 'gifti') { await sendGift(0, arg); return; }
   if (cmd === 'sign') {
     const note = $('noteText').value.trim(); if (!note) return;
-    try { await Net.rpc('sign_book', { code: house.code, note }); const h2 = await Net.rpc('visit_house', { code: house.code }); house.book = h2.book; house.mood = 'love'; house.moodUntil = now() + 3000; say('Đã để lại lời nhắn!', 3000); } catch (er) { say(errText(er), 4000); }
+    try { await Net.rpc('sign_book', { code: house.code, note }); const h2 = await Net.rpc('visit_house', { code: house.code }); house.book = h2.book; house.mood = 'love'; house.moodUntil = now() + 3000; say('Đã để lại lời nhắn!', 3000); quest('note'); } catch (er) { say(errText(er), 4000); }
     renderPanel(); return;
   }
   if (cmd === 'invite') { const v = parseVisit($('visitIn').value); if (!v) { say('Mã hoặc link chưa đúng, kiểm tra lại nhé.', 3500); return; } if (startVisit(v)) { closePanel(); syncMode(true); } return; }
@@ -6633,7 +6674,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030162303';
+  const BUILD = '20261030163306';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
