@@ -324,6 +324,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outli
 .sub { margin: 8px 0 0; color: var(--muted); font-weight: 500; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rar { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #fff; padding: 2px 9px; border-radius: 999px; background: var(--r-common); }
 .rar.r-rare { background: var(--r-rare); } .rar.r-epic { background: var(--r-epic); } .rar.r-legend { background: var(--r-legend); } .rar.r-mythic { background: var(--r-mythic); }
+/* the personality line: a tag in the personality's colour, and small coloured chips for likes, dislikes, form, skills and streak */
+#traitLine { gap: 6px 8px; }
+.tr-tag { display: inline-block; color: #fff; background: var(--tc); border-radius: 999px; padding: 1px 10px; font-weight: 700; }
+.tr-desc { color: var(--tc); font-weight: 600; }
+.tr-like, .tr-hate, .tr-var, .tr-skill, .tr-streak { border-radius: 999px; padding: 1px 9px; font-size: .92em; }
+.tr-like { color: #2f9e44; background: rgba(64,192,87,.14); }
+.tr-hate { color: #e03131; background: rgba(250,82,82,.14); }
+.tr-shiny { color: #e67700; background: rgba(252,196,25,.18); }
+.tr-grumpy { color: #868e96; background: rgba(134,142,150,.18); }
+.tr-skill { color: #7048e8; background: rgba(151,117,250,.16); }
+.tr-streak { color: #f76707; background: rgba(255,146,43,.16); }
+@media (prefers-color-scheme: dark) { .tr-like { color: #69db7c; } .tr-hate { color: #ff8787; } .tr-shiny { color: #ffd43b; } .tr-skill { color: #b197fc; } .tr-streak { color: #ffa94d; } }
 .track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .track li { font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .track li.done { color: var(--ink); }
@@ -2273,10 +2285,12 @@ function renderSide() {
   let tl = '';
   if (live && s.trait) {
     const T = TRAITS[s.trait], food = id => (FOODS.find(f => f.id === id) || {}).name || '?', sk = learned();
-    tl = `<span>Tính cách: <b>${T.name}</b> (${T.desc})</span><span>· Thích: <b>${s.known.fav ? food(s.fav) : '???'}</b></span><span>· Ghét: <b>${s.known.hate ? food(s.hate) : '???'}</b></span>` +
-      (s.variant && VARIANT[s.variant] ? `<span>· Dạng ${VARIANT[s.variant].name.toLowerCase()}</span>` : '') +
-      (sk.length ? `<span>· Biết: ${sk.map(k => SKILLS[k].name.toLowerCase()).join(', ')}</span>` : '') +
-      (meta.streak.n ? `<span>· Chuỗi ${meta.streak.n} ngày</span>` : '');
+    // each personality has its own colour: a coloured tag with an icon, and its description in the same tint
+    tl = `<span style="--tc:${T.col}">Tính cách: <b class="tr-tag">${T.icon} ${T.name}</b> <span class="tr-desc">${T.desc}</span></span>` +
+      `<span class="tr-like">❤️ Thích: <b>${s.known.fav ? food(s.fav) : '???'}</b></span><span class="tr-hate">💢 Ghét: <b>${s.known.hate ? food(s.hate) : '???'}</b></span>` +
+      (s.variant && VARIANT[s.variant] ? `<span class="tr-var tr-${s.variant}">${s.variant === 'shiny' ? '✨' : '😤'} Dạng ${VARIANT[s.variant].name.toLowerCase()}</span>` : '') +
+      (sk.length ? `<span class="tr-skill">🎓 Biết: ${sk.map(k => SKILLS[k].name.toLowerCase()).join(', ')}</span>` : '') +
+      (meta.streak.n ? `<span class="tr-streak">🔥 Chuỗi ${meta.streak.n} ngày</span>` : '');
   }
   if ($('traitLine').dataset.k !== tl) { $('traitLine').innerHTML = tl; $('traitLine').dataset.k = tl; $('traitLine').hidden = !tl; }
   if ($('track').dataset.k !== track) { $('track').innerHTML = track; $('track').dataset.k = track; }
@@ -2333,11 +2347,11 @@ function giveCoins(n) { if (state) state.coins += n; else meta.bank += n; saveMe
 
 /* personality, favourite and hated dish, and how well the pet has been looked after (decides its look at each evolution) */
 const TRAITS = {
-  glutton: { name: 'Ham ăn', desc: 'mau đói, được ăn là vui', hunger: 1.3, eatJoy: 6 },
-  lazy: { name: 'Lười biếng', desc: 'ít tốn sức, chơi nhanh chán', energy: 0.75, gameJoy: 0.7 },
-  active: { name: 'Hiếu động', desc: 'mau mệt, mê trò chơi', energy: 1.25, gameJoy: 1.5 },
-  shy: { name: 'Nhút nhát', desc: 'rất thích được vuốt ve', petJoy: 2.5 },
-  sweet: { name: 'Tình cảm', desc: 'ít khi buồn, hay thơm bạn', happy: 0.7 },
+  glutton: { name: 'Ham ăn', desc: 'mau đói, được ăn là vui', col: '#f08c00', icon: '🍙', hunger: 1.3, eatJoy: 6 },
+  lazy: { name: 'Lười biếng', desc: 'ít tốn sức, chơi nhanh chán', col: '#4dabf7', icon: '😴', energy: 0.75, gameJoy: 0.7 },
+  active: { name: 'Hiếu động', desc: 'mau mệt, mê trò chơi', col: '#ff6b6b', icon: '⚡', energy: 1.25, gameJoy: 1.5 },
+  shy: { name: 'Nhút nhát', desc: 'rất thích được vuốt ve', col: '#f06595', icon: '🙈', petJoy: 2.5 },
+  sweet: { name: 'Tình cảm', desc: 'ít khi buồn, hay thơm bạn', col: '#9775fa', icon: '💕', happy: 0.7 },
 };
 const trait = k => ((state && TRAITS[state.trait]) || {})[k];
 const VARIANT = { shiny: { name: 'Ánh kim', filter: 'saturate(1.35) brightness(1.08) contrast(1.05)' }, grumpy: { name: 'Cau có', filter: 'saturate(.55) brightness(.86) hue-rotate(-14deg)' } };
@@ -5982,7 +5996,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030114157';
+  const BUILD = '20261030122051';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
