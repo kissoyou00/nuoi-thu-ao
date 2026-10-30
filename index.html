@@ -121,6 +121,44 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .talk:not(.full) dl, .talk:not(.full) small { display: none; }
   .talk-act button { font-size: 13px; padding: 7px 12px; }
 }
+/* shop, quests, adventures, album, share card and visits open in this card over the screen (under it on phones) */
+.panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; width: min(600px, calc(100% - 24px)); max-height: calc(100% - 24px);
+  overflow: auto; box-sizing: border-box; background: #fffdf8; color: #2b2220; border-radius: 18px; padding: 12px 16px 14px; box-shadow: 0 14px 40px rgba(0,0,0,.35); display: grid; gap: 10px;
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: -12px; background: #fffdf8; padding: 4px 0; z-index: 1; }
+.panel-head b { font: 800 18px var(--display); }
+.panel-x { border: 0; background: #f1f3f5; border-radius: 50%; width: 32px; height: 32px; font-size: 15px; cursor: pointer; color: #2b2220; }
+#panelBody { display: grid; gap: 10px; }
+.panel p { margin: 0; font-size: 14px; line-height: 1.45; }
+.panel .muted { color: #8a7a72; font-size: 13px; }
+.p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.p-item { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 8px 6px; border-radius: 14px; background: #f6f1ea; font-size: 13px; }
+.p-item.on { box-shadow: inset 0 0 0 2px var(--shell-d); background: #fff4e6; }
+.bezel .p-item canvas { width: 64px; height: 64px; aspect-ratio: auto; background: none; border-radius: 0; max-width: none; }
+.p-item b { font-size: 13.5px; }
+.p-btn { font: 700 13px/1 var(--body); border: 0; border-radius: 999px; padding: 8px 12px; cursor: pointer; background: var(--shell-d); color: #fff; }
+.p-btn.alt { background: transparent; color: #2b2220; box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
+.p-btn:disabled { opacity: .45; cursor: not-allowed; }
+.p-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 14px; background: #f6f1ea; }
+.p-row > span { flex: 1; min-width: 0; font-size: 14px; }
+.p-row small { display: block; color: #8a7a72; font-size: 12.5px; margin-top: 2px; }
+.p-bar { height: 6px; border-radius: 3px; background: rgba(0,0,0,.1); overflow: hidden; margin-top: 5px; }
+.p-bar i { display: block; height: 100%; background: #40c057; }
+.p-list { display: grid; gap: 8px; }
+.p-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.p-photos figure { margin: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.p-photos img { width: 100%; border-radius: 10px; display: block; aspect-ratio: 16/9; object-fit: cover; }
+.p-card { width: min(100%, 280px); justify-self: center; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.p-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.p-input { flex: 1; min-width: 0; font: 500 14px var(--body); padding: 9px 12px; border-radius: 10px; border: 1px solid #dcd3c8; background: #fff; color: #2b2220; }
+.pip { position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: #fa5252; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
+@media (max-width: 640px) {
+  .panel { position: static; transform: none; width: auto; max-height: none; margin-top: 8px; box-shadow: none; padding: 10px 12px 12px; }
+  .p-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .bezel .p-item canvas { width: 52px; height: 52px; }
+  .p-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .bezel { position: relative; background: #2f343b; border-radius: 22px; padding: 10px; box-shadow: inset 0 3px 8px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.35); }
 /* the screen grows with the window but never taller than the viewport leaves room for (fits laptops 16:9, 16:10, 3:2) */
 .bezel canvas {
@@ -148,9 +186,9 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   .device .pad { gap: 6px; }
   .device .pad button.icon, .device .pad button.food { width: clamp(38px, 11.2vw, 50px); height: clamp(38px, 11.2vw, 50px); padding: 3px; border-radius: 12px; box-shadow: 0 3px 0 color-mix(in oklab, var(--shell) 55%, #000); }
   .device .pad button.food .coin { min-width: 16px; height: 16px; font-size: 10px; line-height: 16px; }
-  /* the food menu (8 dishes + back) always fits on one row */
+  /* the food and extras menus always fit on one row (--n = number of buttons) */
   .device .below.wide .pad { gap: 4px; flex-wrap: nowrap; }
-  .device .below.wide .pad button.food, .device .below.wide .pad button.icon { width: calc((100% - 32px) / 9); max-width: 50px; height: auto; aspect-ratio: 1; padding: 2px; border-radius: 10px; }
+  .device .below.wide .pad button.food, .device .below.wide .pad button.icon { width: calc((100% - (var(--n, 9) - 1) * 4px) / var(--n, 9)); max-width: 50px; height: auto; aspect-ratio: 1; padding: 2px; border-radius: 10px; }
   .device .below.wide .pad button.food .coin { min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; right: -3px; top: -5px; padding: 0 3px; }
   .device .say { font-size: 12.5px; min-height: 0; padding: 6px 10px; border-radius: 11px; }
   .device .below { gap: 8px; }
@@ -318,6 +356,10 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <ol id="installSteps"></ol>
         <div class="talk-act"><button type="button" class="alt" id="installLater">Để sau</button><button type="button" id="installNow" hidden>📲 Cài ngay</button><button type="button" id="installOk">Đã hiểu</button></div>
       </div>
+      <div class="panel" id="panel" hidden role="dialog" aria-labelledby="panelTitle">
+        <div class="panel-head"><b id="panelTitle"></b><button type="button" class="panel-x" id="panelClose" aria-label="Đóng">✕</button></div>
+        <div id="panelBody"></div>
+      </div>
       <div class="talk" id="talk" hidden aria-live="polite">
         <div class="talk-k" id="talkKind"></div>
         <p id="talkText"></p>
@@ -351,6 +393,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
       <header>
         <h1 id="petName">Quả trứng bí ẩn</h1>
         <p class="sub" id="stageLine">Chưa nở</p>
+        <p class="sub" id="traitLine" hidden></p>
       </header>
       <div>
         <ol class="track" id="track"></ol>
@@ -380,6 +423,10 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <li><b>Nắm và kéo</b> để nhấc bé lên, vung tay rồi thả để ném. Ném nhẹ bé thích, ném mạnh hoặc đập tường bé sẽ chóng mặt. Có thể bắt bé giữa không trung.</li>
         <li><b>Chơi</b> 5 trò để kiếm xu: Đoán hướng, Tung xúc xắc, Oẳn tù tì, Bốc bài cao thấp, Úp ly tìm kẹo.</li>
         <li><b>Cho ăn</b>, <b>Chơi</b> để kiếm xu, <b>Dọn</b> phân, <b>Thuốc</b> chữa ốm (2 liều), <b>Ngủ</b> khi mệt và nhớ tắt đèn.</li>
+        <li><b>Tính cách và khẩu vị:</b> mỗi bé có một tính cách riêng, một món mê nhất và một món ghét. Thử cho ăn để khám phá.</li>
+        <li><b>Chăm kỹ thì đẹp:</b> chăm chu đáo, bé tiến hóa thành dạng <b>ánh kim</b> lấp lánh. Bỏ bê thì bé thành dạng <b>cau có</b>.</li>
+        <li><b>Nút ✨</b> mở thêm: 📋 nhiệm vụ mỗi ngày, 🛍️ cửa hàng mũ, kính, đồ trang trí, 🎒 cho bé đi phiêu lưu, 🎓 dạy kỹ năng, 📷 album ảnh, 🖼️ thẻ khoe thú, 🏡 gửi link mời bạn bè sang chơi.</li>
+        <li><b>Điểm danh mỗi ngày</b> để nhận quà, ngày thứ 7 có quà lớn. Dịp Tết, Trung thu, Halloween, Giáng sinh có trang trí và món ăn đặc biệt.</li>
       </ul>
       <p class="note">Âm thanh bắt đầu sau lần chạm hoặc bấm đầu tiên. Có thể tắt âm thanh hoặc nhạc nền bằng nút phía trên màn hình. Tuổi của bé tính theo thời gian thực. Bầu trời ngoài cửa sổ đổi theo giờ thật. Khi bạn đóng trang, bé vẫn sống nhưng chậm hơn. Dữ liệu chỉ lưu trên trình duyệt này.</p>
     </details>
@@ -930,10 +977,11 @@ syncSoundButtons();
 
 /* ---------- simulation (minutes) ---------- */
 function step(f, offline) {
-  if (!state || !state.hatched || !state.alive) return;
+  if (!state || !state.hatched || !state.alive || state.trip) return;
   const s = state;
   if (s.asleep) { s.energy += 5 * f; s.hunger -= 0.8 * f; s.happy -= (s.lightOff ? 0 : 1.5) * f; }
-  else { s.energy -= 1.2 * f; s.hunger -= 2 * f; s.happy -= 1.4 * f; }
+  else { s.energy -= 1.2 * f * (trait('energy') || 1); s.hunger -= 2 * f * (trait('hunger') || 1); s.happy -= 1.4 * f * (trait('happy') || 1); }
+  s.care = (s.care ?? 70) + (careAvg(s) - (s.care ?? 70)) * Math.min(1, 0.01 * f);
   s.clean -= (0.6 + s.poops.reduce((a, p, i) => a + p * (1 + stinkOf(i)), 0) * 1.5) * f;
   s.poopIn -= f;
   if (s.poopIn <= 0) {
@@ -960,6 +1008,7 @@ function step(f, offline) {
 }
 function needs() {
   const s = state, n = [];
+  if (s.trip) return n;
   if (s.sick) n.push(`${s.name} bị ốm, cần uống thuốc.`);
   if (s.hunger < 25) n.push(`${s.name} đói bụng quá...`);
   if (maxStink() >= 0.75) n.push(`Phân để lâu bốc mùi nồng nặc, cả khu thối um! Dọn ngay thôi.`);
@@ -972,8 +1021,16 @@ function needs() {
 }
 function idleLine() {
   const s = state;
+  if (s.trip) { const tr = TRIPS.find(x => x.id === s.trip.id); return `${s.name} đang phiêu lưu ở ${tr.name}, còn khoảng ${fmtDuration(Math.max(1, Math.ceil((s.trip.end - now()) / 60000)))} nữa về.`; }
   if (s.asleep) return s.lightOff ? `${s.name} đang ngủ ngon. Khò khò...` : `${s.name} đang ngủ.`;
+  const h = new Date().getHours();
   const lines = [`${s.name} đang đi dạo quanh nhà.`, `${s.name} nhìn bạn và cười.`, `${s.name} đang ngân nga một bài hát.`, `${s.name} thấy rất vui hôm nay.`];
+  if (h >= 22 || h < 5) lines.push(`Khuya rồi, ${s.name} ngáp ngắn ngáp dài. Cho bé đi ngủ nhé.`, `${s.name} dụi mắt, buồn ngủ quá...`);
+  else if (h < 10) lines.push(`Buổi sáng trong lành, ${s.name} vươn vai chào ngày mới.`);
+  else if (h >= 11 && h < 13) lines.push(`Trưa rồi, ${s.name} đang nghĩ xem ăn gì.`);
+  const tl = { glutton: `${s.name} ngửi ngửi tìm đồ ăn vặt.`, lazy: `${s.name} nằm ườn ra, chẳng muốn làm gì.`, active: `${s.name} chạy tới chạy lui không chịu ngồi yên.`, shy: `${s.name} nấp sau bạn, nhìn trộm xung quanh.`, sweet: `${s.name} muốn được bạn ôm một cái.` }[s.trait];
+  if (tl) lines.push(tl);
+  if (s.known && s.known.fav) lines.push(`${s.name} thèm ${(FOODS.find(f => f.id === s.fav) || {}).name.toLowerCase()} quá...`);
   return lines[Math.floor(now() / 15000) % lines.length];
 }
 function tick() {
@@ -986,7 +1043,18 @@ function tick() {
     if (ms >= 0.5 && stinkWarned < 1) { stinkWarned = 1; setFace('disgust', 1800); setEmote('sweat', 1800); say(`Mùi bắt đầu nồng rồi... ${state.name} nhăn mũi.`, 3500); }
     if (ms >= 1 && stinkWarned < 2) { stinkWarned = 2; setFace('dizzy', 2400); setEmote('stars', 2400); say(`Thối không chịu nổi! ${state.name} sắp xỉu vì mùi.`, 4000); log(`Phân để quá lâu, ${state.name} khó chịu vì mùi hôi.`); }
   }
-  if (state.hatched && state.alive) {
+  if (tick.day !== dayKey()) { tick.day = dayKey(); checkDay(); }
+  if (state.trip && now() >= state.trip.end) { endTrip(false); syncMode(true); }
+  if (state.hatched && state.alive && !state.trip) {
+    // a birthday for every full day of age: a present and a photo
+    const days = Math.floor(ageMin() / 1440);
+    if (days > (state.bday || 0)) {
+      state.bday = days; state.coins += 10; state.happy = clamp(state.happy + 10);
+      queueBanner({ title: 'Sinh nhật!', sub: `${state.name} tròn ${days} ngày tuổi · quà +10 xu`, color: '#e64980', dur: 5000 });
+      log(`Sinh nhật ${days} ngày tuổi của ${state.name}.`); setTimeout(() => snapshot(`Sinh nhật ${days} ngày tuổi`), 1500);
+    }
+  }
+  if (state.hatched && state.alive && !state.trip) {
     const sp = curSp(), next = state.stageIdx + 1;
     if (next < sp.stages.length && ageMin() >= evoMin(next, sp.rarity) && !anim && !game) {
       if (state.health >= 30 && !state.sick) evolve();
@@ -1000,6 +1068,7 @@ function tick() {
   const needNow = !!(state.hatched && state.alive && needs().length);
   if (needNow && !tick.lamp) Sound.play('ping');
   tick.lamp = needNow;
+  remind(needNow);
   $('lamp').classList.toggle('on', needNow);
   syncMode(); renderSide();
   if (ticks % 5 === 0) save();
@@ -1007,6 +1076,9 @@ function tick() {
 function hatch() {
   const sp = curSp(), r = RARITY[sp.rarity];
   state.hatched = true; state.born = now(); state.stageIdx = 0; state.weight = Math.round(sp.stages[0].R / 12);
+  ensureExtras(state);
+  if (meta.bank) { state.coins += meta.bank; meta.bank = 0; saveMeta(); }
+  setTimeout(() => snapshot(`${state.name} chào đời`), 2600);
   startAnim('evolve', 2200, { big: sp.rarity === 'legend' || sp.rarity === 'epic' });
   banner = { title: `${r.label}!`, sub: `${state.name} là một ${sp.stages[0].name} hệ ${sp.type}`, color: r.color, start: now(), dur: 5000 };
   discover(sp.id, 0);
@@ -1019,9 +1091,13 @@ function evolve() {
   const to = curDef();
   state.weight += Math.round(to.R / 6);
   startAnim('evolve', 2400, { big: true });
-  banner = { title: 'Tiến hóa!', sub: `${from} → ${to.name}`, color: RARITY[sp.rarity].color, start: now(), dur: 5000 };
+  // how well the pet was looked after decides its look: shiny when spoiled, grumpy when neglected
+  const v = pickVariant(), vn = v && VARIANT[v] ? ` (${VARIANT[v].name})` : '';
+  banner = { title: 'Tiến hóa!', sub: `${from} → ${to.name}${vn}`, color: RARITY[sp.rarity].color, start: now(), dur: 5000 };
   discover(sp.id, state.stageIdx);
-  log(`${state.name} tiến hóa thành ${to.name}!`); say(`Wow! ${state.name} đã tiến hóa thành ${to.name}!`, 6000);
+  log(`${state.name} tiến hóa thành ${to.name}${vn}!`);
+  say(v === 'shiny' ? `Wow! Được chăm rất kỹ nên ${state.name} tiến hóa thành ${to.name} ánh kim lấp lánh!` : v === 'grumpy' ? `${state.name} tiến hóa thành ${to.name} nhưng trông cau có vì bị bỏ bê. Chăm bé kỹ hơn nhé!` : `Wow! ${state.name} đã tiến hóa thành ${to.name}!`, 6000);
+  setTimeout(() => snapshot(`Tiến hóa thành ${to.name}`), 2700);
   renderSide();
 }
 
@@ -1064,12 +1140,14 @@ function logic() {
   const T = now();
   if (anim && T - anim.start >= anim.dur) {
     const d = anim; anim = null;
-    if (d.type === 'clean') { state.poops = []; state.poopAt = []; stinkWarned = 0; state.clean = 100; setFace('joy', 1600); setEmote('note', 1600); log(`Dọn dẹp sạch sẽ cho ${state.name}.`); say(`Sạch bong! ${state.name} thấy dễ chịu hơn.`); renderSide(); }
+    if (d.type === 'clean') { state.poops = []; state.poopAt = []; stinkWarned = 0; state.clean = 100; setFace('joy', 1600); setEmote('note', 1600); log(`Dọn dẹp sạch sẽ cho ${state.name}.`); say(`Sạch bong! ${state.name} thấy dễ chịu hơn.`); quest('clean'); renderSide(); }
     if (d.then === 'heart') startAnim('heart', 1600);
     if (d.type === 'eat') afterEat(d);
   }
+  if ((!banner || T - banner.start >= banner.dur) && bannerQ.length) banner = { ...bannerQ.shift(), start: T };
   gameTick(T);
   weatherTick(T);
+  if (state.trip) return;
   autoTalk(T);
   if (!bubble && pet.nextMove - T > 60000) pet.nextMove = T + 1500;
   if (state.hatched && state.alive && !state.asleep && state.poops.some(p => p >= 1) && Math.random() < 0.012) Sound.play('buzz');
@@ -1081,7 +1159,12 @@ function logic() {
     }
     const flying = phys.held || phys.air || !!talk || !!bubble;
     if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.nextMove = T + 2500 + Math.random() * 3500; }
-    if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4) startIdle(T);
+    if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4) {
+      // a happy pet sometimes shows off a trick it has learned
+      const sk = learned();
+      if (sk.length && state.happy > 50 && Math.random() < 0.18) { const id = pick(sk); startAnim('trick', 2400, { skill: id }); pet.nextIdle = T + 6000; pet.nextMove = T + 3200; if (now() > sayUntil) say(`${state.name} tự biểu diễn ${SKILLS[id].name.toLowerCase()} cho bạn xem!`, 3000); }
+      else startIdle(T);
+    }
     pet.tx = Math.max(minX, Math.min(maxX, pet.tx));
     if (state.asleep && Math.random() < 0.07) spawn('z', pet.x + R * 0.7, GROUND - R * 1.9, { vx: 30 + Math.random() * 20, vy: -45, max: 2.6, size: 0.7 + Math.random() * 0.6 });
   }
@@ -1138,11 +1221,11 @@ const toLogical = e => { const r = cv.getBoundingClientRect(); return { x: (e.cl
 function hitPet(p) {
   if (!state) return false;
   if (!state.hatched) return Math.hypot(p.x - 640, p.y - (GROUND - 130)) < 140;
-  if (!state.alive) return false;
+  if (!state.alive || state.trip) return false;
   const R = petR();
   return Math.hypot((p.x - pet.x) / 1.2, p.y - (phys.y - R * 0.9)) < R * 1.25;
 }
-const canGrab = () => state && state.hatched && state.alive && !state.asleep && !game && !busy();
+const canGrab = () => state && state.hatched && state.alive && !state.asleep && !state.trip && !game && !busy();
 function grab() {
   phys.held = true; phys.air = false; phys.heldAt = now(); phys.rot = 0; phys.vr = 0;
   idle = null; if (anim && anim.type === 'heart') anim = null;
@@ -1218,7 +1301,7 @@ function tapPet(p) {
   if (petTaps.length >= 7) { petTaps = []; Sound.play('lose'); setFace('dizzy', 2200); setEmote('vein', 2200); say(`Vuốt nhiều quá, ${s.name} chóng mặt rồi!`, 3000); return; }
   setFace('love', 1400); setEmote('heart', 1400); Sound.play('love');
   for (let i = 0; i < 2; i++) spawn('heart', pet.x + (Math.random() - 0.5) * 60, petTop(), { max: 1.3, size: 0.7 });
-  if (T - (s.lastPet || 0) > 2000) { s.happy = clamp(s.happy + 2); s.lastPet = T; renderSide(); }
+  if (T - (s.lastPet || 0) > 2000) { s.happy = clamp(s.happy + 2 * (trait('petJoy') || 1)); s.lastPet = T; quest('pet'); renderSide(); }
   say(`${s.name} thích được vuốt ve lắm!`, 2500);
 }
 cv.addEventListener('pointerdown', e => {
@@ -1295,6 +1378,7 @@ function openTalk(kind, auto = false) {
   if (auto) { setEmote('alert', 1500); say(`${state.name} vừa gieo được một quẻ mới cho bạn!`, 4000); }
   idle = null; pet.tx = 640; Sound.play(kind === 'fortune' ? 'magic' : 'ping');
   if (now() - (state.lastTalk || 0) > 20000) { state.happy = clamp(state.happy + 2); state.lastTalk = now(); renderSide(); }
+  if (!auto) quest('talk');
   if (kind === 'fortune' && !auto) say(`${state.name} nhìn vào quả cầu pha lê...`, 3000);
   if (kind === 'news') say(`${state.name} đeo kính, giở báo đọc tin...`, 3000);
   if (kind === 'fact') say(`${state.name} vừa nghĩ ra một điều thú vị!`, 3000);
@@ -1310,7 +1394,7 @@ function autoTalk(T) {
   if (talk && talk.auto && talk.closeAt && T > talk.closeAt) { closeTalk(); return; }
   const s = state;
   if (bubble && (s.asleep || game || !s.alive)) bubble = null;
-  if (talk || bubble || !s.hatched || !s.alive || s.asleep || game || anim || phys.held || phys.air || foodMenu || talkMenu || document.hidden) return;
+  if (talk || bubble || !s.hatched || !s.alive || s.asleep || s.trip || game || anim || phys.held || phys.air || foodMenu || talkMenu || panelKind || visitor || document.hidden) return;
   if (T < nextAuto) return;
   nextAuto = T + 55000 + Math.random() * 10000;
   startBubble(AUTO_KINDS[autoTurn++ % AUTO_KINDS.length]);
@@ -1495,6 +1579,21 @@ function drawFoodIcon(id, t = 0, level = 1) {
       ctx.bezierCurveTo(4, -22, 34, -4, 30, 30); ctx.bezierCurveTo(22, 10, 0, -2, -28, -4); ctx.closePath(); ctx.fill();
       ell(-27, -11, 9, 7, '#2f9e44'); rr(-38, -16, 10, 4, 2, '#2f9e44');
       ell(0, -12, 10, 3, 'rgba(255,255,255,.45)', 0.2); break;
+    case 'banhchung':
+      rr(-38, -38, 76, 76, 6, '#3f7d3a'); rr(-31, -31, 62, 62, 4, '#5a9e4b');
+      ctx.strokeStyle = '#efe0b0'; ctx.lineWidth = 4; [-13, 13].forEach(d => { ctx.beginPath(); ctx.moveTo(d, -38); ctx.lineTo(d, 38); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-38, d); ctx.lineTo(38, d); ctx.stroke(); }); break;
+    case 'mooncake':
+      ell(0, 4, 42, 36, '#b9773a'); ell(0, 0, 38, 32, '#dba25d');
+      for (let i = 0; i < 8; i++) { const a = i * TAU / 8; ell(Math.cos(a) * 21, Math.sin(a) * 17, 7, 5, '#c48440', a); }
+      ell(0, 0, 11, 9, '#c48440'); ell(-14, -14, 8, 4, 'rgba(255,255,255,.3)', -0.5); break;
+    case 'pumpkinpie':
+      rr(-44, 18, 88, 14, 7, '#d9a05b'); tri(-40, 22, 40, 22, 0, -36, '#f08c3a', 4);
+      ell(0, -8, 12, 9, '#ffffff'); ell(4, -14, 6, 5, '#ffffff'); break;
+    case 'gingerbread':
+      ell(0, -28, 17, 17, '#b5763a'); rr(-17, -14, 34, 42, 13, '#b5763a');
+      ell(-24, -4, 13, 7, '#b5763a', 0.3); ell(24, -4, 13, 7, '#b5763a', -0.3); ell(-10, 32, 8, 13, '#b5763a'); ell(10, 32, 8, 13, '#b5763a');
+      ell(-6, -31, 2.5, 2.5, '#fff'); ell(6, -31, 2.5, 2.5, '#fff'); ell(0, -2, 3, 3, '#ff6b6b'); ell(0, 10, 3, 3, '#51cf66');
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, -26, 7, 0.3, Math.PI - 0.3); ctx.stroke(); break;
     case 'boba':
       ctx.fillStyle = 'rgba(225,235,240,.5)'; ctx.beginPath(); ctx.moveTo(-23, -24); ctx.lineTo(23, -24); ctx.lineTo(17, 38); ctx.lineTo(-17, 38); ctx.closePath(); ctx.fill();
       if (L > 0.02) {
@@ -1547,9 +1646,16 @@ function feed(f) {
   s.coins -= f.cost;
   ['hunger', 'happy', 'energy', 'health', 'clean'].forEach(k => { if (f[k]) s[k] = clamp(s[k] + f[k]); });
   s.weight = Math.max(3, s.weight + (f.weight || 0));
-  startAnim('eat', EAT_MS, { food: f.id, fx: f.fx, after: f.after, mode: f.eat });
+  if (trait('eatJoy')) s.happy = clamp(s.happy + trait('eatJoy'));
+  // every pet has one dish it loves and one it can't stand; the player finds out by trying
+  const like = f.id === s.fav ? 'fav' : f.id === s.hate ? 'hate' : '';
+  if (like === 'fav') { s.happy = clamp(s.happy + 12); quest('fav'); }
+  if (like === 'hate') s.happy = clamp(s.happy - 8);
+  if (like && s.known && !s.known[like]) { s.known[like] = true; log(like === 'fav' ? `Phát hiện: ${s.name} mê nhất ${f.name.toLowerCase()}!` : `Phát hiện: ${s.name} ghét ${f.name.toLowerCase()}.`); }
+  if (['apple', 'broccoli', 'soup', 'milk'].includes(f.id)) quest('healthy');
+  startAnim('eat', EAT_MS, { food: f.id, fx: f.fx, after: f.after, mode: f.eat, like });
   if (f.cure && s.sick) { s.doses++; if (s.doses >= 2) { s.sick = false; s.doses = 0; log(`${s.name} khỏi ốm nhờ bát súp nóng.`); } }
-  say(f.say(s.name), 4500);
+  say(like === 'fav' ? `${f.name}! Đúng món ruột của ${s.name}, bé sướng rơn cả người!` : like === 'hate' ? `Ơ... ${s.name} ghét ${f.name.toLowerCase()} lắm, nhăn mặt ăn cho xong.` : f.say(s.name), 4500);
   log(`Cho ${s.name} ăn ${f.name.toLowerCase()}${f.cost ? ` (-${f.cost} xu)` : ''}.`);
 }
 // what happens right after the last bite
@@ -1573,6 +1679,8 @@ function afterEat(d) {
     case 'milk': mustacheUntil = now() + 9000; setFace('happy', 1600); break;
     case 'steam': if (!d.after) setFace('happy', 1400); break;
   }
+  if (d.like === 'fav') { setFace('love', 2200); setEmote('heart', 2200); if (!anim) startAnim('heart', 1600); for (let i = 0; i < 6; i++) spawn('heart', mx + (Math.random() - 0.5) * 120, my - 40, { max: 1.6 }); }
+  if (d.like === 'hate') { setFace('disgust', 2200); setEmote('sweat', 2200); }
 }
 // particles and sounds while a spicy / cold / fizzy / juicy reaction plays
 function reactFX(b, t) {
@@ -1599,7 +1707,11 @@ const ICON_LABEL = {
   'm-feed': 'Cho ăn', 'm-play': 'Chơi', 'm-talk': 'Trò chuyện', 'm-clean': 'Dọn dẹp', 'm-med': 'Uống thuốc', 'm-sleep': 'Đi ngủ',
   't-fortune': 'Bói vui', 't-news': 'Bản tin Làng Thú', 't-fact': 'Bạn có biết?',
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
+  'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ hôm nay', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
+  'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
 };
+// the extras menu uses emoji pictures
+const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -1641,7 +1753,7 @@ function resolveRound() {
 function record(r) {
   const g = game; g.results.push(r); g.phase = 'reveal'; g.at = now();
   Sound.play(r === true ? 'happy' : r === false ? 'lose' : 'ping');
-  if (r === true) for (let i = 0; i < 4; i++) spawn('heart', pet.x + (Math.random() - 0.5) * 60, petTop(), { max: 1.4 });
+  if (r === true) { quest('win'); for (let i = 0; i < 4; i++) spawn('heart', pet.x + (Math.random() - 0.5) * 60, petTop(), { max: 1.4 }); }
   say(r === true ? pick(['Bạn thắng lượt này!', 'Đúng rồi, giỏi quá!', 'Tuyệt vời!']) : r === false ? pick(['Tiếc quá, thua mất rồi...', 'Sai mất rồi...']) : 'Hòa nhau!', 1e9);
   syncMode(true);
 }
@@ -1675,9 +1787,10 @@ function endGame(quit) {
   if (quit && !rounds) { say('Đã thoát trò chơi.'); return; }
   s.energy = clamp(s.energy - 8); s.hunger = clamp(s.hunger - 5); s.weight = Math.max(3, s.weight - 1);
   const coins = wins * G.coin; s.coins += coins;
-  const score = g.type === 'cards' ? `đúng liền ${wins} lá` : `thắng ${wins}/${rounds}`;
-  if (wins >= G.need) { s.happy = clamp(s.happy + 25); startAnim('heart', 1600); Sound.play('win'); setFace('laugh', 2200); setEmote('note', 2500); say(`${G.name}: ${score}! ${s.name} vui lắm. +${coins} xu.`, 5000); }
-  else { s.happy = clamp(s.happy + 8); say(`${G.name}: ${score}. ${s.name} vẫn vui vì được chơi. +${coins} xu.`, 5000); }
+  if (!quit) quest('game');
+  const score = g.type === 'cards' ? `đúng liền ${wins} lá` : `thắng ${wins}/${rounds}`, gj = trait('gameJoy') || 1;
+  if (wins >= G.need) { s.happy = clamp(s.happy + 25 * gj); startAnim('heart', 1600); Sound.play('win'); setFace('laugh', 2200); setEmote('note', 2500); say(`${G.name}: ${score}! ${s.name} vui lắm. +${coins} xu.`, 5000); }
+  else { s.happy = clamp(s.happy + 8 * gj); say(`${G.name}: ${score}. ${s.name} vẫn vui vì được chơi. +${coins} xu.`, 5000); }
   log(`Chơi ${G.name.toLowerCase()}: ${score}, +${coins} xu.`);
 }
 
@@ -1836,6 +1949,7 @@ function drawGame(t) {
 
 /* ---------- icons for game buttons ---------- */
 function drawGameIcon(id, t = 0) {
+  if (EMO_ICON[id]) { ctx.font = '64px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#2b2220'; ctx.fillText(EMO_ICON[id], 0, 2); return; }
   const skin = '#ffd8b1';
   switch (id) {
     case 'g-dir': case 'left': case 'right': {
@@ -1941,8 +2055,13 @@ function act(a) {
   if (a.startsWith('g-')) { gameMenu = false; startGame(a.slice(2)); syncMode(true); renderSide(); save(); return; }
   idle = null; bubble = null;
   if (talk && !['fortune', 'news', 'fact', 'talk'].includes(a)) closeTalk();
+  if (a.startsWith('x-')) {
+    if (a === 'x-recall') { if (s.trip) endTrip(true); }
+    else openPanel(a.slice(2));
+    syncMode(true); renderSide(); save(); return;
+  }
   if (a.startsWith('eat-')) {
-    const f = FOODS.find(x => 'eat-' + x.id === a);
+    const f = allFoods().find(x => 'eat-' + x.id === a);
     if (f) { foodMenu = false; feed(f); }
     syncMode(true); renderSide(); save(); return;
   }
@@ -1954,6 +2073,8 @@ function act(a) {
     case 'back': foodMenu = false; break;
     case 'play': gameMenu = true; say('Chọn một trò chơi nhé!', 3000); break;
     case 'back3': gameMenu = false; break;
+    case 'more': moreMenu = true; say('Nhiệm vụ, cửa hàng, phiêu lưu, kỹ năng, album, thẻ khoe và thăm nhà bạn bè.', 3500); break;
+    case 'back4': moreMenu = false; closePanel(); break;
     case 'quit': if (game) endGame(true); break;
     case 'clean': startAnim('clean', 2600); say(`Xoẹt xoẹt! Cầm chổi quét dọn cho ${s.name}...`); break;
     case 'med':
@@ -1972,7 +2093,7 @@ function act(a) {
   syncMode(true); renderSide(); save();
 }
 function clearPet() {
-  closeTalk(); talkMenu = false; gameMenu = false; bubble = null;
+  closeTalk(); closePanel(); talkMenu = false; gameMenu = false; moreMenu = false; bubble = null; visitor = null;
   state = null; game = null; anim = null; banner = null; foodMenu = false; parts.length = 0; drag = null;
   Object.assign(phys, { y: GROUND, vx: 0, vy: 0, rot: 0, vr: 0, held: false, air: false });
   try { localStorage.removeItem(KEY); } catch (e) {}
@@ -1994,7 +2115,9 @@ function startOver() {
 /* ---------- controls ---------- */
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
-  main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep']],
+  main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep'], ['more', 'm-more']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], ['x-visit', 'x-visit'], ['back4', 'back']],
+  trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-album', 'x-album']],
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
@@ -2003,23 +2126,30 @@ const MENU_ICONS = {
 };
 const iconBtn = (act, icon, dis) => `<button type="button" class="icon" data-act="${act}" id="btn-${act}" title="${ICON_LABEL[icon]}" aria-label="${ICON_LABEL[icon]}"${dis ? ' disabled' : ''}><canvas width="104" height="104" data-icon="${icon}"></canvas></button>`;
 function syncMode(force) {
-  const m = !state ? 'setup' : !state.hatched ? 'egg' : !state.alive ? 'gone' : game ? 'game' : state.asleep ? 'sleep' : foodMenu ? 'food' : talkMenu ? 'talkmenu' : gameMenu ? 'gamemenu' : 'main';
+  const m = !state ? 'setup' : !state.hatched ? 'egg' : !state.alive ? 'gone' : game ? 'game' : state.trip ? 'trip' : state.asleep ? 'sleep' : foodMenu ? 'food' : moreMenu ? 'more' : talkMenu ? 'talkmenu' : gameMenu ? 'gamemenu' : 'main';
   if (talk && m !== 'talkmenu' && m !== 'main') closeTalk();
+  if (panelKind && !['more', 'trip'].includes(m)) closePanel();
   $('setup').hidden = m !== 'setup';
   $('pad').hidden = m === 'setup' || m === 'egg';
-  const key = m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '');
+  const ready = questReady(), key = m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '') + (ready ? 'q' : '') + (eventNow() || '');
   if (!force && key === syncMode.last) return;
   syncMode.last = key;
-  $('pad').parentElement.classList.toggle('wide', m === 'food');
+  $('pad').parentElement.classList.toggle('wide', m === 'food' || m === 'more');
   if (m === 'setup' || m === 'egg') { $('pad').innerHTML = ''; return; }
   if (m === 'food') {
-    $('pad').innerHTML = FOODS.map(f => {
-      const d = foodDesc(f), poor = state.coins < f.cost;
+    const foods = allFoods();
+    $('pad').innerHTML = foods.map(f => {
+      const d = foodDesc(f) + (state.known && state.known.fav && f.id === state.fav ? ' · món bé thích nhất' : state.known && state.known.hate && f.id === state.hate ? ' · món bé ghét' : ''), poor = state.coins < f.cost;
       return `<button type="button" class="food" data-act="eat-${f.id}" id="btn-eat-${f.id}" title="${d}" aria-label="${d}"${poor ? ' disabled' : ''}><canvas width="104" height="104" data-food="${f.id}"></canvas>${f.cost ? `<span class="coin">${f.cost}</span>` : ''}</button>`;
     }).join('') + iconBtn('back', 'back');
+    $('pad').style.setProperty('--n', foods.length + 1);
   } else {
-    $('pad').innerHTML = MENU_ICONS[m]().map(([a, icon]) => iconBtn(a, icon, m === 'game' && a !== 'quit' && game.phase !== 'ask')).join('');
+    const items = MENU_ICONS[m]();
+    $('pad').innerHTML = items.map(([a, icon]) => iconBtn(a, icon, m === 'game' && a !== 'quit' && game.phase !== 'ask')).join('');
+    $('pad').style.setProperty('--n', items.length);
   }
+  // a red dot when a finished quest is waiting to be claimed
+  if (ready) ['btn-more', 'btn-x-quest'].forEach(id => { const b = $(id); if (b) b.insertAdjacentHTML('beforeend', '<i class="pip"></i>'); });
   drawFoodButtons();
 }// hovering or focusing a dish shows its name and effects in the speech strip
 ['pointerover', 'focusin'].forEach(ev => $('pad').addEventListener(ev, e => {
@@ -2068,6 +2198,15 @@ function renderSide() {
       })();
   }
   if ($('stageLine').dataset.k !== line) { $('stageLine').innerHTML = line; $('stageLine').dataset.k = line; }
+  let tl = '';
+  if (live && s.trait) {
+    const T = TRAITS[s.trait], food = id => (FOODS.find(f => f.id === id) || {}).name || '?', sk = learned();
+    tl = `<span>Tính cách: <b>${T.name}</b> (${T.desc})</span><span>· Thích: <b>${s.known.fav ? food(s.fav) : '???'}</b></span><span>· Ghét: <b>${s.known.hate ? food(s.hate) : '???'}</b></span>` +
+      (s.variant && VARIANT[s.variant] ? `<span>· Dạng ${VARIANT[s.variant].name.toLowerCase()}</span>` : '') +
+      (sk.length ? `<span>· Biết: ${sk.map(k => SKILLS[k].name.toLowerCase()).join(', ')}</span>` : '') +
+      (meta.streak.n ? `<span>· Chuỗi ${meta.streak.n} ngày</span>` : '');
+  }
+  if ($('traitLine').dataset.k !== tl) { $('traitLine').innerHTML = tl; $('traitLine').dataset.k = tl; $('traitLine').hidden = !tl; }
   if ($('track').dataset.k !== track) { $('track').innerHTML = track; $('track').dataset.k = track; }
   $('nextEvo').textContent = next;
   $('fAge').textContent = live ? fmtAge(ageMin()) : '–';
@@ -2104,6 +2243,503 @@ function renderDex() {
   });
   $('dexCount').textContent = `${found}/${total}`;
 }
+
+/* ---------- extras: personality, quests, streak, events, shop, adventures, album, skills, share card, visits ---------- */
+// things that outlive one pet (streak, quests, bought items, album) are kept apart from the pet's own save
+const META_KEY = 'thu-ao-meta-v1';
+const defaultMeta = () => ({ streak: { day: '', n: 0 }, quests: { day: '', list: [], bonus: false }, owned: [], wear: {}, decor: [], album: [], gifts: {}, visits: {}, bank: 0, notify: false, greet: '' });
+function loadMeta() { try { return Object.assign(defaultMeta(), JSON.parse(localStorage.getItem(META_KEY)) || {}); } catch (e) { return defaultMeta(); } }
+let meta = loadMeta();
+// photos can fill the browser's storage: drop the oldest and try again
+function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { if (meta.album.length) { meta.album.pop(); saveMeta(); } } }
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
+const bannerQ = [];
+function queueBanner(b) { if (banner && now() - banner.start < banner.dur) bannerQ.push(b); else banner = { ...b, start: now() }; }
+function giveCoins(n) { if (state) state.coins += n; else meta.bank += n; saveMeta(); }
+
+/* personality, favourite and hated dish, and how well the pet has been looked after (decides its look at each evolution) */
+const TRAITS = {
+  glutton: { name: 'Ham ăn', desc: 'mau đói, được ăn là vui', hunger: 1.3, eatJoy: 6 },
+  lazy: { name: 'Lười biếng', desc: 'ít tốn sức, chơi nhanh chán', energy: 0.75, gameJoy: 0.7 },
+  active: { name: 'Hiếu động', desc: 'mau mệt, mê trò chơi', energy: 1.25, gameJoy: 1.5 },
+  shy: { name: 'Nhút nhát', desc: 'rất thích được vuốt ve', petJoy: 2.5 },
+  sweet: { name: 'Tình cảm', desc: 'ít khi buồn, hay thơm bạn', happy: 0.7 },
+};
+const trait = k => ((state && TRAITS[state.trait]) || {})[k];
+const VARIANT = { shiny: { name: 'Ánh kim', filter: 'saturate(1.35) brightness(1.08) contrast(1.05)' }, grumpy: { name: 'Cau có', filter: 'saturate(.55) brightness(.86) hue-rotate(-14deg)' } };
+function ensureExtras(s) {
+  if (!s.trait) s.trait = pick(Object.keys(TRAITS));
+  if (!s.fav) { const ids = FOODS.map(f => f.id); s.fav = pick(ids); s.hate = pick(ids.filter(i => i !== s.fav && i !== 'rice')); }
+  s.known = s.known || {}; s.skills = s.skills || {}; if (s.care == null) s.care = 70;
+}
+const careAvg = s => (s.hunger + s.happy + s.clean + s.energy + s.health) / 5;
+function pickVariant() {
+  const s = state, c = s.care;
+  if (c >= 80) s.variant = 'shiny'; else if (c < 45) s.variant = 'grumpy'; else if (s.variant === 'grumpy') s.variant = '';
+  return s.variant;
+}
+
+/* daily quests and the login streak */
+const QUESTS = {
+  healthy: { text: 'Cho bé ăn 2 món tốt cho sức khỏe (táo, bông cải, súp, sữa)', goal: 2, coin: 8 },
+  win: { text: 'Thắng 3 lượt mini game', goal: 3, coin: 10 },
+  clean: { text: 'Dọn dẹp cho bé 1 lần', goal: 1, coin: 6 },
+  pet: { text: 'Vuốt ve bé 5 lần', goal: 5, coin: 5 },
+  talk: { text: 'Nghe bé kể chuyện hoặc bói 2 lần', goal: 2, coin: 6 },
+  trip: { text: 'Cho bé đi phiêu lưu 1 chuyến', goal: 1, coin: 10 },
+  fav: { text: 'Cho bé ăn đúng món bé thích nhất', goal: 1, coin: 12 },
+  train: { text: 'Dạy bé 1 bài kỹ năng', goal: 1, coin: 8 },
+  game: { text: 'Chơi trọn 2 ván mini game', goal: 2, coin: 8 },
+};
+function ensureQuests() {
+  const d = dayKey(); if (meta.quests.day === d) return;
+  meta.quests = { day: d, list: shuffle(Object.keys(QUESTS)).slice(0, 3).map(id => ({ id, n: 0, claimed: false })), bonus: false }; saveMeta();
+}
+function quest(id, n = 1) {
+  if (!state || !state.hatched || !state.alive) return;
+  ensureQuests();
+  const q = meta.quests.list.find(x => x.id === id), Q = QUESTS[id]; if (!q || q.n >= Q.goal) return;
+  q.n = Math.min(Q.goal, q.n + n); saveMeta();
+  if (q.n >= Q.goal) { Sound.play('win'); say(`Xong nhiệm vụ: ${Q.text.replace(/ \(.*\)/, '')}! Mở ✨ → 📋 để nhận ${Q.coin} xu.`, 5000); syncMode(true); }
+}
+const questReady = () => meta.quests.day === dayKey() && meta.quests.list.some(q => !q.claimed && q.n >= QUESTS[q.id].goal);
+function claimQuest(id) {
+  const q = meta.quests.list.find(x => x.id === id); if (!q || q.claimed || q.n < QUESTS[id].goal) return;
+  q.claimed = true; giveCoins(QUESTS[id].coin); Sound.play('win');
+  if (!meta.quests.bonus && meta.quests.list.every(x => x.claimed)) { meta.quests.bonus = true; giveCoins(15); queueBanner({ title: 'Xong cả 3 nhiệm vụ!', sub: 'Thưởng thêm 15 xu. Mai quay lại nhé!', color: '#2b8a3e', dur: 4500 }); }
+  saveMeta();
+}
+function checkDay() {
+  const d = dayKey(); if (meta.streak.day === d) return;
+  const y = dayKey(new Date(now() - 864e5)), st = meta.streak;
+  st.n = st.day === y ? st.n + 1 : 1; st.day = d;
+  const coin = Math.min(5 + st.n * 2, 25) + (st.n % 7 === 0 ? 30 : 0);
+  giveCoins(coin);
+  let sub = `Quà điểm danh +${coin} xu`;
+  if (st.n % 7 === 0) { const free = SHOP.filter(i => !meta.owned.includes(i.id)); if (free.length) { const it = pick(free); meta.owned.push(it.id); sub += ` và ${it.name.toLowerCase()}`; } }
+  queueBanner({ title: st.n > 1 ? `Chuỗi ${st.n} ngày!` : 'Chào ngày mới!', sub, color: '#f08c00', dur: 4500 });
+  const ev = eventNow();
+  if (ev && !meta.gifts[ev + d]) { meta.gifts[ev + d] = 1; giveCoins(10); queueBanner({ title: EVENTS[ev].name, sub: `Nhận ${EVENTS[ev].gift} +10 xu · có món ăn đặc biệt hôm nay`, color: EVENTS[ev].color, dur: 5000 }); }
+  ensureQuests(); saveMeta();
+}
+
+/* festivals: decorations, a special dish and a daily gift */
+const TET = ['2026-02-17', '2027-02-06', '2028-01-26', '2029-02-13', '2030-02-03'], MOON = ['2026-09-25', '2027-09-15', '2028-10-03', '2029-09-22', '2030-09-12'];
+const EVENTS = {
+  tet: { name: 'Tết Nguyên Đán', gift: 'lì xì', color: '#c92a2a', food: { id: 'banhchung', name: 'Bánh chưng', cost: 3, hunger: 30, happy: 10, weight: 1, fx: 'stars', eat: 'bite', crumb: '#7fb069', say: n => `Bánh chưng ngày Tết! ${n} ăn xong chúc bạn năm mới an khang.` } },
+  moon: { name: 'Tết Trung Thu', gift: 'quà Trung thu', color: '#e8590c', food: { id: 'mooncake', name: 'Bánh trung thu', cost: 3, hunger: 20, happy: 12, weight: 1, fx: 'stars', eat: 'bite', crumb: '#c98a4a', say: n => `Bánh nướng thập cẩm! ${n} vừa ăn vừa ngắm trăng.` } },
+  halloween: { name: 'Lễ hội Halloween', gift: 'kẹo Halloween', color: '#7048e8', food: { id: 'pumpkinpie', name: 'Bánh bí ngô', cost: 3, hunger: 18, happy: 12, weight: 1, fx: 'sparkle', eat: 'bite', crumb: '#f08c3a', say: n => `Bánh bí ngô Halloween! ${n} cười khúc khích như ma con.` } },
+  noel: { name: 'Giáng sinh', gift: 'quà Noel', color: '#2b8a3e', food: { id: 'gingerbread', name: 'Bánh gừng', cost: 3, hunger: 15, happy: 12, weight: 1, fx: 'hearts', eat: 'bite', crumb: '#b5763a', say: n => `Bánh gừng hình người! ${n} cắn cái chân trước.` } },
+};
+function eventNow(d = new Date()) {
+  const near = (list, before, after) => list.some(s => { const x = (d - new Date(s + 'T00:00')) / 864e5; return x >= -before && x < after + 1; });
+  if (near(TET, 7, 7)) return 'tet';
+  if (near(MOON, 7, 2)) return 'moon';
+  const m = d.getMonth() + 1, day = d.getDate();
+  if ((m === 10 && day >= 24) || (m === 11 && day <= 1)) return 'halloween';
+  if (m === 12 && day >= 18 && day <= 26) return 'noel';
+  return null;
+}
+const allFoods = () => { const e = eventNow(); return e ? FOODS.concat(EVENTS[e].food) : FOODS; };
+function lantern(x, y, t, col = '#e03131') {
+  ctx.strokeStyle = '#5c3d2e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, y - 40); ctx.stroke();
+  const sw = Math.sin(t * 1.3) * 0.06; ctx.save(); ctx.translate(x, y - 40); ctx.rotate(sw); ctx.translate(-x, -(y - 40));
+  glow(x, y, 90, '#ffb347', 0.35);
+  ell(x, y, 34, 40, col); ell(x - 10, y - 8, 8, 22, 'rgba(255,255,255,.18)');
+  rr(x - 18, y - 46, 36, 10, 3, '#f2c94c'); rr(x - 18, y + 36, 36, 10, 3, '#f2c94c');
+  ctx.strokeStyle = '#f2c94c'; ctx.lineWidth = 2; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y + 46); ctx.lineTo(x + i * 5, y + 72); ctx.stroke(); }
+  ctx.restore();
+}
+function drawEventDecor(t) {
+  const e = eventNow(); if (!e) return;
+  if (e === 'tet') { lantern(150, 150, t); lantern(1130, 130, t + 2); lantern(1010, 100, t + 4, '#f08c00'); }
+  if (e === 'moon') {
+    lantern(1120, 120, t, '#f08c00');
+    const x = 230, y = GROUND - 190, fl = 0.85 + Math.sin(t * 9) * 0.08 + Math.sin(t * 23) * 0.05;
+    ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(200, GROUND + 10); ctx.lineTo(x, y + 30); ctx.stroke();
+    glow(x, y, 120 * fl, '#ffb347', 0.5);
+    starPath(x, y, 42, 0.5); ctx.fillStyle = '#ff6b4a'; ctx.fill(); starPath(x, y, 30, 0.5); ctx.fillStyle = '#ffd43b'; ctx.fill();
+    ctx.strokeStyle = '#f2c94c'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 6, y + 30); ctx.lineTo(x + i * 9, y + 64); ctx.stroke(); }
+  }
+  if (e === 'halloween') {
+    pumpkin(110, GROUND + 14, 0.75); pumpkin(250, GROUND + 18, 0.5);
+    for (let i = 0; i < 3; i++) {
+      const bx = (t * (60 + i * 25) + i * 420) % 1500 - 110, by = 110 + i * 46 + Math.sin(t * 2 + i) * 22, f = Math.sin(t * 16 + i) * 0.6;
+      ctx.fillStyle = 'rgba(30,20,40,.85)'; ctx.beginPath(); ctx.moveTo(bx, by);
+      ctx.quadraticCurveTo(bx - 18, by - 16 * f - 4, bx - 34, by - 6 * f); ctx.quadraticCurveTo(bx - 22, by + 2, bx - 12, by + 8); ctx.lineTo(bx, by + 4);
+      ctx.lineTo(bx + 12, by + 8); ctx.quadraticCurveTo(bx + 22, by + 2, bx + 34, by - 6 * f); ctx.quadraticCurveTo(bx + 18, by - 16 * f - 4, bx, by); ctx.fill();
+      ell(bx, by + 2, 7, 9, 'rgba(30,20,40,.95)');
+    }
+  }
+  if (e === 'noel') {
+    const x = 140, b = GROUND + 12;
+    rr(x - 10, b - 30, 20, 30, 3, '#6b4423');
+    [[110, 70], [86, 120], [62, 165]].forEach(([w, top]) => tri(x - w / 2, b - top + 60 - 30, x + w / 2, b - top + 60 - 30, x, b - top - 40, '#2f7d4a'));
+    starPath(x, b - 210, 16); ctx.fillStyle = '#ffd43b'; ctx.fill();
+    for (let i = 0; i < 12; i++) { const a = rnd(i + 40), yy = b - 40 - rnd(i + 90) * 150, w = (b - yy) * 0.33; ell(x + (a - 0.5) * w, yy, 5, 5, ['#ff6b6b', '#ffd43b', '#74c0fc', '#ffffff'][i % 4] + (Math.sin(t * 4 + i) > 0 ? '' : '66')); }
+  }
+}
+
+/* shop: things to wear (drawn on the pet) and things to put in its home */
+const SHOP = [
+  { id: 'nonla', name: 'Nón lá', slot: 'head', cost: 15 }, { id: 'party', name: 'Mũ tiệc', slot: 'head', cost: 10 },
+  { id: 'bow', name: 'Nơ hồng', slot: 'head', cost: 8 }, { id: 'flower', name: 'Hoa cài', slot: 'head', cost: 8 },
+  { id: 'witch', name: 'Mũ phù thủy', slot: 'head', cost: 15 }, { id: 'santa', name: 'Mũ Noel', slot: 'head', cost: 15 },
+  { id: 'shades', name: 'Kính râm', slot: 'eyes', cost: 12 }, { id: 'round', name: 'Kính tròn', slot: 'eyes', cost: 10 },
+  { id: 'scarf', name: 'Khăn quàng', slot: 'neck', cost: 12 }, { id: 'bowtie', name: 'Nơ cổ', slot: 'neck', cost: 8 },
+  { id: 'house', name: 'Nhà nhỏ', slot: 'decor', cost: 30 }, { id: 'lamp', name: 'Đèn đường', slot: 'decor', cost: 18 },
+  { id: 'plant', name: 'Chậu cây', slot: 'decor', cost: 10 }, { id: 'ball', name: 'Quả bóng', slot: 'decor', cost: 6 },
+];
+const shopItem = id => SHOP.find(i => i.id === id);
+// one accessory, drawn around (0,0) for a pet of size R=100: hats sit on the head top, glasses on the eye line, neckwear under the face
+function drawAccessory(id, t = 0) {
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  switch (id) {
+    case 'nonla':
+      ell(0, 4, 82, 13, '#c9a24e');
+      tri(-80, 4, 80, 4, 0, -66, '#ecc96a');
+      ctx.strokeStyle = 'rgba(150,110,40,.55)'; ctx.lineWidth = 2; for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(-80 * (1 - i * 0.24), 4 - 70 * i * 0.24); ctx.lineTo(80 * (1 - i * 0.24), 4 - 70 * i * 0.24); ctx.stroke(); } break;
+    case 'party':
+      tri(-30, 6, 30, 6, 6, -82, '#ff6b9d');
+      ctx.save(); ctx.beginPath(); ctx.moveTo(-30, 6); ctx.lineTo(30, 6); ctx.lineTo(6, -82); ctx.closePath(); ctx.clip();
+      ctx.strokeStyle = '#ffe066'; ctx.lineWidth = 8; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-40, -6 - i * 24); ctx.lineTo(40, 6 - i * 24); ctx.stroke(); } ctx.restore();
+      ell(6, -84, 11, 11, '#74c0fc'); break;
+    case 'bow':
+      tri(30, -4, 6, -24, 6, 16, '#ff5d8f'); tri(30, -4, 54, -24, 54, 16, '#ff5d8f'); ell(30, -4, 9, 9, '#e64980'); break;
+    case 'flower':
+      for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + 0.3; ell(32 + Math.cos(a) * 12, -4 + Math.sin(a) * 12, 10, 10, i % 2 ? '#ffd6e7' : '#ffffff'); }
+      ell(32, -4, 8, 8, '#ffd43b'); break;
+    case 'witch':
+      ell(0, 2, 84, 14, '#3b2a5c');
+      ctx.fillStyle = '#4b3575'; ctx.beginPath(); ctx.moveTo(-42, 2); ctx.lineTo(42, 2); ctx.quadraticCurveTo(14, -50, 34, -100); ctx.quadraticCurveTo(-10, -60, -42, 2); ctx.fill();
+      rr(-40, -12, 80, 12, 4, '#ff922b'); rr(-8, -14, 16, 16, 3, '#ffd43b'); break;
+    case 'santa':
+      ctx.fillStyle = '#e03131'; ctx.beginPath(); ctx.moveTo(-56, 2); ctx.lineTo(56, 2); ctx.quadraticCurveTo(40, -60, 60, -64); ctx.quadraticCurveTo(10, -90, -56, 2); ctx.fill();
+      rr(-62, -10, 124, 22, 11, '#ffffff'); ell(62, -66, 13, 13, '#ffffff'); break;
+    case 'shades':
+      rr(-62, -14, 48, 30, 10, '#1e1e2a'); rr(14, -14, 48, 30, 10, '#1e1e2a'); rr(-16, -8, 32, 6, 3, '#1e1e2a');
+      ell(-48, -6, 9, 5, 'rgba(255,255,255,.35)', -0.4); ell(28, -6, 9, 5, 'rgba(255,255,255,.35)', -0.4); break;
+    case 'round':
+      ctx.strokeStyle = '#7a4a2a'; ctx.lineWidth = 5; ctx.fillStyle = 'rgba(200,230,255,.25)';
+      for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sd * 34, 0, 20, 0, TAU); ctx.fill(); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(-14, -2); ctx.quadraticCurveTo(0, -10, 14, -2); ctx.stroke(); break;
+    case 'scarf':
+      rr(-66, -12, 132, 24, 12, '#e03131'); rr(24, 0, 24, 50, 8, '#c92a2a');
+      ctx.fillStyle = '#ffffff'; for (let i = -2; i <= 2; i++) ctx.fillRect(i * 26 - 3, -12, 6, 24); ctx.fillRect(24, 34, 24, 5); break;
+    case 'bowtie':
+      tri(0, 0, -30, -16, -30, 16, '#5c7cfa'); tri(0, 0, 30, -16, 30, 16, '#5c7cfa'); ell(0, 0, 8, 9, '#364fc7'); break;
+  }
+}
+// what the pet is wearing; x/cy/ry are its body centre and half height, faceAt its face (set by drawCreature)
+function drawWear(x, cy, ry, R, t) {
+  const w = meta.wear || {}, k = R / 100;
+  const at = (id, ax, ay) => { if (!id) return; ctx.save(); ctx.translate(ax, ay); ctx.scale(k, k); drawAccessory(id, t); ctx.restore(); };
+  at(w.neck, faceAt.x, faceAt.y + R * 0.42);
+  at(w.eyes, faceAt.x, faceAt.y - R * 0.08);
+  at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
+}
+function drawDecorItem(id, x, y, t) {
+  switch (id) {
+    case 'house':
+      ell(x, y + 4, 90, 12, 'rgba(30,20,10,.22)');
+      rr(x - 72, y - 96, 144, 98, 6, '#c98a4a'); tri(x - 88, y - 92, x + 88, y - 92, x, y - 160, '#a0522d');
+      ctx.fillStyle = '#5c3a1e'; ctx.beginPath(); ctx.moveTo(x - 26, y + 2); ctx.lineTo(x - 26, y - 46); ctx.arc(x, y - 46, 26, Math.PI, 0); ctx.lineTo(x + 26, y + 2); ctx.fill();
+      rr(x - 34, y - 86, 68, 18, 6, '#f8e7c9'); ctx.font = '700 12px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5c3a1e'; ctx.fillText(state ? state.name : '', x, y - 77, 62); break;
+    case 'lamp': {
+      const lit = todNow() !== 'day';
+      rr(x - 5, y - 230, 10, 232, 4, '#3d4450'); rr(x - 16, y - 6, 32, 10, 4, '#3d4450');
+      if (lit) glow(x, y - 236, 160, '#ffd57a', 0.55);
+      rr(x - 16, y - 256, 32, 34, 6, lit ? '#fff3bf' : '#dee2e6'); tri(x - 22, y - 254, x + 22, y - 254, x, y - 274, '#3d4450'); break;
+    }
+    case 'plant':
+      ell(x, y + 4, 36, 8, 'rgba(30,20,10,.2)');
+      [[-20, -70, -0.5], [0, -86, 0], [20, -70, 0.5], [-10, -60, -0.3], [12, -58, 0.3]].forEach(([dx, dy, r]) => ell(x + dx, y + dy, 13, 30, '#40a060', r));
+      ctx.fillStyle = '#c8643c'; ctx.beginPath(); ctx.moveTo(x - 30, y - 44); ctx.lineTo(x + 30, y - 44); ctx.lineTo(x + 22, y + 2); ctx.lineTo(x - 22, y + 2); ctx.closePath(); ctx.fill();
+      rr(x - 33, y - 50, 66, 12, 4, '#d9774e'); break;
+    case 'ball': {
+      const by = y - 26 - Math.abs(Math.sin(t * 1.5)) * 4;
+      ell(x, y + 4, 26, 6, 'rgba(30,20,10,.2)');
+      ['#ff6b6b', '#ffffff', '#4dabf7', '#ffffff', '#ffd43b', '#ffffff'].forEach((c, i) => { ctx.beginPath(); ctx.moveTo(x, by); ctx.arc(x, by, 26, i * TAU / 6 + t * 0.2, (i + 1) * TAU / 6 + t * 0.2); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); });
+      ell(x - 8, by - 9, 7, 4, 'rgba(255,255,255,.6)', -0.5); break;
+    }
+  }
+}
+const DECOR_X = { house: 150, lamp: 330, plant: 470, ball: 600 };
+function drawDecor(t) { (meta.decor || []).forEach(id => drawDecorItem(id, DECOR_X[id], GROUND + 10, t)); }
+function buyItem(id) {
+  const it = shopItem(id), s = state; if (!it || meta.owned.includes(id)) return;
+  if (s.coins < it.cost) { say(`Chưa đủ xu mua ${it.name.toLowerCase()}. Chơi trò chơi hoặc làm nhiệm vụ để kiếm thêm nhé.`); return; }
+  s.coins -= it.cost; meta.owned.push(id); Sound.play('win'); useItem(id, true); log(`Mua ${it.name.toLowerCase()} (-${it.cost} xu).`); saveMeta();
+}
+function useItem(id, on) {
+  const it = shopItem(id); if (!it) return;
+  if (it.slot === 'decor') { meta.decor = meta.decor.filter(x => x !== id); if (on) meta.decor.push(id); }
+  else meta.wear[it.slot] = on ? id : '';
+  if (on && state && state.hatched) { setFace('love', 1500); setEmote('heart', 1500); say(it.slot === 'decor' ? `${state.name} rất thích ${it.name.toLowerCase()} mới!` : `${state.name} diện ${it.name.toLowerCase()} trông thật xinh!`, 3000); }
+  saveMeta();
+}
+
+/* adventures: the pet goes away for a while and comes back with coins, sometimes a present, and a postcard */
+const TRIPS = [
+  { id: 'forest', theme: 'forest', name: 'Rừng Nấm', min: 30, coin: 10 },
+  { id: 'ocean', theme: 'ocean', name: 'Đáy Biển', min: 60, coin: 22 },
+  { id: 'snow', theme: 'snow', name: 'Núi Tuyết', min: 120, coin: 45 },
+  { id: 'space', theme: 'space', name: 'Vũ Trụ Sao', min: 240, coin: 80 },
+];
+function tripBlock() {
+  const s = state;
+  if (s.sick) return 'Bé đang ốm, chữa khỏi rồi hãy đi.';
+  if (s.asleep) return 'Bé đang ngủ.';
+  if (s.energy < 40) return 'Bé cần năng lượng từ 40 trở lên.';
+  if (s.hunger < 40) return 'Cho bé ăn no (từ 40 trở lên) trước khi đi.';
+  return '';
+}
+function startTrip(id) {
+  const tr = TRIPS.find(x => x.id === id), s = state; if (!tr || s.trip || tripBlock() || busy() || game) return;
+  s.trip = { id, start: now(), end: now() + tr.min * 60000 };
+  idle = null; bubble = null; closeTalk(); moreMenu = false; Sound.play('magic');
+  log(`${s.name} lên đường đi phiêu lưu ở ${tr.name}.`); say(`${s.name} đeo ba lô lên đường tới ${tr.name}! Khoảng ${fmtDuration(tr.min)} nữa bé về.`, 6000);
+  closePanel();
+}
+function endTrip(early) {
+  const s = state, tr = TRIPS.find(x => x.id === s.trip.id); s.trip = null; pet.x = pet.tx = 640;
+  if (early) { say(`${s.name} quay về sớm, chưa kịp tìm được gì.`, 4000); log(`Gọi ${s.name} về sớm.`); return; }
+  s.energy = clamp(s.energy - 15); s.hunger = clamp(s.hunger - 15); s.happy = clamp(s.happy + 15); s.coins += tr.coin;
+  let gift = '';
+  if (Math.random() < 0.3) { const free = SHOP.filter(i => !meta.owned.includes(i.id) && i.cost <= 15); if (free.length) { const it = pick(free); meta.owned.push(it.id); gift = ` và mang về ${it.name.toLowerCase()}`; } }
+  try { addAlbum(`Bưu thiếp từ ${tr.name}`, postcard(tr)); } catch (e) {}
+  quest('trip'); Sound.play('win'); startAnim('heart', 1600); setFace('laugh', 2000);
+  queueBanner({ title: 'Về nhà rồi!', sub: `${s.name} đi ${tr.name} về: +${tr.coin} xu${gift}`, color: '#1c7ed6', dur: 5000 });
+  log(`${s.name} đi ${tr.name} về: +${tr.coin} xu${gift}.`); say(`${s.name} về rồi! Bé gửi bạn một bưu thiếp, xem trong 📷 Album nhé.`, 6000);
+  saveMeta();
+}
+function postcard(tr) {
+  const W = 384, H = 216, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(bakeBackdrop(tr.theme, 'day', W), 0, 0);
+  const sp = curSp(), def = curDef(), R = def.R, k = (H * 0.46) / (R * 2), prev = ctx;
+  ctx = g; g.setTransform(k, 0, 0, k, W * 0.5, H * 0.86);
+  if (state.variant && VARIANT[state.variant]) g.filter = VARIANT[state.variant].filter;
+  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1 });
+  g.filter = 'none'; drawWear(0, -R * 0.9, R * 0.9, R, 0); ctx = prev;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = 'rgba(255,253,248,.88)'; g.fillRect(0, H - 30, W, 30);
+  g.fillStyle = '#2b2220'; g.font = '700 15px "Be Vietnam Pro", sans-serif'; g.textBaseline = 'middle'; g.fillText(`${state.name} ở ${tr.name} · ${new Date().toLocaleDateString('vi-VN')}`, 10, H - 15);
+  return c.toDataURL('image/jpeg', 0.78);
+}
+function drawTripSign(t) {
+  const tr = TRIPS.find(x => x.id === state.trip.id), left = Math.max(0, (state.trip.end - now()) / 60000);
+  scaled(640, GROUND - 110, () => {
+    rr(632, GROUND - 60, 16, 72, 4, '#7a5230');
+    ctx.save(); ctx.translate(640, GROUND - 110); ctx.rotate(Math.sin(t) * 0.02);
+    rr(-210, -62, 420, 112, 18, '#d9a46a'); rr(-200, -52, 400, 92, 14, '#f3d7a7');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5c3a1e';
+    ctx.font = '800 26px "Baloo 2", sans-serif'; ctx.fillText(`🎒 ${state.name} đi phiêu lưu`, 0, -22, 380);
+    ctx.font = '600 20px "Be Vietnam Pro", sans-serif'; ctx.fillText(`${tr.name} · còn khoảng ${fmtDuration(Math.ceil(left))}`, 0, 16, 380);
+    ctx.restore();
+  });
+}
+
+/* album: hatching, evolutions, birthdays, postcards and visits are kept as small photos */
+// the photo is taken right after the next frame is drawn, so the screen is never caught blank
+const shotQ = [];
+const snapshot = title => shotQ.push(title);
+function takeShots() {
+  while (shotQ.length) {
+    const c = document.createElement('canvas'); c.width = 384; c.height = 216;
+    try { c.getContext('2d').drawImage(cv, 0, 0, 384, 216); addAlbum(shotQ.shift(), c.toDataURL('image/jpeg', 0.72)); } catch (e) { shotQ.shift(); }
+  }
+}
+function addAlbum(title, img) { meta.album.unshift({ t: now(), title, img }); meta.album = meta.album.slice(0, 16); saveMeta(); }
+
+/* skills: a few lessons (at least 20 minutes apart) and the pet knows the trick, then shows it off by itself */
+const SKILLS = { bow: { name: 'Cúi chào', need: 3 }, spin: { name: 'Nhảy xoay vòng', need: 3 }, sing: { name: 'Ca hát', need: 4 } };
+const LESSON_GAP = 20;
+const learned = () => state && state.skills ? Object.keys(SKILLS).filter(k => (state.skills[k] || {}).n >= SKILLS[k].need) : [];
+function teach(id) {
+  const s = state, K = SKILLS[id]; if (busy() || game || s.asleep) return;
+  const sk = s.skills[id] || (s.skills[id] = { n: 0, last: 0 });
+  if (sk.n >= K.need) { startAnim('trick', 2400, { skill: id }); say(`${s.name} biểu diễn ${K.name.toLowerCase()}!`, 3000); return; }
+  const wait = LESSON_GAP - (now() - sk.last) / 60000;
+  if (wait > 0) { say(`${s.name} cần nghỉ ${Math.ceil(wait)} phút nữa mới học tiếp ${K.name.toLowerCase()}.`, 3500); return; }
+  if (s.energy < 20) { say(`${s.name} mệt quá, cho bé nghỉ đã.`, 3000); return; }
+  sk.n++; sk.last = now(); s.energy = clamp(s.energy - 10); s.happy = clamp(s.happy + 3);
+  startAnim('trick', 2400, { skill: id, learn: sk.n < K.need }); quest('train');
+  if (sk.n >= K.need) { queueBanner({ title: 'Học xong!', sub: `${s.name} đã biết ${K.name.toLowerCase()}`, color: '#7048e8', dur: 4500 }); log(`${s.name} học xong kỹ năng ${K.name.toLowerCase()}.`); Sound.play('win'); }
+  else say(`Bài ${sk.n}/${K.need}: ${s.name} đang tập ${K.name.toLowerCase()}...`, 3500);
+}
+
+/* share card: a picture of the pet with its details, to post on Zalo or Facebook */
+function shareCard() {
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), s = state, sp = curSp(), def = curDef(), r = RARITY[sp.rarity];
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, mixC(r.color, '#ffffff', 0.6)); bg.addColorStop(1, mixC(r.color, '#16122a', 0.45));
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const halo = g.createRadialGradient(W / 2, 560, 40, W / 2, 560, 440); halo.addColorStop(0, 'rgba(255,255,255,.75)'); halo.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = halo; g.fillRect(0, 100, W, 900);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(43,34,32,.7)'; g.font = '800 34px "Baloo 2", sans-serif'; g.fillText('THÚ ẢO BỎ TÚI', W / 2, 80);
+  const R = def.R, wide = (def.extras || []).includes('wings') || def.tails > 3 ? 3.6 : 3.1, k = Math.min(760 / (R * wide), 600 / (R * 2.4)), prev = ctx;
+  ctx = g; g.setTransform(k, 0, 0, k, W / 2, 850);
+  ell(0, 4, R * 0.9, R * 0.16, 'rgba(30,20,10,.18)');
+  if (s.variant && VARIANT[s.variant]) g.filter = VARIANT[s.variant].filter;
+  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1 });
+  g.filter = 'none'; drawWear(0, -R * 0.9, R * 0.9, R, 0); ctx = prev; g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#ffffff'; g.font = '800 96px "Baloo 2", sans-serif'; g.lineWidth = 14; g.strokeStyle = 'rgba(43,34,32,.55)'; g.strokeText(s.name, W / 2, 950); g.fillText(s.name, W / 2, 950);
+  const tag = `${r.label}${s.variant && VARIANT[s.variant] ? ' · ' + VARIANT[s.variant].name : ''}`;
+  g.font = '800 30px "Be Vietnam Pro", sans-serif'; const tw = g.measureText(tag).width + 48;
+  g.fillStyle = r.color; g.beginPath(); g.roundRect ? g.roundRect(W / 2 - tw / 2, 1010, tw, 50, 25) : g.rect(W / 2 - tw / 2, 1010, tw, 50); g.fill();
+  g.fillStyle = '#ffffff'; g.fillText(tag, W / 2, 1036);
+  g.fillStyle = '#ffffff'; g.font = '600 34px "Be Vietnam Pro", sans-serif'; g.fillText(`${def.name} · hệ ${sp.type}`, W / 2, 1100);
+  const found = Object.values(dex).reduce((a, m) => a + m + 1, 0), total = SPECIES.reduce((a, x) => a + x.stages.length, 0);
+  const facts = [['Tuổi', fmtAge(ageMin())], ['Tính cách', (TRAITS[s.trait] || {}).name || '–'], ['Chuỗi', `${meta.streak.n} ngày`], ['Bộ sưu tập', `${found}/${total}`]];
+  facts.forEach(([kk, v], i) => {
+    const x = 60 + i * 240 + 10; g.fillStyle = 'rgba(255,255,255,.2)'; g.beginPath(); g.roundRect ? g.roundRect(x, 1150, 220, 100, 20) : g.rect(x, 1150, 220, 100); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.8)'; g.font = '600 22px "Be Vietnam Pro", sans-serif'; g.fillText(kk, x + 110, 1180);
+    g.fillStyle = '#ffffff'; g.font = '800 30px "Be Vietnam Pro", sans-serif'; g.fillText(v, x + 110, 1222, 200);
+  });
+  g.fillStyle = 'rgba(255,255,255,.9)'; g.font = '600 26px "Be Vietnam Pro", sans-serif'; g.fillText('Nuôi thú cùng mình: thu-ao-bo-tui.vercel.app', W / 2, 1305);
+  return c;
+}
+
+/* visits: a short code (or link) describes your pet; a friend opens it and your pet walks into their home for a while */
+const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
+const visitCode = () => { const s = state; return b64e([s.name, s.species, s.stageIdx, s.shell.slice(1), s.trait || '', s.variant || '', meta.wear.head || '', meta.wear.eyes || '', meta.wear.neck || ''].join('|')); };
+// visit links always point at the public game, unless it is already running on its own site
+const siteUrl = () => /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? location.origin + location.pathname : 'https://thu-ao-bo-tui.vercel.app/';
+const visitLink = () => `${siteUrl()}?tham=${visitCode()}`;
+function parseVisit(text) {
+  try {
+    const m = String(text).match(/tham=([\w-]+)/), code = (m ? m[1] : String(text)).trim();
+    const [name, species, idx, , , variant, head, eyes, neck] = b64d(code).split('|'), sp = SPECIES.find(x => x.id === species);
+    if (!sp || !name) return null;
+    return { code, name: name.slice(0, 12), sp, idx: Math.max(0, Math.min(sp.stages.length - 1, +idx || 0)), variant, wear: { head, eyes, neck } };
+  } catch (e) { return null; }
+}
+let visitor = null;
+function startVisit(v) {
+  const s = state; if (!s || !s.hatched || !s.alive || s.trip) { say('Hãy có một bé thú ở nhà để đón bạn đến chơi nhé.', 4000); return false; }
+  if (v.code === visitCode()) { say('Đây là mã của chính bé nhà mình mà!', 3500); return false; }
+  visitor = { ...v, x: -220, start: now(), until: now() + 45000, said: false };
+  const key = v.code + dayKey();
+  if (!meta.visits[key]) { meta.visits[key] = 1; s.happy = clamp(s.happy + 15); s.coins += 5; log(`${v.name} đến thăm ${s.name} (+5 xu).`); saveMeta(); }
+  say(`${v.name} đến thăm ${s.name}! Hai bé chơi với nhau một lúc nhé.`, 5000); Sound.play('ping');
+  setTimeout(() => { if (visitor) snapshot(`${visitor.name} đến chơi`); }, 6000);
+  return true;
+}
+function drawVisitor(t, dt) {
+  const v = visitor, def = v.sp.stages[v.idx], R = def.R * 0.8, T = now();
+  const tx = T > v.until ? -260 : pet.x < 640 ? Math.min(1100, pet.x + 300) : Math.max(180, pet.x - 300);
+  const d = tx - v.x, walking = Math.abs(d) > 3;
+  if (walking) v.x += Math.sign(d) * Math.min(Math.abs(d), 130 * dt);
+  if (T > v.until && v.x < -200) { visitor = null; say(`${v.name} về nhà rồi. Hẹn gặp lại!`, 3000); return; }
+  if (!walking && !v.said) { v.said = true; spawn('txt', v.x, GROUND - R * 2.1, { vx: 0, vy: -40, max: 1.6, text: 'Xin chào!', color: '#e64980' }); setFace('laugh', 1800); setEmote('heart', 1800); }
+  const hop = walking ? Math.abs(Math.sin(t * 9)) * 12 : Math.max(0, Math.sin(t * 3.1 + 1) - 0.6) * 60, ry = R * 0.9, cy = GROUND - ry - hop;
+  const dir = walking ? Math.sign(d) : pet.x > v.x ? 1 : -1;
+  ell(v.x, GROUND + 4, R * 0.85, R * 0.16, 'rgba(30,20,10,.2)');
+  const keep = { ...faceAt };
+  ctx.save(); if (v.variant && VARIANT[v.variant]) ctx.filter = VARIANT[v.variant].filter;
+  drawCreature({ x: v.x, cy, rx: R, ry, R, gy: GROUND, sp: v.sp, def, t, md: 'happy', look: dir * 0.7, lookY: 0, wag: 2, dir, sick: false, asleep: false, hop });
+  ctx.filter = 'none'; const mine = meta.wear; meta.wear = v.wear || {}; drawWear(v.x, cy, ry, R, t); meta.wear = mine; ctx.restore();
+  faceAt = keep;
+  pillLabel(v.name, v.x, cy - ry - R * 0.75);
+}
+
+/* reminders: a notification while the page is still open in the background (browsers allow no more without a server) */
+function remind(needNow) {
+  if (!meta.notify || !document.hidden || !needNow || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (now() - (remind.last || 0) < 20 * 60000) return; remind.last = now();
+  const title = `${state.name} cần bạn!`, opts = { body: needs()[0], icon: 'icon-192.png', tag: 'thu-ao' };
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(r => r.showNotification(title, opts)).catch(() => {});
+  else { try { new Notification(title, opts); } catch (e) {} }
+}
+
+/* the extras card */
+let panelKind = null, moreMenu = false, shareUrl = '';
+function openPanel(kind) { panelKind = kind; renderPanel(); $('panel').hidden = false; }
+function closePanel() { panelKind = null; $('panel').hidden = true; if (shareUrl) { URL.revokeObjectURL(shareUrl); shareUrl = ''; } }
+$('panelClose').addEventListener('click', () => { closePanel(); syncMode(true); });
+const itemCanvas = id => `<canvas width="128" height="128" data-item="${id}"></canvas>`;
+function drawItemCanvases() {
+  $('panelBody').querySelectorAll('canvas[data-item]').forEach(cnv => {
+    const c = cnv.getContext('2d'), prev = ctx, it = shopItem(cnv.dataset.item); ctx = c;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 128, 128);
+    if (it.slot === 'decor') { const k = it.id === 'lamp' ? 0.4 : it.id === 'house' ? 0.62 : 0.95; c.setTransform(k, 0, 0, k, 64, 64 + (it.id === 'lamp' ? 120 : it.id === 'house' ? 70 : it.id === 'plant' ? 40 : 20) * k); drawDecorItem(it.id, 0, 0, 0); }
+    else { c.setTransform(0.72, 0, 0, 0.72, it.slot === 'head' && ['bow', 'flower'].includes(it.id) ? 40 : 64, it.slot === 'head' ? 88 : 64); drawAccessory(it.id, 0); }
+    ctx = prev;
+  });
+}
+function renderPanel() {
+  const s = state, body = $('panelBody'); if (!panelKind || !s) return;
+  const title = { quest: '📋 Nhiệm vụ hôm nay', shop: '🛍️ Cửa hàng', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè' }[panelKind];
+  $('panelTitle').textContent = title;
+  let h = '';
+  if (panelKind === 'quest') {
+    ensureQuests();
+    h = `<p class="muted">Chuỗi điểm danh: <b>${meta.streak.n} ngày</b>. Mỗi ngày quay lại được quà, ngày thứ 7 có quà lớn. Nhiệm vụ đổi mới mỗi ngày.</p><div class="p-list">` +
+      meta.quests.list.map(q => { const Q = QUESTS[q.id], done = q.n >= Q.goal; return `<div class="p-row"><span>${Q.text}<small>${q.n}/${Q.goal} · thưởng ${Q.coin} xu</small><div class="p-bar"><i style="width:${q.n / Q.goal * 100}%"></i></div></span>${q.claimed ? '<b>✓</b>' : `<button class="p-btn" data-p="claim:${q.id}"${done ? '' : ' disabled'}>Nhận</button>`}</div>`; }).join('') +
+      `</div><p class="muted">Xong cả 3 nhiệm vụ được thưởng thêm 15 xu.</p>` +
+      (typeof Notification !== 'undefined' ? `<div class="p-row"><span>🔔 Nhắc khi bé cần chăm sóc<small>Hoạt động khi trình duyệt còn mở game ở nền.</small></span><button class="p-btn${meta.notify ? ' alt' : ''}" data-p="notify">${meta.notify ? 'Tắt' : 'Bật'}</button></div>` : '');
+  }
+  if (panelKind === 'shop') {
+    h = `<p class="muted">Bạn có <b>${s.coins} xu</b>. Đồ đã mua dùng được cho mọi bé thú sau này.</p><div class="p-grid">` +
+      SHOP.map(it => { const own = meta.owned.includes(it.id), on = it.slot === 'decor' ? meta.decor.includes(it.id) : meta.wear[it.slot] === it.id;
+        return `<div class="p-item${on ? ' on' : ''}">${itemCanvas(it.id)}<b>${it.name}</b>${own ? `<button class="p-btn${on ? ' alt' : ''}" data-p="${on ? 'off' : 'on'}:${it.id}">${on ? 'Cất đi' : it.slot === 'decor' ? 'Bày ra' : 'Đeo'}</button>` : `<button class="p-btn" data-p="buy:${it.id}"${s.coins < it.cost ? ' disabled' : ''}>${it.cost} xu</button>`}</div>`; }).join('') + '</div>';
+  }
+  if (panelKind === 'trip') {
+    const block = tripBlock();
+    h = `<p class="muted">Bé đi một mình, khi về mang theo xu, đôi khi có quà, và luôn gửi bạn một bưu thiếp. Lúc bé đi vắng, các chỉ số không giảm.</p>${block ? `<p><b>${block}</b></p>` : ''}<div class="p-list">` +
+      TRIPS.map(tr => `<div class="p-row"><span><b>${tr.name}</b><small>${fmtDuration(tr.min)} · khoảng ${tr.coin} xu</small></span><button class="p-btn" data-p="trip:${tr.id}"${block ? ' disabled' : ''}>Đi</button></div>`).join('') + '</div>';
+  }
+  if (panelKind === 'train') {
+    h = `<p class="muted">Mỗi bài học tốn 10 năng lượng, các bài cách nhau ít nhất ${LESSON_GAP} phút. Học xong, bé sẽ tự biểu diễn lúc vui.</p><div class="p-list">` +
+      Object.entries(SKILLS).map(([id, K]) => { const sk = s.skills[id] || { n: 0, last: 0 }, done = sk.n >= K.need, wait = Math.ceil(LESSON_GAP - (now() - sk.last) / 60000);
+        return `<div class="p-row"><span><b>${K.name}</b><small>${done ? 'Đã học xong' : `${sk.n}/${K.need} bài${wait > 0 && sk.n ? ` · bài tiếp sau ${wait} phút` : ''}`}</small><div class="p-bar"><i style="width:${Math.min(1, sk.n / K.need) * 100}%"></i></div></span><button class="p-btn" data-p="teach:${id}"${!done && ((wait > 0 && sk.n) || s.energy < 20) ? ' disabled' : ''}>${done ? 'Biểu diễn' : 'Dạy'}</button></div>`; }).join('') + '</div>';
+  }
+  if (panelKind === 'album') {
+    h = meta.album.length ? `<p class="muted">Ảnh tự chụp lúc nở, tiến hóa, sinh nhật, khi bạn bè đến chơi, và bưu thiếp từ các chuyến phiêu lưu (giữ 16 ảnh mới nhất).</p><div class="p-photos">` +
+      meta.album.map((a, i) => `<figure><a href="${a.img}" download="thu-ao-${i + 1}.jpg"><img src="${a.img}" alt="${esc(a.title)}"></a><figcaption><b>${esc(a.title)}</b><br><span class="muted">${new Date(a.t).toLocaleDateString('vi-VN')}</span></figcaption></figure>`).join('') + '</div>'
+      : '<p>Album còn trống. Ảnh sẽ tự được chụp khi bé tiến hóa, đến sinh nhật, đi phiêu lưu về hoặc có bạn đến chơi.</p>';
+  }
+  if (panelKind === 'share') {
+    h = '<p class="muted">Đang tạo thẻ...</p>';
+    setTimeout(() => {
+      if (panelKind !== 'share') return;
+      shareCard().toBlob(blob => {
+        if (!blob || panelKind !== 'share') return;
+        if (shareUrl) URL.revokeObjectURL(shareUrl); shareUrl = URL.createObjectURL(blob); renderPanel.blob = blob;
+        const canFile = navigator.canShare && navigator.canShare({ files: [new File([blob], 'thu-ao.png', { type: 'image/png' })] });
+        body.innerHTML = `<img class="p-card" src="${shareUrl}" alt="Thẻ khoe thú"><div class="p-acts">${canFile ? '<button class="p-btn" data-p="sharecard">Chia sẻ</button>' : ''}<a class="p-btn${canFile ? ' alt' : ''}" href="${shareUrl}" download="thu-ao-${esc(s.name)}.png" style="text-decoration:none">Tải ảnh</a></div><p class="muted">Gửi ảnh lên Zalo, Facebook để khoe bé và rủ bạn bè cùng nuôi.</p>`;
+      }, 'image/png');
+    }, 30);
+  }
+  if (panelKind === 'visit') {
+    const link = visitLink();
+    h = `<p>Gửi link này cho bạn bè. Khi bạn mở link, ${esc(s.name)} sẽ sang nhà bạn ấy chơi, và bé nhà bạn ấy được thưởng.</p>
+      <div class="p-row"><input class="p-input" id="visitMine" value="${esc(link)}" readonly><button class="p-btn" data-p="copy">Sao chép</button>${navigator.share ? '<button class="p-btn alt" data-p="sharelink">Gửi</button>' : ''}</div>
+      <p>Nhận được link hoặc mã của bạn bè? Dán vào đây để mời bé nhà bạn ấy sang chơi:</p>
+      <div class="p-row"><input class="p-input" id="visitIn" placeholder="Dán link hoặc mã"><button class="p-btn" data-p="invite">Mời sang</button></div>
+      <p class="muted">Mỗi bạn đến chơi lần đầu trong ngày: bé vui hơn và được 5 xu.</p>`;
+  }
+  body.innerHTML = h; drawItemCanvases();
+}
+$('panelBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-p]'); if (!b || !state) return;
+  const [cmd, arg] = b.dataset.p.split(':');
+  Sound.ensure(); Sound.play('click');
+  if (cmd === 'claim') claimQuest(arg);
+  if (cmd === 'buy') buyItem(arg);
+  if (cmd === 'on' || cmd === 'off') useItem(arg, cmd === 'on');
+  if (cmd === 'trip') { startTrip(arg); syncMode(true); renderSide(); save(); return; }
+  if (cmd === 'teach') teach(arg);
+  if (cmd === 'notify') {
+    if (!meta.notify && Notification.permission !== 'granted') { const p = await Notification.requestPermission().catch(() => 'denied'); if (p !== 'granted') { say('Trình duyệt chưa cho phép gửi thông báo.', 3500); return; } }
+    meta.notify = !meta.notify; saveMeta();
+  }
+  if (cmd === 'sharecard' && renderPanel.blob) { try { await navigator.share({ files: [new File([renderPanel.blob], `thu-ao-${state.name}.png`, { type: 'image/png' })], title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} nhà mình nè! Nuôi thú cùng mình: ${siteUrl()}` }); } catch (er) {} return; }
+  if (cmd === 'copy') { const inp = $('visitMine'); inp.select(); try { await navigator.clipboard.writeText(inp.value); } catch (er) { document.execCommand && document.execCommand('copy'); } b.textContent = 'Đã chép'; return; }
+  if (cmd === 'sharelink') { try { await navigator.share({ title: 'Thú Ảo Bỏ Túi', text: `Bé ${state.name} muốn sang nhà bạn chơi!`, url: visitLink() }); } catch (er) {} return; }
+  if (cmd === 'invite') { const v = parseVisit($('visitIn').value); if (!v) { say('Mã hoặc link chưa đúng, kiểm tra lại nhé.', 3500); return; } if (startVisit(v)) { closePanel(); syncMode(true); } return; }
+  renderPanel(); syncMode(true); renderSide(); save();
+});
 
 /* ---------- drawing helpers ---------- */
 function shade(hex, amt) {
@@ -4076,6 +4712,18 @@ function drawPet(t, dt) {
     x += sd * R * 0.3 * e.lean; tilt = sd * 0.3 * e.lean; look = sd; lookY = 0.45 + 0.45 * e.lean;
     sy = 1 - e.chew * 0.035 + e.gulp * 0.05; eatMouth = Math.max(e.mouth, e.chew * 0.35);
   }
+  if (anim && anim.type === 'trick') {
+    // a learned trick; while still learning it the pet tries, wobbles and only half manages
+    const p = animP(), a = anim.learn ? 0.55 : 1, e2 = (T - anim.start) / 1000;
+    if (anim.learn) x += Math.sin(e2 * 22) * 3 * (1 - p);
+    if (anim.skill === 'bow') { const b = Math.sin(Math.min(1, p * 1.3) * Math.PI); tilt = pet.dir * 0.42 * a * b; sy = 1 - 0.08 * b; lookY = 0.9 * b; }
+    if (anim.skill === 'spin') { hop = Math.sin(p * Math.PI) * R * 0.8 * a; sx = Math.cos(p * TAU * (anim.learn ? 1 : 2)); sy = hop > 5 ? 1.06 : 0.92; }
+    if (anim.skill === 'sing') {
+      sy = 1 + Math.sin(e2 * 9) * 0.05; tilt = Math.sin(e2 * 4.5) * 0.09 * a; lookY = -0.5;
+      if (Math.random() < (anim.learn ? 0.05 : 0.14)) spawn('txt', x + (Math.random() - 0.5) * R, GROUND - R * 1.9, { vx: (Math.random() - 0.5) * 60, vy: -70, max: 1.4, text: pick(['♪', '♫']), color: pick(['#e64980', '#4c6ef5', '#12b886']) });
+    }
+    if (!anim.fx) { anim.fx = 1; setFace(anim.learn ? 'surprised' : 'laugh', 2400); if (!anim.learn) setEmote('note', 2200); Sound.play(anim.skill === 'sing' ? 'happy' : 'boing', 0.7); }
+  }
   if (face && face.until > T && face.f === 'dizzy') tilt = Math.sin(t * 6) * 0.15;
   if (T - pointer.t < 2500 && !game && !s.asleep && !talk && !(idle && idle.type === 'look')) {
     look = Math.max(-1, Math.min(1, (pointer.x - x) / 260));
@@ -4102,7 +4750,11 @@ function drawPet(t, dt) {
   if (!idle && !game && !flying && !s.asleep) tilt -= weather.gust * 0.06;
   const pivY = phys.held ? cy - ry : phys.air || Math.abs(phys.rot) > 0.05 || (idle && idle.type === 'roll') ? cy : GROUND - hop;
   ctx.translate(x, pivY); ctx.rotate(tilt); ctx.scale(sx * (2 - sy), sy); ctx.translate(-x, -pivY);
+  if (s.variant && VARIANT[s.variant]) ctx.filter = VARIANT[s.variant].filter;
   drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop });
+  ctx.filter = 'none';
+  drawWear(x, cy, ry, Rg, t);
+  if (s.variant === 'shiny' && Math.random() < 0.08) spawn('spark', x + (Math.random() - 0.5) * Rg * 2, cy + (Math.random() - 0.5) * ry * 2, { vx: 0, vy: -30, max: 0.7, size: 0.45, color: '#fff3bf' });
   if (now() < mustacheUntil) {
     const mfx = faceAt.x, mmy = faceAt.y + Rg * 0.2;
     ell(mfx - Rg * 0.11, mmy, Rg * 0.13, Rg * 0.055, '#ffffff', 0.25); ell(mfx + Rg * 0.11, mmy, Rg * 0.13, Rg * 0.055, '#ffffff', -0.25);
@@ -4145,7 +4797,7 @@ function drawPet(t, dt) {
 const biteCv = document.createElement('canvas'); biteCv.width = biteCv.height = 256;
 // the dish beside the pet, sized to it: set down with a little bounce, then bitten, scooped or sipped away
 function drawFood(kind, body) {
-  const f = FOODS.find(z => z.id === kind) || FOODS[0], p = animP(), e = anim.es || eatState(p, f.eat);
+  const f = allFoods().find(z => z.id === kind) || FOODS[0], p = animP(), e = anim.es || eatState(p, f.eat);
   const sd = pet.x < 640 ? 1 : -1, k = Math.max(0.85, Math.min(1.35, body.R / 115)), s = k * 0.9, t = performance.now() / 1000;
   const x = pet.x + sd * (body.R * 1.12 + 40 * k), y = GROUND + 4, plate = f.eat === 'bite';
   const d = Math.min(1, p / 0.07), dy = d < 1 ? -150 * (1 - d) * (1 - d) : 0, sq = p > 0.07 && p < 0.12 ? Math.sin((p - 0.07) / 0.05 * Math.PI) * 0.08 : 0;
@@ -4289,10 +4941,12 @@ function render(ts) {
   resize(); const k = cv.width / LW; ctx.setTransform(k, 0, 0, k, 0, 0);
   uiK = Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
   if (state && state.hatched && !state.alive) { drawGone(t); requestAnimationFrame(render); return; }
-  if (state && state.hatched) drawScene(t); else drawRoom(t);
+  if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t); } else drawRoom(t);
   if (!state || !state.hatched) drawEgg(t);
+  else if (state.trip) { drawPoops(t); drawTripSign(t); }
   else {
     drawPoops(t);
+    if (visitor) drawVisitor(t, dt);
     const body = drawPet(t, dt);
     if (anim && anim.type === 'eat') drawFood(anim.food, body);
     if (anim && anim.type === 'react') reactFX(body, t);
@@ -4332,6 +4986,7 @@ function render(ts) {
   if (bubble && lastBody && state && state.hatched) drawBubble(lastBody, t);
   if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, 0, LW, LH); } }
   drawBanner();
+  if (shotQ.length) takeShots();
   requestAnimationFrame(render);
 }
 
@@ -4342,16 +4997,31 @@ function start(snap) {
   if (state) {
     setShell(state.shell);
     const r = document.querySelector(`input[name=shell][value="${state.shell}"]`); if (r) r.checked = true;
-    if (state.hatched) discover(state.species, state.stageIdx);
+    if (state.hatched) { discover(state.species, state.stageIdx); ensureExtras(state); }
     const away = (now() - state.last) / 60000;
     if (!snap && state.hatched && state.alive && away > 1) {
       const mins = Math.min(away, 720);
       for (let i = 0; i < mins; i++) step(Math.min(1, mins - i) * 0.3, true);
       log(`Bạn vắng mặt ${Math.round(away)} phút.`);
-      say(`Chào mừng trở lại! ${state.name} nhớ bạn lắm.`, 5000);
+      if (state.trip) say(`Chào mừng trở lại! ${state.name} vẫn đang đi phiêu lưu.`, 5000);
+      else if (away > 1440) {
+        // gone for more than a day: the pet sulks first, then can't stay cross
+        say(`${state.name} dỗi vì bạn đi lâu quá... nhưng rồi vẫn sà vào lòng bạn.`, 6000); setFace('angry', 3200); setEmote('vein', 3000);
+        setTimeout(() => { if (state && !state.trip) { setFace('love', 2200); setEmote('heart', 2200); if (!anim) startAnim('heart', 1600); } }, 3300);
+      } else say(`Chào mừng trở lại! ${state.name} nhớ bạn lắm.`, 5000);
     }
+    const h = new Date().getHours();
+    if (state.hatched && state.alive && !state.trip && meta.greet !== dayKey() && h >= 5 && h < 11 && !(away > 1440)) { meta.greet = dayKey(); saveMeta(); setTimeout(() => { say(`Chào buổi sáng! ${state.name} chúc bạn một ngày thật vui.`, 4500); setEmote('note', 1800); }, 1500); }
   }
+  tick.day = dayKey(); checkDay();
   if (snap && snap.pet) pet = snap.pet;
+  // opened from a friend's visit link: their pet walks in (and the link is tidied from the address bar)
+  const vq = new URLSearchParams(location.search).get('tham');
+  if (vq) {
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    const v = parseVisit(vq);
+    if (v) setTimeout(() => startVisit(v), 2500);
+  }
   syncMode(true); renderSide(); renderDex();
   requestAnimationFrame(render);
   setInterval(logic, 100);
@@ -4367,7 +5037,7 @@ window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude
 
 <script>
 (() => {
-  const BUILD = '20261029150447';
+  const BUILD = '20261030075505';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
