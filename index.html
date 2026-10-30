@@ -118,14 +118,18 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .talk-act button.alt { background: transparent; color: #2b2220; box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
 .talk-act button:focus-visible { outline: 3px solid #2b2220; outline-offset: 2px; }
 #talkRead { display: none; }
-/* phones: a small card under the screen showing just the first two lines; "Đọc tiếp" opens the rest */
+/* phones: a small card under the screen, always the same height (title, two lines, buttons);
+   "Đọc tiếp" opens the whole text over the game screen while the card's place stays reserved, so nothing below moves */
 @media (max-width: 640px) {
-  .talk { position: static; transform: none; width: auto; max-height: none; margin-top: 6px; box-shadow: none; padding: 8px 12px; gap: 4px; border-radius: 14px; }
-  .talk-k { font-size: 10.5px; }
+  .talk { position: static; transform: none; width: auto; height: 108px; max-height: none; margin-top: 6px; box-shadow: none; padding: 8px 12px; gap: 4px; border-radius: 14px;
+    box-sizing: border-box; overflow: hidden; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .talk-k { font-size: 10.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .talk p { font-size: 13.5px; line-height: 1.42; min-height: 0; }
   .talk:not(.full) p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-  .talk.full p { max-height: 40vh; overflow-y: auto; scrollbar-width: none; }
+  .talk.full { position: absolute; top: auto; left: 5px; right: 5px; bottom: 5px; height: auto; max-height: calc(100% - 10px); z-index: 7; overflow: hidden; box-shadow: 0 -10px 28px rgba(0,0,0,.3); }
+  .talk.full p { overflow-y: auto; scrollbar-width: none; }
   .talk.full p::-webkit-scrollbar { display: none; }
+  .bezel.talk-full { padding-bottom: calc(5px + 6px + 108px); }
   .talk dl, .talk small, .talk .talk-bar { display: none !important; }
   .talk-act { gap: 6px; }
   .talk-act button { font-size: 12.5px; padding: 6px 11px; }
@@ -255,6 +259,11 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
   min-height: 3em; display: flex; align-items: center; padding: 8px 16px; border-radius: 14px;
   background: rgba(255,255,255,.55); font-weight: 500; font-size: 15px; line-height: 1.35;
 }
+/* the message strip keeps one fixed height (two lines; more in the side column layouts), so the buttons under it never jump */
+#say { box-sizing: border-box; height: calc(2 * 1.35em + 16px); min-height: 0; overflow: hidden; align-items: safe center; line-height: 1.35; overflow-wrap: anywhere; }
+@media (max-width: 600px) { #say { height: calc(2 * 1.35em + 12px); } }
+@media (min-width: 901px) and (min-height: 521px) and (min-aspect-ratio: 19/10) { #say { height: calc(6 * 1.35em + 16px); } }
+@media (orientation: landscape) and (max-height: 520px) { #say { height: calc(3 * 1.35em + 12px); } }
 .pad { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 .pad button, .setup button.go {
   font: 700 15px/1 var(--body); padding: 12px 17px; border: 0; border-radius: 999px; cursor: pointer;
@@ -1385,7 +1394,7 @@ function openTalk(kind, auto = false) {
   const c = makeTalk(kind), box = $('talk'), p = $('talkText'), meta = $('talkMeta');
   c.text = splitSentences(c.text).join('\n');
   talk = { kind, typing: true, auto, closeAt: 0 };
-  box.hidden = false; box.dataset.kind = kind; box.classList.remove('full'); $('talkRead').textContent = 'Đọc tiếp ▾';
+  box.hidden = false; box.dataset.kind = kind; box.classList.remove('full'); box.parentElement.classList.remove('talk-full'); $('talkRead').textContent = 'Đọc tiếp ▾';
   const today = new Date().toDateString();
   if (auto && kind === 'fortune' && state.lastDaily !== today) {
     state.lastDaily = today; c.label = `Quẻ hôm nay của ${state.name}`;
@@ -1421,11 +1430,11 @@ function openTalk(kind, auto = false) {
   if (kind === 'news') say(`${state.name} đeo kính, giở báo đọc tin...`, 3000);
   if (kind === 'fact') say(`${state.name} vừa nghĩ ra một điều thú vị!`, 3000);
 }
-function closeTalk() { clearInterval(typer); talk = null; $('talk').hidden = true; }
+function closeTalk() { clearInterval(typer); talk = null; $('talk').hidden = true; $('talk').classList.remove('full'); $('talk').parentElement.classList.remove('talk-full'); }
 $('talkClose').addEventListener('click', () => { closeTalk(); syncMode(true); });
 $('talkMore').addEventListener('click', () => { if (talk) openTalk(talk.kind); });
 // on phones the card shows two lines; "Đọc tiếp" (or tapping the text) opens the rest, and folds it again
-const toggleTalk = () => { const full = $('talk').classList.toggle('full'); $('talkRead').textContent = full ? 'Thu gọn ▴' : 'Đọc tiếp ▾'; if (talk && talk.auto) { talk.auto = false; talk.closeAt = 0; } };
+const toggleTalk = () => { const full = $('talk').classList.toggle('full'); $('talk').parentElement.classList.toggle('talk-full', full); $('talkRead').textContent = full ? 'Thu gọn ▴' : 'Đọc tiếp ▾'; if (talk && talk.auto) { talk.auto = false; talk.closeAt = 0; } };
 $('talkText').addEventListener('click', toggleTalk);
 $('talkRead').addEventListener('click', toggleTalk);
 // touching the card means the player is reading it: stop the auto-close
@@ -5594,7 +5603,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030102440';
+  const BUILD = '20261030104141';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
