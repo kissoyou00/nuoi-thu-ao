@@ -1202,14 +1202,23 @@ function logic() {
     const R = petR(), minX = 130 + R, maxX = Math.max(minX, maxPetX());
     if (idle && T - idle.start >= idle.dur) {
       if (idle.type === 'roll') { const R0 = petR(); pet.x = Math.max(130 + R0, Math.min(Math.max(130 + R0, maxPetX()), pet.x + idle.dir * 130)); pet.tx = pet.x; }
+      // after a kick the pet usually runs after the ball for another go
+      if (idle.type === 'kick' && Math.random() < 0.7) { pet.errand = 'kick'; pet.nextIdle = T; pet.nextMove = T + 9000; }
       idle = null;
     }
     const flying = phys.held || phys.air || !!talk || !!bubble;
-    if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.nextMove = T + 2500 + Math.random() * 3500; }
+    // a new item waiting to be unboxed
+    if (unboxQ.length && !anim && !idle && !game && !flying && !state.asleep && !state.trip && !house && !panelKind) { const u = unboxQ.shift(); pet.errand = null; pet.tx = pet.x; startAnim('unbox', 3000, { item: u.id, how: u.how }); setFace('surprised', 1200); say(u.how === 'steal' ? 'Chiến lợi phẩm từ nhà hàng xóm! Mở ra xem nào...' : u.how === 'gift' ? 'Có hộp quà bạn bè tặng! Mở ra xem nào...' : u.how === 'buy' ? 'Hàng về rồi! Mở hộp thôi...' : 'Một hộp quà bất ngờ! Mở ra xem nào...', 2500); }
+    // chasing a rolling ball: keep heading for it; give up if the ball is put away
+    if (pet.errand === 'kick') { if ((meta.decor || []).includes('ball')) pet.tx = ballSpot(R); else pet.errand = null; }
+    if (pet.errand && pet.errand !== 'kick' && !(meta.decor || []).includes(Object.keys(PLAY_WITH).find(k => PLAY_WITH[k] === pet.errand))) pet.errand = null;
+    if (!game && !state.asleep && !anim && !idle && !flying && !pet.errand && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.nextMove = T + 2500 + Math.random() * 3500; }
     if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4) {
-      // a happy pet sometimes shows off a trick it has learned
+      // a happy pet sometimes shows off a trick it has learned, or goes and plays with its things
       const sk = learned();
-      if (sk.length && state.happy > 50 && Math.random() < 0.18) { const id = pick(sk); startAnim('trick', 2400, { skill: id }); pet.nextIdle = T + 6000; pet.nextMove = T + 3200; if (now() > sayUntil) say(`${state.name} tự biểu diễn ${SKILLS[id].name.toLowerCase()} cho bạn xem!`, 3000); }
+      if (pet.errand) { const e = pet.errand; if (e === 'kick' && toy.ballV) { /* wait for the ball to stop */ } else { pet.errand = null; beginPlay(e, T); } }
+      else if (sk.length && state.happy > 50 && Math.random() < 0.18) { const id = pick(sk); startAnim('trick', 2400, { skill: id }); pet.nextIdle = T + 6000; pet.nextMove = T + 3200; if (now() > sayUntil) say(`${state.name} tự biểu diễn ${SKILLS[id].name.toLowerCase()} cho bạn xem!`, 3000); }
+      else if (!state.sick && Math.random() < 0.35 && planPlay(T)) { /* walking over to a toy */ }
       else startIdle(T);
     }
     pet.tx = Math.max(minX, Math.min(maxX, pet.tx));
@@ -1220,6 +1229,7 @@ function logic() {
 const IDLE_DUR = {
   jump: 1200, dance: 2400, spin: 900, chase: 1800, wave: 1400, look: 2000, yawn: 1800, sigh: 1800, sniff: 1800, wink: 900, stinky: 2000, swat: 2200,
   sit: 4200, stretch: 1900, scratch: 1700, hiccup: 2600, sneeze: 1900, daydream: 3600, butterfly: 4800, nap: 4800, roll: 1400, kiss: 1600, rumble: 1700, shiver: 1900,
+  kick: 1100, house: 5600, lamp: 4200, plant: 3400, admire: 2600,
 };
 const DREAMS = ['cake', 'fish', 'icecream', 'pizza', 'boba', 'heart', 'star'];
 function startIdle(T) {
@@ -2380,7 +2390,7 @@ function checkDay() {
   const coin = Math.min(5 + st.n * 2, 25) + (st.n % 7 === 0 ? 30 : 0);
   giveCoins(coin);
   let sub = `Quà điểm danh +${coin} xu`;
-  if (st.n % 7 === 0) { const free = SHOP.filter(i => !meta.owned.includes(i.id)); if (free.length) { const it = pick(free); meta.owned.push(it.id); sub += ` và ${it.name.toLowerCase()}`; } }
+  if (st.n % 7 === 0) { const free = SHOP.filter(i => !meta.owned.includes(i.id)); if (free.length) { const it = pick(free); meta.owned.push(it.id); gotItem(it.id, 'bonus'); sub += ` và ${it.name.toLowerCase()}`; } }
   queueBanner({ title: st.n > 1 ? `Chuỗi ${st.n} ngày!` : 'Chào ngày mới!', sub, color: '#f08c00', dur: 4500 });
   const ev = eventNow();
   if (ev && !meta.gifts[ev + d]) { meta.gifts[ev + d] = 1; giveCoins(10); queueBanner({ title: EVENTS[ev].name, sub: `Nhận ${EVENTS[ev].gift} +10 xu · có món ăn đặc biệt hôm nay`, color: EVENTS[ev].color, dur: 5000 }); }
@@ -2502,12 +2512,19 @@ function drawWear(x, cy, ry, R, t) {
   at(w.eyes, faceAt.x, faceAt.y - R * 0.08);
   at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
 }
-function drawDecorItem(id, x, y, t, name = state ? state.name : '') {
+// o: live state while the pet plays (ball spin and bounce, plant sway and flower, someone peeking out of the house)
+function drawDecorItem(id, x, y, t, name = state ? state.name : '', o = {}) {
   switch (id) {
     case 'house':
       ell(x, y + 4, 90, 12, 'rgba(30,20,10,.22)');
       rr(x - 72, y - 96, 144, 98, 6, '#c98a4a'); tri(x - 88, y - 92, x + 88, y - 92, x, y - 160, '#a0522d');
       ctx.fillStyle = '#5c3a1e'; ctx.beginPath(); ctx.moveTo(x - 26, y + 2); ctx.lineTo(x - 26, y - 46); ctx.arc(x, y - 46, 26, Math.PI, 0); ctx.lineTo(x + 26, y + 2); ctx.fill();
+      if (o.inside) {
+        // the pet is inside: two eyes blinking in the dark doorway, and now and then a little "z"
+        const blink = (t % 2.6) < 0.14, ey = y - 40;
+        for (const sd of [-1, 1]) { if (blink) { ctx.strokeStyle = '#fff7d6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + sd * 9 - 5, ey); ctx.lineTo(x + sd * 9 + 5, ey); ctx.stroke(); } else { ell(x + sd * 9, ey, 5, 6.5, '#fff7d6'); ell(x + sd * 9 + Math.sin(t * 1.3) * 1.5, ey + 1, 2.4, 3, '#2a1d24'); } }
+        if ((t % 3) < 1.6) { ctx.font = '800 20px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillText('z', x + 34 + (t % 3) * 8, y - 70 - (t % 3) * 14); }
+      }
       rr(x - 34, y - 86, 68, 18, 6, '#f8e7c9'); ctx.font = '700 12px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#5c3a1e'; ctx.fillText(name, x, y - 77, 62); break;
     case 'lamp': {
       const lit = todNow() !== 'day';
@@ -2515,25 +2532,118 @@ function drawDecorItem(id, x, y, t, name = state ? state.name : '') {
       if (lit) glow(x, y - 236, 160, '#ffd57a', 0.55);
       rr(x - 16, y - 256, 32, 34, 6, lit ? '#fff3bf' : '#dee2e6'); tri(x - 22, y - 254, x + 22, y - 254, x, y - 274, '#3d4450'); break;
     }
-    case 'plant':
+    case 'plant': {
       ell(x, y + 4, 36, 8, 'rgba(30,20,10,.2)');
+      const sw = o.sway || 0;
+      ctx.save(); ctx.translate(x, y - 44); ctx.rotate(sw); ctx.translate(-x, -(y - 44));
       [[-20, -70, -0.5], [0, -86, 0], [20, -70, 0.5], [-10, -60, -0.3], [12, -58, 0.3]].forEach(([dx, dy, r]) => ell(x + dx, y + dy, 13, 30, '#40a060', r));
+      if (o.bloom) { for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + t * 0.3; ell(x + Math.cos(a) * 9, y - 112 + Math.sin(a) * 9, 8, 8, '#ff8fb8'); } ell(x, y - 112, 6, 6, '#ffd43b'); }
+      ctx.restore();
       ctx.fillStyle = '#c8643c'; ctx.beginPath(); ctx.moveTo(x - 30, y - 44); ctx.lineTo(x + 30, y - 44); ctx.lineTo(x + 22, y + 2); ctx.lineTo(x - 22, y + 2); ctx.closePath(); ctx.fill();
       rr(x - 33, y - 50, 66, 12, 4, '#d9774e'); break;
+    }
     case 'ball': {
-      const by = y - 26 - Math.abs(Math.sin(t * 1.5)) * 4;
-      ell(x, y + 4, 26, 6, 'rgba(30,20,10,.2)');
-      ['#ff6b6b', '#ffffff', '#4dabf7', '#ffffff', '#ffd43b', '#ffffff'].forEach((c, i) => { ctx.beginPath(); ctx.moveTo(x, by); ctx.arc(x, by, 26, i * TAU / 6 + t * 0.2, (i + 1) * TAU / 6 + t * 0.2); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); });
+      const by = y - 26 - (o.hop != null ? o.hop : Math.abs(Math.sin(t * 1.5)) * 4), sp = o.angle != null ? o.angle : t * 0.2;
+      ell(x, y + 4, 26 * (1 - Math.min(0.4, (o.hop || 0) / 120)), 6, 'rgba(30,20,10,.2)');
+      ['#ff6b6b', '#ffffff', '#4dabf7', '#ffffff', '#ffd43b', '#ffffff'].forEach((c, i) => { ctx.beginPath(); ctx.moveTo(x, by); ctx.arc(x, by, 26, i * TAU / 6 + sp, (i + 1) * TAU / 6 + sp); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); });
       ell(x - 8, by - 9, 7, 4, 'rgba(255,255,255,.6)', -0.5); break;
     }
   }
 }
 const DECOR_X = { house: 150, lamp: 330, plant: 470, ball: 600 };
-function drawDecor(t) { (meta.decor || []).forEach(id => drawDecorItem(id, DECOR_X[id], GROUND + 10, t)); }
+// live state of the decorations the pet plays with
+const toy = { ballX: DECOR_X.ball, ballV: 0, ballA: 0, ballY: 0, ballVy: 0, plantWiggle: 0, plantBloom: 0, inFrom: 0, inTo: 0 };
+function drawDecor(t, dt = 0) {
+  const T = now(), d = meta.decor || [];
+  if (d.includes('ball')) {
+    // a kicked ball rolls, bounces a little, slows down, and bounces off the edges of the yard
+    toy.ballX += toy.ballV * dt; toy.ballV *= Math.pow(0.42, dt); if (Math.abs(toy.ballV) < 6) toy.ballV = 0;
+    if (toy.ballX < 120) { toy.ballX = 120; toy.ballV = Math.abs(toy.ballV) * 0.6; } if (toy.ballX > 1160) { toy.ballX = 1160; toy.ballV = -Math.abs(toy.ballV) * 0.6; }
+    toy.ballA += toy.ballV * dt / 26;
+    toy.ballVy -= 900 * dt; toy.ballY = Math.max(0, toy.ballY + toy.ballVy * dt); if (toy.ballY === 0 && toy.ballVy < 0) toy.ballVy = Math.abs(toy.ballVy) > 120 ? -toy.ballVy * 0.45 : 0;
+  }
+  d.forEach(id => {
+    const o = {};
+    if (id === 'ball') { o.angle = toy.ballA; o.hop = toy.ballY + (toy.ballV ? 0 : Math.abs(Math.sin(t * 1.5)) * 4); }
+    if (id === 'plant') { const w = Math.max(0, (toy.plantWiggle - T) / 1600); o.sway = Math.sin(t * 14) * 0.2 * w; o.bloom = T < toy.plantBloom; }
+    if (id === 'house') o.inside = T > toy.inFrom && T < toy.inTo;
+    drawDecorItem(id, id === 'ball' ? toy.ballX : DECOR_X[id], GROUND + 10, t, undefined, o);
+  });
+  // moths flutter round the lamp after dark
+  if (d.includes('lamp') && todNow() !== 'day') for (let i = 0; i < 3; i++) { const a = t * (2.2 + i * 0.5) + i * 2, mx = DECOR_X.lamp + Math.cos(a) * (28 + i * 10), my = GROUND - 230 + Math.sin(a * 1.7) * 18; ell(mx, my, 5, 3, 'rgba(255,248,220,.9)', Math.sin(t * 30 + i)); }
+}
+// pets walk over to a decoration and play with it now and then
+const PLAY_WITH = { ball: 'kick', house: 'house', lamp: 'lamp', plant: 'plant' };
+const ballSpot = R => toy.ballX + (pet.x < toy.ballX ? -1 : 1) * (R + 24);
+function planPlay(T) {
+  const opts = (meta.decor || []).filter(d => PLAY_WITH[d]);
+  if (Object.values(meta.wear || {}).some(Boolean)) opts.push('admire');
+  if (!opts.length) return false;
+  const d = pick(opts), R = petR();
+  if (d === 'admire') { beginPlay('admire', T); return true; }
+  const ix = DECOR_X[d], spot = d === 'ball' ? ballSpot(R) : d === 'house' ? ix + 60 + R : ix + (pet.x < ix ? -1 : 1) * (R + 40);
+  pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.nextMove = T + 9000; pet.nextIdle = T;
+  return true;
+}
+function beginPlay(type, T) {
+  const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'admire' ? pet.x + pet.dir : DECOR_X[{ house: 'house', lamp: 'lamp', plant: 'plant' }[type]];
+  const dir = target >= pet.x ? 1 : -1; pet.dir = dir;
+  idle = { type, start: T, dur: IDLE_DUR[type], dir };
+  pet.tx = pet.x; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
+  const quiet = () => now() > sayUntil, w = Object.values(meta.wear || {}).filter(Boolean)[0];
+  if (type === 'house') { toy.inFrom = T + IDLE_DUR.house * 0.22; toy.inTo = T + IDLE_DUR.house * 0.78; if (quiet()) say(`${n} chui vào nhà nghỉ một chút...`, 3000); }
+  if (type === 'lamp' && quiet()) say(todNow() === 'day' ? `${n} tựa vào cột đèn, ngắm trời mây.` : `${n} ngồi dưới ánh đèn, ngắm lũ thiêu thân bay quanh.`, 3000);
+  if (type === 'plant' && quiet()) say(`${n} cúi xuống ngửi chậu cây.`, 2500);
+  if (type === 'admire') { setFace('wink', 1500); setEmote('heart', 1500); const it = shopItem(w); if (quiet() && it) say(`${n} ngắm nghía ${it.name.toLowerCase()}, trông bảnh ghê!`, 3000); }
+  if (type === 'kick' && quiet() && Math.random() < 0.5) say(`${n} sút bóng! Bóng lăn ơi là xa.`, 2500);
+}
+
+/* new item unboxing: a gift box drops, pops open, the item rises out and flies to the pet */
+const unboxQ = [];
+const gotItem = (id, how) => { if (shopItem(id)) unboxQ.push({ id, how }); };
+function drawItemIcon(id, x, y, s, t) {
+  const it = shopItem(id); if (!it) return;
+  ctx.save(); ctx.translate(x, y);
+  if (it.slot === 'decor') { const k = s * ({ house: 0.42, lamp: 0.26, plant: 0.7, ball: 1.1 }[id] || 0.6); ctx.scale(k, k); ctx.translate(0, { house: 80, lamp: 135, plant: 50, ball: 26 }[id] || 0); drawDecorItem(id, 0, 0, t); }
+  else { ctx.scale(s * 0.75, s * 0.75); drawAccessory(id, t); }
+  ctx.restore();
+}
+function drawUnbox(b, p, id, t) {
+  const a = anim, sd = pet.x < 640 ? 1 : -1, bx = pet.x + sd * (b.R + 85), gy = GROUND + 8, it = shopItem(id);
+  const land = Math.min(1, p / 0.14), by = gy - (1 - land * land) * 420, sq = p > 0.14 && p < 0.22 ? Math.sin((p - 0.14) / 0.08 * Math.PI) * 0.12 : 0;
+  if (p >= 0.14 && !a.landed) { a.landed = 1; Sound.play('boing', 0.6); for (let i = 0; i < 6; i++) spawn('dust', bx + (i - 2.5) * 16, gy, { vx: (i - 2.5) * 40, vy: -40, max: 0.6, size: 0.7 }); }
+  if (p >= 0.42 && !a.opened) { a.opened = 1; Sound.play('magic'); setTimeout(() => Sound.play('win'), 250); }
+  if (p >= 0.52 && !a.said && it) { a.said = 1; say(`${state.name} nhận được ${it.name.toLowerCase()}!${a.how !== 'buy' ? ' Vào 🛍️ Cửa hàng để đeo hoặc bày ra nhé.' : ''}`, 4500); }
+  const fade = p > 0.86 ? Math.max(0, 1 - (p - 0.86) / 0.14) : 1;
+  ctx.save(); ctx.globalAlpha = fade;
+  ell(bx, gy + 2, 48 * (0.6 + land * 0.4), 9, 'rgba(30,20,10,.22)');
+  ctx.save(); ctx.translate(bx, by); ctx.scale(1 + sq, 1 - sq);
+  rr(-42, -72, 84, 72, 8, '#e64980'); rr(-42, -72, 84, 12, 4, 'rgba(0,0,0,.12)'); rr(-8, -72, 16, 72, 3, '#ffd43b');
+  if (p < 0.42) { rr(-48, -88, 96, 20, 6, '#f06595'); rr(-8, -88, 16, 20, 3, '#ffe066'); ell(-12, -94, 14, 9, '#ffd43b', -0.5); ell(12, -94, 14, 9, '#ffd43b', 0.5); }
+  ctx.restore();
+  if (p >= 0.42) {
+    // the lid flies off spinning
+    const q = p - 0.42; ctx.save(); ctx.translate(bx + sd * q * 500, by - 88 - q * 700 + q * q * 2200); ctx.rotate(sd * q * 12);
+    rr(-48, -10, 96, 20, 6, '#f06595'); rr(-8, -10, 16, 20, 3, '#ffe066'); ctx.restore();
+    // the item rises out of the box with a burst of light, then flies to the pet
+    const rise = easeOut(Math.min(1, q / 0.24)), fly = p > 0.74 ? easeOut(Math.min(1, (p - 0.74) / 0.16)) : 0;
+    const ix0 = bx, iy0 = by - 80 - rise * 120, ix = ix0 + (b.x - ix0) * fly, iy = iy0 + (b.cy - b.ry - iy0) * fly, s = (0.5 + rise * 0.6) * (1 - fly * 0.6);
+    if (fly < 0.6) {
+      ctx.save(); ctx.translate(ix0, iy0); ctx.rotate(t * 0.8); ctx.globalAlpha = fade * (1 - fly) * 0.55;
+      for (let i = 0; i < 10; i++) { ctx.rotate(TAU / 10); ctx.fillStyle = i % 2 ? '#fff3bf' : '#ffd8a8'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-16, -150); ctx.lineTo(16, -150); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); glow(ix0, iy0, 120, '#ffe680', 0.5 * (1 - fly));
+    }
+    drawItemIcon(id, ix, iy, s, t);
+    if (Math.random() < 0.3) spawn('spark', ix + (Math.random() - 0.5) * 60, iy + (Math.random() - 0.5) * 40, { vx: 0, vy: -50, max: 0.6, size: 0.5, color: '#ffe066' });
+  }
+  ctx.restore();
+}
 function buyItem(id) {
   const it = shopItem(id), s = state; if (!it || meta.owned.includes(id)) return;
   if (s.coins < it.cost) { say(`Chưa đủ xu mua ${it.name.toLowerCase()}. Chơi trò chơi hoặc làm nhiệm vụ để kiếm thêm nhé.`); return; }
   s.coins -= it.cost; meta.owned.push(id); Sound.play('win'); useItem(id, true); log(`Mua ${it.name.toLowerCase()} (-${it.cost} xu).`); saveMeta();
+  // close the shop so the unboxing can be seen
+  gotItem(id, 'buy'); closePanel();
 }
 function useItem(id, on) {
   const it = shopItem(id); if (!it) return;
@@ -2570,7 +2680,7 @@ function endTrip(early) {
   if (early) { say(`${s.name} quay về sớm, chưa kịp tìm được gì.`, 4000); log(`Gọi ${s.name} về sớm.`); return; }
   s.energy = clamp(s.energy - 15); s.hunger = clamp(s.hunger - 15); s.happy = clamp(s.happy + 15); s.coins += tr.coin;
   let gift = '';
-  if (Math.random() < 0.3) { const free = SHOP.filter(i => !meta.owned.includes(i.id) && i.cost <= 15); if (free.length) { const it = pick(free); meta.owned.push(it.id); gift = ` và mang về ${it.name.toLowerCase()}`; } }
+  if (Math.random() < 0.3) { const free = SHOP.filter(i => !meta.owned.includes(i.id) && i.cost <= 15); if (free.length) { const it = pick(free); meta.owned.push(it.id); gotItem(it.id, 'bonus'); gift = ` và mang về ${it.name.toLowerCase()}`; } }
   try { addAlbum(`Bưu thiếp từ ${tr.name}`, postcard(tr)); } catch (e) {}
   quest('trip'); Sound.play('win'); startAnim('heart', 1600); setFace('laugh', 2000);
   queueBanner({ title: 'Về nhà rồi!', sub: `${s.name} đi ${tr.name} về: +${tr.coin} xu${gift}`, color: '#1c7ed6', dur: 5000 });
@@ -2887,6 +2997,7 @@ async function doSteal() {
     Sound.play('magic');
     queueBanner({ title: 'Lấy được rồi!', sub: r.bonus ? `${name} (đã có nên đổi thành +${r.bonus} xu)` : `Mang về ${name.toLowerCase()} từ nhà @${house.username}`, color: '#495057', dur: 4500 });
     log(`Lẻn vào nhà @${house.username} lấy ${name.toLowerCase()}.`);
+    if (!r.bonus) gotItem(r.item, 'steal');   // opened once back home
     say(`${state.name} rón rén lẻn vào và mang về ${name.toLowerCase()}! Chủ nhà sẽ biết là bạn đấy.`, 5000);
   } catch (e) { say(errText(e), 4500); Sound.play('lose'); }
   save(); renderSide();
@@ -2916,6 +3027,7 @@ async function claimGifts() {
     (r.gifts || []).forEach(g => {
       const what = [g.coins ? `${g.coins} xu` : '', g.item ? ((shopItem(g.item) || {}).name || g.item).toLowerCase() : ''].filter(Boolean).join(' và ');
       log(`@${g.username} tặng ${what}${g.note ? `: "${g.note}"` : ''}.`);
+      if (g.item) gotItem(g.item, 'gift');
     });
     if ((r.gifts || []).length) { queueBanner({ title: 'Nhận quà!', sub: `${r.gifts.length} món quà từ bạn bè`, color: '#e64980', dur: 4000 }); Sound.play('win'); if (state && state.hatched) { setFace('love', 2000); setEmote('heart', 2000); } }
   } catch (e) { say(errText(e), 4000); }
@@ -5177,8 +5289,8 @@ function drawPet(t, dt) {
   const flying = phys.held || phys.air;
   const T = now(), dx = target - pet.x, canMove = (!anim || anim.type === 'heart') && !idle && !flying;
   pet.walking = canMove && !game && Math.abs(dx) > 3;
-  if (canMove && Math.abs(dx) > 1) { const v = (s.sick ? 45 : game ? 400 : 95) * dt; pet.x += Math.sign(dx) * Math.min(Math.abs(dx), v); if (pet.walking) pet.dir = Math.sign(dx); }
-  let x = pet.x, hop = 0, look = pet.walking ? pet.dir * 0.7 : 0, lookY = 0, tilt = 0, sx = 1, sy = 1;
+  if (canMove && Math.abs(dx) > 1) { const v = (s.sick ? 45 : game ? 400 : pet.errand === 'kick' ? 170 : 95) * dt; pet.x += Math.sign(dx) * Math.min(Math.abs(dx), v); if (pet.walking) pet.dir = Math.sign(dx); }
+  let x = pet.x, hop = 0, look = pet.walking ? pet.dir * 0.7 : 0, lookY = 0, tilt = 0, sx = 1, sy = 1, fade = 1, shrink = 1;
   if (pet.walking) { const w = Math.abs(Math.sin(t * 9)); hop = w * 14; tilt = Math.sin(t * 9) * 0.05; sy = 1 - (1 - w) * 0.06; }
   if (idle) {
     const e = (T - idle.start) / 1000, p = Math.min(1, (T - idle.start) / idle.dur);
@@ -5223,6 +5335,43 @@ function drawPet(t, dt) {
         break;
       case 'rumble': if (p < 0.6) x += Math.sin(e * 45) * 3; lookY = 0.7; if (!idle.grr) { idle.grr = 1; Sound.play('rumble'); spawn('txt', x - R * 0.9, GROUND - R * 0.7, { vx: -20, vy: -30, max: 1.4, text: 'ọc ọc...', color: '#8a5a3b' }); } break;
       case 'shiver': x += Math.sin(e * 60) * 3; sy = 0.95; break;
+      // playing with its things
+      case 'kick': {
+        const d = idle.dir; look = d; lookY = 0.4;
+        if (p < 0.4) { tilt = -d * 0.14 * (p / 0.4); sy = 1 - 0.06 * (p / 0.4); }
+        else if (p < 0.6) { const k = Math.sin((p - 0.4) / 0.2 * Math.PI); x += d * R * 0.28 * k; tilt = d * 0.16 * k; hop = k * 16; }
+        if (p >= 0.45 && !idle.kicked) { idle.kicked = 1; toy.ballV = d * (430 + Math.random() * 280); toy.ballVy = 260 + Math.random() * 160; Sound.play('boing', 0.8); spawn('dust', toy.ballX, GROUND + 8, { vx: d * 60, vy: -30, max: 0.5, size: 0.7 }); }
+        break;
+      }
+      case 'house': {
+        // walk into the doorway (shrinking and fading), stay inside a while, then pop back out
+        const door = DECOR_X.house, inK = p < 0.22 ? easeOut(p / 0.22) : p < 0.78 ? 1 : 1 - easeOut((p - 0.78) / 0.22);
+        x = pet.x + (door - pet.x) * inK; fade = 1 - inK; shrink = 1 - 0.4 * inK; look = idle.dir; hop = Math.abs(Math.sin(e * 9)) * 10 * (p < 0.22 || p > 0.78 ? 1 : 0);
+        if (p > 0.78 && !idle.out) { idle.out = 1; setFace('joy', 1500); setEmote('note', 1500); }
+        break;
+      }
+      case 'lamp': {
+        const night = todNow() !== 'day'; look = idle.dir * 0.4; lookY = -1;
+        if (night) { sy = 0.9; tilt = Math.sin(e * 1.4) * 0.04; if (Math.random() < 0.02) spawn('spark', DECOR_X.lamp + (Math.random() - 0.5) * 60, GROUND - 230, { vx: 0, vy: 20, max: 0.8, size: 0.4, color: '#fff3bf' }); }
+        else { tilt = idle.dir * 0.12 * Math.min(1, p * 4) * (p > 0.85 ? (1 - p) / 0.15 : 1); }
+        break;
+      }
+      case 'plant': {
+        const lean = Math.sin(Math.min(1, p * 2.5) * Math.PI / 2) * (p > 0.75 ? (1 - p) / 0.25 : 1);
+        tilt = idle.dir * 0.2 * lean; look = idle.dir; lookY = 0.5; x += idle.dir * R * 0.12 * lean;
+        if (p > 0.35 && !idle.sniffed) {
+          idle.sniffed = 1; toy.plantWiggle = T + 1600; toy.plantBloom = T + 120000; Sound.play('chirp');
+          for (let i = 0; i < 8; i++) spawn('spark', DECOR_X.plant + (Math.random() - 0.5) * 70, GROUND - 100 - Math.random() * 40, { vx: (Math.random() - 0.5) * 60, vy: -50, max: 1, size: 0.5, color: '#ffc9de' });
+          idle.sneeze = Math.random() < 0.3;
+        }
+        if (idle.sneeze && p > 0.7 && !idle.boom) { idle.boom = 1; Sound.play('sneeze'); setFace('scrunch', 900); spawn('txt', x + idle.dir * R, GROUND - R * 1.5, { vx: idle.dir * 40, vy: -50, max: 1.2, text: 'Hắt xì!', color: '#e8590c' }); }
+        break;
+      }
+      case 'admire': {
+        tilt = Math.sin(e * 5) * 0.12; look = Math.sin(e * 2.5) * 0.6; hop = Math.max(0, Math.sin(e * 5 + 1) - 0.6) * 30;
+        if (Math.random() < 0.15) spawn('spark', x + (Math.random() - 0.5) * R * 1.4, GROUND - R * 1.9 + Math.random() * R * 0.5, { vx: 0, vy: -30, max: 0.6, size: 0.45, color: '#fff3bf' });
+        break;
+      }
     }
   }
   if (game && game.type === 'dir' && game.phase === 'reveal') {
@@ -5252,6 +5401,12 @@ function drawPet(t, dt) {
     const e = anim.es = eatState(animP(), anim.mode), sd = pet.x < 640 ? 1 : -1;
     x += sd * R * 0.3 * e.lean; tilt = sd * 0.3 * e.lean; look = sd; lookY = 0.45 + 0.45 * e.lean;
     sy = 1 - e.chew * 0.035 + e.gulp * 0.05; eatMouth = Math.max(e.mouth, e.chew * 0.35);
+  }
+  if (anim && anim.type === 'unbox') {
+    // watch the box land, jump for joy when it pops open, follow the item as it flies over
+    const p = animP(), sd = pet.x < 640 ? 1 : -1; look = sd; lookY = p < 0.42 ? 0.5 : -0.3;
+    if (p > 0.42 && p < 0.66) { hop = Math.sin((p - 0.42) / 0.24 * Math.PI) * 70; sy = hop > 8 ? 1.08 : 0.9; }
+    if (p > 0.42 && !anim.joy) { anim.joy = 1; setFace('laugh', 1800); setEmote('heart', 1800); }
   }
   if (anim && anim.type === 'trick') {
     // a learned trick; while still learning it the pet tries, wobbles and only half manages
@@ -5285,16 +5440,20 @@ function drawPet(t, dt) {
   const breath = s.asleep ? Math.sin(t * 1.6) * 0.045 : Math.sin(t * 4) * 0.025;
   const Rg = R * grow, rx = Rg * (1 - breath * 0.6), ry = Rg * 0.9 * (1 + breath), cy = GROUND - ry - hop;
   const shk = Math.max(0.3, 1 - hop / 500);
-  ell(x, GROUND + 4, Rg * 0.85 * shk * (2 - sy), Rg * 0.16 * shk, `rgba(30,20,10,${0.2 * shk})`);
+  ell(x, GROUND + 4, Rg * 0.85 * shk * (2 - sy) * shrink, Rg * 0.16 * shk * shrink, `rgba(30,20,10,${0.2 * shk * fade})`);
   const wag = ['happy', 'love', 'laugh', 'joy', 'wink'].includes(md) ? 2.4 : md === 'sad' || md === 'cry' || md === 'tired' ? 0.4 : 1;
   ctx.save();
   if (!idle && !game && !flying && !s.asleep) tilt -= weather.gust * 0.06;
   const pivY = phys.held ? cy - ry : phys.air || Math.abs(phys.rot) > 0.05 || (idle && idle.type === 'roll') ? cy : GROUND - hop;
-  ctx.translate(x, pivY); ctx.rotate(tilt); ctx.scale(sx * (2 - sy), sy); ctx.translate(-x, -pivY);
-  if (s.variant && VARIANT[s.variant]) ctx.filter = VARIANT[s.variant].filter;
-  drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop });
-  ctx.filter = 'none';
-  drawWear(x, cy, ry, Rg, t);
+  ctx.translate(x, pivY); ctx.rotate(tilt); ctx.scale(sx * (2 - sy) * shrink, sy * shrink); ctx.translate(-x, -pivY);
+  ctx.globalAlpha = fade;
+  if (fade > 0.02) {
+    if (s.variant && VARIANT[s.variant]) ctx.filter = VARIANT[s.variant].filter;
+    drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop });
+    ctx.filter = 'none';
+    drawWear(x, cy, ry, Rg, t);
+  }
+  ctx.globalAlpha = 1;
   if (s.variant === 'shiny' && Math.random() < 0.08) spawn('spark', x + (Math.random() - 0.5) * Rg * 2, cy + (Math.random() - 0.5) * ry * 2, { vx: 0, vy: -30, max: 0.7, size: 0.45, color: '#fff3bf' });
   if (now() < mustacheUntil) {
     const mfx = faceAt.x, mmy = faceAt.y + Rg * 0.2;
@@ -5332,7 +5491,7 @@ function drawPet(t, dt) {
   let em = emote && emote.until > T ? emote.type : (talk && talk.kind === 'fact') || (bubble && bubble.start && bubble.kind === 'fact') ? 'bulb' : null;
   if (!em && !game && !s.asleep && !anim && !idle && !flying && needs().length) em = 'alert';
   if (!em) em = md === 'angry' || md === 'dizzy' ? 'vein' : md === 'disgust' ? 'sweat' : null;
-  if (em) drawEmote(em, x, top, R, t);
+  if (em && fade > 0.4) drawEmote(em, x, top, R, t);
   return { x, cy, ry, rx, R };
 }
 const biteCv = document.createElement('canvas'); biteCv.width = biteCv.height = 256;
@@ -5495,7 +5654,7 @@ function render(ts) {
   uiK = Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
   if (house) { drawHouse(t); drawParticles(dt); fillBand(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
-  if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t); } else drawRoom(t);
+  if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t, dt); } else drawRoom(t);
   if (!state || !state.hatched) drawEgg(t);
   else if (state.trip) { drawPoops(t); drawTripSign(t); }
   else {
@@ -5503,6 +5662,7 @@ function render(ts) {
     if (visitor) drawVisitor(t, dt);
     const body = drawPet(t, dt);
     if (anim && anim.type === 'eat') drawFood(anim.food, body);
+    if (anim && anim.type === 'unbox') drawUnbox(body, animP(), anim.item, t);
     if (anim && anim.type === 'react') reactFX(body, t);
     drawFlies(t, body);
     if (talk) drawTalkProp(body, t, talk.kind); else if (bubble && bubble.start) drawTalkProp(body, t, bubble.kind);
@@ -5603,7 +5763,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030104141';
+  const BUILD = '20261030110753';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
