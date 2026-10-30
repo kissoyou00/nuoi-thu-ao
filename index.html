@@ -6266,6 +6266,56 @@ function drawEmote(type, x, top, R, t) {
     case 'alert': emoteBubble(bx, by); ctx.fillStyle = '#e8574a'; ctx.font = '800 44px "Baloo 2", sans-serif'; ctx.fillText('!', bx, by + 3); break;
   }
 }
+/* ways of walking: f = steps (or hops) per second, speed in px/s. The choice follows mood, personality, energy, the time of
+   day and how far there is to go: happy pets skip and hop, active ones run, shy ones (and everyone at night) tiptoe,
+   lazy or full ones waddle, sick or worn-out ones trudge. */
+const GAITS = { walk: { f: 1.45, speed: 95 }, skip: { f: 1.6, speed: 120 }, hop: { f: 1.9, speed: 120 }, run: { f: 2.6, speed: 190 }, tiptoe: { f: 1.1, speed: 55 }, waddle: { f: 1, speed: 68 }, trudge: { f: 0.8, speed: 45 } };
+function chooseGait(dist) {
+  const s = state, tr = s.trait;
+  if (s.sick || s.health < 30 || s.energy < 22) return 'trudge';
+  if (pet.errand === 'kick') return 'run';
+  const w = { walk: 4, skip: 1, hop: 1, run: 0.8, tiptoe: 0.4, waddle: 0.4 };
+  if (s.happy > 75) { w.skip += 2.5; w.hop += 1.5; }
+  if (dist > 380) w.run += 2.5;
+  if (tr === 'active') { w.run += 2; w.hop += 1; }
+  if (tr === 'lazy') { w.waddle += 2.5; w.run = 0.2; }
+  if (tr === 'shy' || todNow() === 'night') w.tiptoe += 2.5;
+  if (tr === 'sweet') w.skip += 2;
+  if (s.hunger > 92 || tr === 'glutton') w.waddle += 1.5;
+  let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0);
+  for (const [k, v] of Object.entries(w)) { r -= v; if (r <= 0) return k; }
+  return 'walk';
+}
+function gaitPose(g, e, ph, dir, look) {
+  const w = Math.abs(Math.sin(e * GAITS[g].f * Math.PI));
+  switch (g) {
+    case 'skip': { const big = Math.floor(e * GAITS.skip.f * 2) % 2 ? 34 : 12, q = (e * GAITS.skip.f * 2) % 1; return { hop: Math.sin(q * Math.PI) * big, tilt: dir * 0.06 + Math.sin(e * 10) * 0.04, sx: 1, sy: q < 0.1 || q > 0.92 ? 0.88 : 1.05, look }; }
+    case 'hop': { const air = ph < 0.62, q = ph / 0.62; return { hop: air ? Math.sin(q * Math.PI) * 58 : 0, tilt: air ? dir * (0.12 - q * 0.24) : 0, sx: 1, sy: air ? 1.08 : 1 - Math.sin((ph - 0.62) / 0.38 * Math.PI) * 0.16, look }; }
+    case 'run': return { hop: w * 10, tilt: dir * 0.13 + Math.sin(e * 16) * 0.03, sx: 1.04, sy: 1 - (1 - w) * 0.09, look: dir };
+    case 'tiptoe': return { hop: 6 + w * 5, tilt: Math.sin(e * 7) * 0.03, sx: 0.97, sy: 1.06, look: Math.sin(e * 0.9) > 0.6 ? -dir * 0.6 : dir * 0.4 };   // glances back now and then
+    case 'waddle': return { hop: w * 5, tilt: Math.sin(e * GAITS.waddle.f * Math.PI * 2) * 0.16, sx: 1.05, sy: 0.97, look };
+    case 'trudge': return { hop: w * 3, tilt: dir * 0.05 + Math.sin(e * 4) * 0.02, sx: 1, sy: 0.95, look: look * 0.4 };
+    default: return { hop: w * 14, tilt: Math.sin(e * GAITS.walk.f * Math.PI) * 0.05, sx: 1, sy: 1 - (1 - w) * 0.06, look };
+  }
+}
+// footprints stay on soft ground (snow, sand, dirt, the sea floor) and fade
+const PRINT_COL = { snow: 'rgba(130,150,190,', canyon: 'rgba(110,60,25,', ocean: 'rgba(50,80,100,', volcano: 'rgba(20,10,10,', space: 'rgba(60,60,80,' };
+const prints = [];
+function footstep(x, R, g) {
+  const theme = THEME_BY_TYPE[curSp().type] || 'meadow';
+  if (['run', 'hop', 'skip'].includes(g)) for (let i = 0; i < (g === 'run' ? 2 : 3); i++) spawn('dust', x - pet.dir * R * 0.4 + (Math.random() - 0.5) * R * 0.5, GROUND + 6, { vx: -pet.dir * (30 + Math.random() * 50), vy: -20 - Math.random() * 30, max: 0.5, size: 0.45 + Math.random() * 0.3 });
+  if (PRINT_COL[theme] && g !== 'tiptoe') { prints.push({ x: x + (prints.length % 2 ? 1 : -1) * R * 0.2, t: now(), dir: pet.dir }); if (prints.length > 16) prints.shift(); }
+}
+function drawPrints(T) {
+  const theme = THEME_BY_TYPE[curSp().type] || 'meadow', c = PRINT_COL[theme]; if (!c) return;
+  for (const p of prints) { const a = 1 - (T - p.t) / 7000; if (a <= 0) continue; ell(p.x, GROUND + 8, 9, 3.5, c + (0.4 * a).toFixed(3) + ')'); ell(p.x + p.dir * 8, GROUND + 5, 3, 1.6, c + (0.3 * a).toFixed(3) + ')'); }
+}
+// speed lines behind a running pet
+function speedLines(x, R, dir, t) {
+  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) { const y = GROUND - R * (0.5 + i * 0.45), off = ((t * 6 + i * 0.37) % 1) * 30, len = 30 + i * 8; ctx.beginPath(); ctx.moveTo(x - dir * (R * 1.05 + off), y); ctx.lineTo(x - dir * (R * 1.05 + off + len), y); ctx.stroke(); }
+  ctx.restore();
+}
 function drawPet(t, dt) {
   const s = state, sp = curSp(), def = curDef(), R = petR(), md = mood();
   // asleep: on its bed if it has one, otherwise in the middle of the room
@@ -6275,9 +6325,32 @@ function drawPet(t, dt) {
   const flying = phys.held || phys.air;
   const T = now(), dx = target - pet.x, canMove = (!anim || anim.type === 'heart') && !idle && !flying;
   pet.walking = canMove && !game && Math.abs(dx) > 3;
-  if (canMove && Math.abs(dx) > 1) { const v = (s.sick ? 45 : game ? 400 : pet.errand === 'kick' ? 170 : 95) * dt; pet.x += Math.sign(dx) * Math.min(Math.abs(dx), v); if (pet.walking) pet.dir = Math.sign(dx); }
+  // each walk gets a gait that suits the moment; a short crouch before setting off, a settle on arrival
+  if (pet.walking && !pet.wasWalking) { pet.gait = chooseGait(Math.abs(dx)); pet.gaitStart = T; pet.stepN = -1; }
+  if (!pet.walking && pet.wasWalking) { pet.arriveT = T; pet.arriveHop = ['skip', 'hop', 'run'].includes(pet.gait) && Math.random() < 0.5; }
+  pet.wasWalking = pet.walking;
+  const G = GAITS[pet.gait] || GAITS.walk, ge = (T - (pet.gaitStart || 0)) / 1000, ready = ge > 0.14;
+  const ph = (ge * G.f) % 1, inAir = pet.gait !== 'hop' || ph < 0.62;
+  if (canMove && Math.abs(dx) > 1) {
+    const v = (game ? 400 : pet.errand === 'kick' ? 170 : pet.walking ? (ready && inAir ? G.speed * (pet.gait === 'hop' ? 1.6 : 1) : 0) : 95) * dt;
+    pet.x += Math.sign(dx) * Math.min(Math.abs(dx), v);
+    if (pet.walking && Math.sign(dx) !== pet.dir) { pet.dir = Math.sign(dx); pet.turnT = T; }
+  }
   let x = pet.x, hop = 0, look = pet.walking ? pet.dir * 0.7 : 0, lookY = 0, tilt = 0, sx = 1, sy = 1, fade = 1, shrink = 1;
-  if (pet.walking) { const w = Math.abs(Math.sin(t * 9)); hop = w * 14; tilt = Math.sin(t * 9) * 0.05; sy = 1 - (1 - w) * 0.06; }
+  if (pet.walking) {
+    if (!ready) sy = 1 - Math.sin(ge / 0.14 * Math.PI) * 0.12;   // crouch, then go
+    else ({ hop, tilt, sx, sy, look } = gaitPose(pet.gait, ge, ph, pet.dir, look));
+    // a step lands: dust for the bouncier gaits, footprints in snow, sand and dirt
+    const n = Math.floor(ge * G.f * (pet.gait === 'hop' ? 1 : 2));
+    if (ready && n !== pet.stepN) { pet.stepN = n; footstep(x, R, pet.gait); }
+    if (ready && pet.gait === 'run') speedLines(x, R, pet.dir, t);
+  } else if (pet.arriveT && T - pet.arriveT < 450 && !idle && !anim && !flying) {
+    const p = (T - pet.arriveT) / 450;
+    sy = 1 - Math.sin(p * Math.PI * 2) * 0.08 * (1 - p);
+    if (pet.arriveHop) hop = Math.sin(p * Math.PI) * 26;
+  }
+  if (pet.turnT && T - pet.turnT < 200) sx *= 0.3 + 0.7 * Math.abs(1 - 2 * (T - pet.turnT) / 200);   // a quick squeeze as it turns round
+  drawPrints(T);
   if (idle) {
     const e = (T - idle.start) / 1000, p = Math.min(1, (T - idle.start) / idle.dur);
     switch (idle.type) {
@@ -6815,7 +6888,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030164823';
+  const BUILD = '20261030165403';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
