@@ -2777,10 +2777,86 @@ function drawAccessory(id, t = 0) {
       rr(-34, -10, 68, 14, 7, '#5f3dc4'); ell(0, -2, 10, 10, '#fcc419'); ell(0, -2, 5, 5, '#e03131'); break;
   }
 }
+/* worn accessories come alive: in the 3D style each one gets a sheen and shadow (painted once into a cached picture at the
+   size it shows, then just stamped every frame), some move a little (the bell swings, the cape flutters, bunny ears and
+   the flower sway), and some sparkle (glasses catch a glint, gems twinkle, devil horns glow, stars circle the witch hat,
+   confetti falls from the party hat). */
+const ACC_SPR = new Map(), ACC_U = 150;   // pictures cover -150..150 accessory units around the anchor
+function accSprite(id, s) {
+  const q = Math.max(0.15, Math.round(s * 20) / 20), key = id + '|' + q;
+  let c = ACC_SPR.get(key); if (c) return c;
+  const px = Math.ceil(ACC_U * 2 * q); c = document.createElement('canvas'); c.width = c.height = px;
+  const g = c.getContext('2d', { willReadFrequently: true }), prev = ctx;
+  try {
+    ctx = g; g.setTransform(q, 0, 0, q, ACC_U * q, ACC_U * q); drawAccessory(id, 0); g.setTransform(1, 0, 0, 1, 0, 0);
+    // light it from the upper left of what was actually drawn
+    const d = g.getImageData(0, 0, px, px).data; let x0 = px, y0 = px, x1 = 0, y1 = 0;
+    for (let y = 0; y < px; y += 2) for (let x = 0; x < px; x += 2) if (d[(y * px + x) * 4 + 3] > 20) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 > x0) {
+      const w = x1 - x0, h = y1 - y0, m = Math.max(w, h);
+      g.globalCompositeOperation = 'source-atop';
+      let gr = g.createRadialGradient(x0 + w * 0.3, y0 + h * 0.25, 0, x0 + w * 0.45, y0 + h * 0.45, m * 0.85);
+      gr.addColorStop(0, 'rgba(255,255,255,.5)'); gr.addColorStop(0.3, 'rgba(255,255,255,.1)'); gr.addColorStop(0.62, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.3)');
+      g.fillStyle = gr; g.fillRect(0, 0, px, px);
+      gr = g.createRadialGradient(x0 + w * 0.28, y0 + h * 0.22, 0, x0 + w * 0.28, y0 + h * 0.22, m * 0.12);
+      gr.addColorStop(0, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, px, px);
+    }
+  } finally { ctx = prev; }
+  ACC_SPR.set(key, c); if (ACC_SPR.size > 48) ACC_SPR.delete(ACC_SPR.keys().next().value);
+  return c;
+}
+const pivot = (px, py, fn) => { ctx.translate(px, py); fn(); ctx.translate(-px, -py); };
+const ACC_MOTION = {
+  bell: t => pivot(0, -8, () => ctx.rotate(Math.sin(t * 5) * 0.14)),
+  cape: t => pivot(0, -8, () => ctx.transform(1, 0, Math.sin(t * 2.2) * 0.08, 1 + Math.sin(t * 2.2 + 1) * 0.02, 0, 0)),
+  bunny: t => pivot(0, 20, () => ctx.rotate(Math.sin(t * 3) * 0.05)),
+  flower: t => pivot(32, -4, () => ctx.rotate(Math.sin(t * 2) * 0.14)),
+  party: t => pivot(0, 6, () => ctx.rotate(Math.sin(t * 2.5) * 0.05)),
+  witch: t => pivot(0, 2, () => ctx.rotate(Math.sin(t * 1.5) * 0.04)),
+  tie: t => pivot(0, 0, () => ctx.rotate(Math.sin(t * 2.4) * 0.05)),
+  medal: t => pivot(0, -8, () => ctx.rotate(Math.sin(t * 2) * 0.06)),
+};
+function twinkle(x, y, s, t, ph) {
+  const a = Math.max(0, Math.sin(t * 3 + ph)); if (a < 0.25) return;
+  starPath(x, y, s * a, 0.3); ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fill();
+}
+// a bright streak sliding across each lens every few seconds
+function glare(t, lenses) {
+  const c = (t % 3.4) / 0.7; if (c >= 1) return;
+  for (const lens of lenses) {
+    ctx.save(); ctx.beginPath(); lens(); ctx.clip();
+    const x = -95 + c * 190; ctx.transform(1, 0, -0.45, 1, 0, 0);
+    const g = ctx.createLinearGradient(x - 26, 0, x + 26, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - 26, -60, 52, 120); ctx.restore();
+  }
+}
+const lensEll = (x, y, rx, ry) => () => ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+const ACC_FX = {
+  shades: t => glare(t, [() => ctx.rect(-62, -14, 48, 30), () => ctx.rect(14, -14, 48, 30)]),
+  round: t => glare(t, [lensEll(-34, 0, 20, 20), lensEll(34, 0, 20, 20)]),
+  goggles: t => glare(t, [lensEll(-34, 0, 19, 16), lensEll(34, 0, 19, 16)]),
+  monocle: t => { glare(t, [lensEll(34, 0, 21, 21)]); twinkle(48, -12, 7, t, 1); },
+  heartglasses: t => { glare(t, [lensEll(-34, -6, 20, 18), lensEll(34, -6, 20, 18)]); twinkle(-50, -22, 6, t, 0); twinkle(52, -20, 6, t, 2); },
+  tiara: t => { twinkle(0, -8, 9, t, 0); twinkle(-10, -34, 7, t, 2.1); twinkle(10, -34, 7, t, 4.2); },
+  medal: t => { twinkle(6, 34, 10, t, 0.5); twinkle(-8, 46, 6, t, 3); },
+  necklace: t => { const i = Math.floor(t * 2.5) % 11, a = Math.PI * (0.1 + i * 0.08); twinkle(Math.cos(a) * 52, -14 + Math.sin(a) * 30, 8, t * 2.5, 0); twinkle(0, 22, 7, t, 2); },
+  bell: t => twinkle(-6, 12, 6, t, 1),
+  horns: t => { const a = 0.18 + 0.14 * Math.sin(t * 3); for (const sd of [-1, 1]) glow(sd * 40, -48, 26, '#ff3b3b', a); },
+  witch: t => { for (let i = 0; i < 3; i++) { const a = t * 1.6 + i * TAU / 3; twinkle(34 + Math.cos(a) * 30, -96 + Math.sin(a) * 12, 7, t, i * 2); } },
+  party: t => { for (let i = 0; i < 6; i++) { const ph = (t * 0.45 + i / 6) % 1, x = 6 + Math.sin(i * 2.7 + t) * 40, y = -84 + ph * 120; ctx.globalAlpha = 1 - ph; ctx.save(); ctx.translate(x, y); ctx.rotate(t * 4 + i); ctx.fillStyle = ['#ff6b9d', '#ffe066', '#74c0fc', '#8ce99a'][i % 4]; ctx.fillRect(-3, -2, 6, 4); ctx.restore(); } ctx.globalAlpha = 1; },
+  santa: t => twinkle(62, -66, 7, t, 0.7),
+};
+function drawAccessoryFX(id, t) {
+  ctx.save(); if (ACC_MOTION[id]) ACC_MOTION[id](t);
+  if (STYLE_3D) { const T = ctx.getTransform(); ctx.drawImage(accSprite(id, Math.hypot(T.a, T.b)), -ACC_U, -ACC_U, ACC_U * 2, ACC_U * 2); }
+  else drawAccessory(id, t);
+  if (ACC_FX[id]) ACC_FX[id](t);
+  ctx.restore();
+}
 // what the pet is wearing; x/cy/ry are its body centre and half height, faceAt its face (set by drawCreature)
 function drawWear(x, cy, ry, R, t) {
   const w = meta.wear || {}, k = R / 100;
-  const at = (id, ax, ay) => { if (!id) return; ctx.save(); ctx.translate(ax, ay); ctx.scale(k, k); drawAccessory(id, t); ctx.restore(); };
+  const at = (id, ax, ay) => { if (!id) return; ctx.save(); ctx.translate(ax, ay); ctx.scale(k, k); drawAccessoryFX(id, t); ctx.restore(); };
   at(w.neck, faceAt.x, faceAt.y + R * 0.42);
   at(w.eyes, faceAt.x, faceAt.y - R * 0.08);
   at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
@@ -3741,7 +3817,7 @@ function hdSpeckle(cx, cy, rx, ry, col, R, seed, n) {
 }
 // what a surface adds on top of the shading
 function hdSurface(tex, cx, cy, rx, ry, col, R, seed, part) {
-  if (tex === 'fur') hdFur(cx, cy, rx, ry, col, R, seed, part === 'head' ? 18 : 12);
+  if (tex === 'fur' && !STYLE_3D) hdFur(cx, cy, rx, ry, col, R, seed, part === 'head' ? 18 : 12);   // (3D toys are smooth vinyl)
   if (tex === 'feather' && part === 'body') hdFeather(cx, cy, rx, ry, col, R);
   if (tex === 'stone') hdSpeckle(cx, cy, rx, ry, col, R, seed, 22);
   if (tex === 'skin') ell(cx - rx * 0.42, cy - ry * 0.55, rx * 0.16, ry * 0.08, 'rgba(255,255,255,.55)', -0.5);
@@ -3760,6 +3836,43 @@ function hdShade(cx, cy, rx, ry, col, R) {
   g = ctx.createRadialGradient(cx - rx * 0.36, cy - ry * 0.5, 0, cx - rx * 0.36, cy - ry * 0.5, m * 0.5);
   g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(cx - rx * 1.3, cy - ry * 1.3, rx * 2.6, ry * 2.6);
+}
+/* "3D toy" look: pets read as soft vinyl figures lit from the upper left, with smooth form shadow, warm light bounced up
+   from the ground, a cool rim light on the far edge, a broad sheen and a small sharp highlight, and faint outlines. */
+let STYLE_3D = true;
+const SHADE3D_CACHE = new Map();   // colour stops per body colour, so the colour maths is not redone every frame
+function shade3D(cx, cy, rx, ry, col, R) {
+  const m = Math.max(rx, ry), oval = () => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); };
+  let st = SHADE3D_CACHE.get(col);
+  if (!st) { st = [rgba(shade(col, -0.5), 0.38), rgba(shade(col, -0.7), 0.7), rgba(shade(col, -0.75), 0.78)]; SHADE3D_CACHE.set(col, st); }
+  // one gradient: broad sheen near the light, clear in the middle, form shadow towards the far edge
+  let g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.45, 0, cx - rx * 0.08, cy - ry * 0.05, m * 1.18);
+  g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(0.24, 'rgba(255,255,255,.14)'); g.addColorStop(0.42, 'rgba(0,0,0,0)');
+  g.addColorStop(0.7, st[0]); g.addColorStop(0.9, st[1]); g.addColorStop(1, st[2]);
+  oval(); ctx.fillStyle = g; ctx.fill();
+  g = ctx.createRadialGradient(cx + rx * 0.1, cy + ry * 1.3, 0, cx + rx * 0.1, cy + ry * 1.3, m * 0.9);
+  g.addColorStop(0, 'rgba(255,236,210,.6)'); g.addColorStop(1, 'rgba(255,236,210,0)');
+  ctx.fillStyle = g; ctx.fillRect(cx - rx, cy + ry * 0.25, rx * 2, ry * 0.75);
+  // (a wide faint stroke under a thin brighter one reads as a soft glow; shadowBlur would be far too slow every frame)
+  ctx.save(); ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.95, ry * 0.95, 0, -0.12 * Math.PI, 0.32 * Math.PI);
+  ctx.strokeStyle = 'rgba(226,238,255,.22)'; ctx.lineWidth = R * 0.1; ctx.stroke();
+  ctx.strokeStyle = 'rgba(232,242,255,.55)'; ctx.lineWidth = R * 0.035; ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(cx - rx * 0.42, cy - ry * 0.56); ctx.rotate(-0.55); ctx.scale(1, 0.6);
+  g = ctx.createRadialGradient(0, 0, 0, 0, 0, m * 0.17); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.45, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(-m * 0.2, -m * 0.2, m * 0.4, m * 0.4); ctx.restore();
+}
+// the same light on a small part (ear, tail, fin, wing, horn...): call right after filling it, while its path is still the
+// current path. Worked out on screen, so mirrored and rotated parts are still lit from the upper left.
+function soft3D(cx, cy, rx, ry) {
+  if (!STYLE_3D) return;
+  const T = ctx.getTransform(), p = T.transformPoint(new DOMPoint(cx, cy)), m = Math.max(rx, ry) * Math.hypot(T.a, T.b);
+  if (!(m > 0.5)) return;
+  // the path is already in screen coordinates, so with an identity transform the gradient is too; filling the path itself
+  // (instead of clipping to it) keeps this cheap enough for every frame
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const g = ctx.createRadialGradient(p.x - m * 0.35, p.y - m * 0.45, 0, p.x - m * 0.1, p.y - m * 0.1, m * 1.3);
+  g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(0.35, 'rgba(255,255,255,.08)'); g.addColorStop(0.68, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.34)');
+  ctx.fillStyle = g; ctx.fill(); ctx.restore();
 }
 // short hair strokes, lighter and darker, combed outward from the centre
 function hdFur(cx, cy, rx, ry, col, R, seed, n) {
@@ -3802,7 +3915,7 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
         const k = h / 0.48, fox = type === 'fox';
         const earPath = () => { ctx.beginPath(); ctx.moveTo(-R * w, R * 0.22); ctx.quadraticCurveTo(-R * w * 0.55, -R * h * 0.4, -R * 0.02, -R * h); ctx.quadraticCurveTo(R * w * 0.62, -R * h * 0.35, R * w, R * 0.22); ctx.closePath(); };
         const eg = ctx.createLinearGradient(-R * w, 0, R * w, -R * h); eg.addColorStop(0, shade(col, -0.12)); eg.addColorStop(0.5, col); eg.addColorStop(1, shade(col, sd > 0 ? -0.2 : 0.25));
-        earPath(); ctx.fillStyle = eg; ctx.fill();
+        earPath(); ctx.fillStyle = eg; ctx.fill(); soft3D(0, -R * h * 0.35, R * w, R * h * 0.6);
         if (fox) { ctx.save(); earPath(); ctx.clip(); ell(0, -R * h, R * w * 0.6, R * h * 0.38, shade(acc, -0.15)); ctx.restore(); }
         earPath(); ctx.strokeStyle = line; ctx.lineWidth = R * 0.04; ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-R * 0.16, R * 0.14); ctx.quadraticCurveTo(-R * 0.09, -R * 0.12 * k, -R * 0.01, -R * 0.31 * k); ctx.quadraticCurveTo(R * 0.1, -R * 0.1 * k, R * 0.16, R * 0.14); ctx.closePath();
@@ -3811,7 +3924,7 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
         for (const [a, l] of [[-0.25, 0.2], [0, 0.24], [0.25, 0.18]]) { ctx.beginPath(); ctx.moveTo(a * R * 0.25, R * 0.14); ctx.lineTo(a * R * 0.42, R * (0.14 - l)); ctx.stroke(); }
         ctx.restore(); continue;
       }
-      tri(-R * w, R * 0.22, 0, -R * h, R * w, R * 0.22, col, 16);
+      tri(-R * w, R * 0.22, 0, -R * h, R * w, R * 0.22, col, 16); soft3D(0, -R * h * 0.35, R * w, R * h * 0.6);
       if (type === 'cat') tri(-R * 0.15, R * 0.12, 0, -R * 0.28, R * 0.15, R * 0.12, '#ffb3c1');
       else tri(-R * w * 0.5, -R * h * 0.5, 0, -R * h, R * w * 0.5, -R * h * 0.5, type === 'pointy' ? '#2a1d24' : acc, 8);
     } else if (type === 'long') {
@@ -3819,28 +3932,30 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
       ctx.rotate(sd * (0.18 + Math.sin(t * 2 + sd) * 0.05) + (asleep ? sd * 0.9 : 0));
       if (hd) {
         const lg = ctx.createLinearGradient(-R * 0.17, 0, R * 0.17, 0); lg.addColorStop(0, shade(col, 0.15)); lg.addColorStop(1, shade(col, -0.18));
-        ell(0, -R * 0.45, R * 0.17, R * 0.5, lg); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.ellipse(0, -R * 0.45, R * 0.17, R * 0.5, 0, 0, TAU); ctx.stroke();
+        ell(0, -R * 0.45, R * 0.17, R * 0.5, lg); soft3D(0, -R * 0.45, R * 0.17, R * 0.5); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.ellipse(0, -R * 0.45, R * 0.17, R * 0.5, 0, 0, TAU); ctx.stroke();
         const ig = ctx.createLinearGradient(0, -R * 0.8, 0, -R * 0.05); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffe0e8'); ell(0, -R * 0.42, R * 0.08, R * 0.38, ig);
       } else { ell(0, -R * 0.45, R * 0.17, R * 0.5, col); ell(0, -R * 0.42, R * 0.08, R * 0.38, '#ffb3c1'); }
     } else if (type === 'round') {
       const ex = x + sd * rx * 0.62, ey = cy - ry * 0.72;
       if (hd) {
         const rg = ctx.createRadialGradient(ex - R * 0.08, ey - R * 0.1, 0, ex, ey, R * 0.28); rg.addColorStop(0, shade(col, 0.25)); rg.addColorStop(1, shade(col, -0.2));
-        ell(ex, ey, R * 0.26, R * 0.26, rg); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.arc(ex, ey, R * 0.26, 0, TAU); ctx.stroke();
+        ell(ex, ey, R * 0.26, R * 0.26, rg); soft3D(ex, ey, R * 0.26, R * 0.26); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.arc(ex, ey, R * 0.26, 0, TAU); ctx.stroke();
         const ig = ctx.createRadialGradient(ex, ey + R * 0.04, 0, ex, ey, R * 0.15); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffd0d9'); ell(ex, ey, R * 0.14, R * 0.14, ig);
       } else { ell(ex, ey, R * 0.26, R * 0.26, col); ell(ex, ey, R * 0.14, R * 0.14, '#ffb3c1'); }
     } else if (type === 'fin') {
       ctx.translate(x + sd * rx * 0.88, cy - ry * 0.3); ctx.scale(sd, 1); ctx.rotate(-0.4 + Math.sin(t * 3) * 0.06);
       ctx.beginPath(); ctx.moveTo(0, -R * 0.1); ctx.quadraticCurveTo(R * 0.45, -R * 0.55, R * 0.6, -R * 0.1);
       ctx.quadraticCurveTo(R * 0.4, R * 0.05, R * 0.55, R * 0.2); ctx.quadraticCurveTo(R * 0.25, R * 0.2, 0, R * 0.15); ctx.closePath();
-      ctx.fillStyle = acc; ctx.fill();
+      ctx.fillStyle = acc; ctx.fill(); soft3D(R * 0.3, -R * 0.1, R * 0.32, R * 0.3);
     } else if (type === 'leafear') {
       ctx.translate(x + sd * rx * 0.82, cy - ry * 0.55); ctx.scale(sd, 1); ctx.rotate(-0.45 + (asleep ? 0.4 : 0));
-      ell(R * 0.15, 0, R * 0.34, R * 0.14, col); ell(R * 0.17, 0, R * 0.22, R * 0.07, '#ffd9c4');
+      ell(R * 0.15, 0, R * 0.34, R * 0.14, col); soft3D(R * 0.15, 0, R * 0.34, R * 0.14); ell(R * 0.17, 0, R * 0.22, R * 0.07, '#ffd9c4');
     }
     ctx.restore();
   }
 }
+// a glossy streak along a stroked tail, in the 3D style (the stroke's path is still the current path)
+function tube3D(lw) { if (!STYLE_3D) return; ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.38)'; ctx.lineWidth = lw * 0.32; ctx.stroke(); ctx.restore(); }
 function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc) {
   const sd = -(dir || 1), bx = x + sd * rx * 0.78, by = cy + ry * 0.35, w = Math.sin(t * 3);
   ctx.lineCap = 'round';
@@ -3850,7 +3965,7 @@ function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc)
       for (let i = 0; i < 5; i++) {
         const a = -Math.PI / 2 + (i - 2) * (ph ? 0.42 : 0.36) + Math.sin(t * 1.5 + i) * 0.04;
         const px = x + Math.cos(a) * R * L, py = cy + ry * 0.35 + Math.sin(a) * R * L * 0.9;
-        ell(px, py, R * (ph ? 0.6 : 0.42), R * 0.13, cols[i % cols.length], a);
+        ell(px, py, R * (ph ? 0.6 : 0.42), R * 0.13, cols[i % cols.length], a); soft3D(px, py, R * (ph ? 0.6 : 0.42), R * 0.13);
         if (ph) { ell(x + Math.cos(a) * R * L * 1.32, cy + ry * 0.35 + Math.sin(a) * R * L * 1.2, R * 0.1, R * 0.1, '#ffffff'); ell(x + Math.cos(a) * R * L * 1.32, cy + ry * 0.35 + Math.sin(a) * R * L * 1.2, R * 0.055, R * 0.055, '#3f8fd8'); }
       }
       break;
@@ -3858,33 +3973,33 @@ function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc)
     case 'curl': {
       ctx.strokeStyle = shade(col, -0.15); ctx.lineWidth = R * 0.06; ctx.beginPath();
       for (let a = 0; a <= 3 * Math.PI; a += 0.2) { const r = R * 0.13 * (1 - a / (3 * Math.PI) * 0.6); const px = bx + sd * (R * 0.16 + Math.cos(a + w * 0.3) * r), py = by - Math.sin(a + w * 0.3) * r; a ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-      ctx.stroke(); break;
+      ctx.stroke(); tube3D(R * 0.06); break;
     }
     case 'stinger': tri(bx, by - R * 0.05, bx + sd * R * 0.38, by + R * 0.16 + w * 4, bx, by + R * 0.14, '#3a2f2a', 4); break;
     case 'rainbow': {
       const rc = ['#ff8fa3', '#ffd84d', '#8fe3a8', '#8fc8ff', '#c7a0ff'];
       ctx.save(); ctx.translate(bx, by); ctx.scale(sd, 1); ctx.rotate(-0.55 - w * 0.08);
-      for (let j = rc.length - 1; j >= 0; j--) ell(R * (0.3 + j * 0.13), -j * R * 0.04, R * 0.3, R * 0.13, rc[j]);
+      for (let j = rc.length - 1; j >= 0; j--) { ell(R * (0.3 + j * 0.13), -j * R * 0.04, R * 0.3, R * 0.13, rc[j]); soft3D(R * (0.3 + j * 0.13), -j * R * 0.04, R * 0.3, R * 0.13); }
       ctx.restore(); break;
     }
     case 'flame': {
       const fx = bx + sd * R * 0.6, fy = by - R * 0.55 + w * 6, hd = HD_SPECIES.has(sp.id);
       const tailPath = () => { ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.55, by, fx, fy + R * 0.15); };
       if (hd) { ctx.strokeStyle = shade(col, -0.34); ctx.lineWidth = R * 0.25; tailPath(); ctx.stroke(); glow(fx, fy, R * 0.75, '#ffb347', 0.35); }
-      ctx.strokeStyle = col; ctx.lineWidth = R * 0.16; tailPath(); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = R * 0.16; tailPath(); ctx.stroke(); if (!hd) tube3D(R * 0.16);
       if (hd) { ctx.strokeStyle = rgba(shade(col, 0.4), 0.7); ctx.lineWidth = R * 0.05; ctx.beginPath(); ctx.moveTo(bx + sd * R * 0.06, by - R * 0.04); ctx.quadraticCurveTo(bx + sd * R * 0.5, by - R * 0.05, fx - sd * R * 0.04, fy + R * 0.12); ctx.stroke(); }
       flame(fx, fy, R * 0.32, t); if (hd) flame(fx, fy + R * 0.04, R * 0.2, t * 1.4 + 1, ['#ffd23f', '#fff2a8', '#ffffff']); break;
     }
     case 'bolt': {
       ctx.save(); ctx.translate(bx, by); ctx.scale(sd * R / 100, R / 100); ctx.rotate(w * 0.06);
       ctx.beginPath(); [[0, 0], [40, -18], [24, -44], [76, -70], [56, -96], [124, -132], [62, -100], [82, -76], [30, -54], [46, -28], [6, 12]].forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b));
-      ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = shade(col, -0.35); ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore(); break;
+      ctx.closePath(); ctx.fillStyle = col; ctx.fill(); soft3D(60, -60, 75, 75); ctx.strokeStyle = STYLE_3D ? rgba(shade(col, -0.4), 0.4) : shade(col, -0.35); ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore(); break;
     }
     case 'fish': {
       const ex = bx + sd * R * 0.7, ey = by - R * 0.25 + w * 8;
-      ctx.strokeStyle = col; ctx.lineWidth = R * 0.2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.5, by + R * 0.1, ex, ey); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = R * 0.2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.5, by + R * 0.1, ex, ey); ctx.stroke(); tube3D(R * 0.2);
       ctx.save(); ctx.translate(ex, ey); ctx.scale(sd, 1); ctx.rotate(-0.5 + w * 0.15);
-      ell(R * 0.2, -R * 0.14, R * 0.26, R * 0.11, acc, -0.6); ell(R * 0.2, R * 0.14, R * 0.26, R * 0.11, acc, 0.6); ctx.restore(); break;
+      ell(R * 0.2, -R * 0.14, R * 0.26, R * 0.11, acc, -0.6); soft3D(R * 0.2, -R * 0.14, R * 0.26, R * 0.11); ell(R * 0.2, R * 0.14, R * 0.26, R * 0.11, acc, 0.6); soft3D(R * 0.2, R * 0.14, R * 0.26, R * 0.11); ctx.restore(); break;
     }
     case 'fluffy': {
       const n = def.tails || 1;
@@ -3892,21 +4007,21 @@ function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc)
         const ang = n === 1 ? 0.5 : 0.05 + (i / (n - 1)) * 1.45;
         ctx.save(); ctx.translate(bx, by); ctx.scale(sd, 1); ctx.rotate(-ang - Math.sin(t * 2.4 + i) * 0.06);
         const L = n > 3 ? 0.5 : 0.58;
-        ell(R * L, 0, R * L, R * 0.2, col); ell(R * L * 1.75, 0, R * 0.2, R * 0.16, acc);
+        ell(R * L, 0, R * L, R * 0.2, col); soft3D(R * L, 0, R * L, R * 0.2); ell(R * L * 1.75, 0, R * 0.2, R * 0.16, acc); soft3D(R * L * 1.75, 0, R * 0.2, R * 0.16);
         ctx.restore();
       }
       break;
     }
-    case 'puff': ell(bx, by + R * 0.1, R * 0.2, R * 0.2, '#ffffff'); break;
+    case 'puff': ell(bx, by + R * 0.1, R * 0.2, R * 0.2, '#ffffff'); soft3D(bx, by + R * 0.1, R * 0.2, R * 0.2); break;
     case 'dragon': {
       const ex = bx + sd * R * 0.95, ey = by - R * 0.45 + w * 10;
-      ctx.strokeStyle = col; ctx.lineWidth = R * 0.2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.7, by + R * 0.2, ex, ey); ctx.stroke();
-      tri(ex - R * 0.12, ey + R * 0.06, ex + sd * R * 0.22, ey - R * 0.2, ex + R * 0.12, ey + R * 0.06, acc, 6); break;
+      ctx.strokeStyle = col; ctx.lineWidth = R * 0.2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.7, by + R * 0.2, ex, ey); ctx.stroke(); tube3D(R * 0.2);
+      tri(ex - R * 0.12, ey + R * 0.06, ex + sd * R * 0.22, ey - R * 0.2, ex + R * 0.12, ey + R * 0.06, acc, 6); soft3D(ex, ey - R * 0.05, R * 0.18, R * 0.15); break;
     }
     case 'star': {
       const ex = bx + sd * R * 0.7, ey = by - R * 0.75 + w * 8;
-      ctx.strokeStyle = col; ctx.lineWidth = R * 0.1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.75, by, ex, ey); ctx.stroke();
-      ctx.shadowColor = acc; ctx.shadowBlur = 20; starPath(ex, ey, R * 0.22); ctx.fillStyle = acc; ctx.fill(); ctx.shadowBlur = 0; break;
+      ctx.strokeStyle = col; ctx.lineWidth = R * 0.1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.75, by, ex, ey); ctx.stroke(); tube3D(R * 0.1);
+      ctx.shadowColor = acc; ctx.shadowBlur = 20; starPath(ex, ey, R * 0.22); ctx.fillStyle = acc; ctx.fill(); ctx.shadowBlur = 0; soft3D(ex, ey, R * 0.22, R * 0.22); break;
     }
   }
 }
@@ -3988,7 +4103,8 @@ function drawCreature(o) {
   const { x, cy, R, gy, sp, def, t, md, look, dir, sick, asleep, hop = 0 } = o;
   let { rx, ry } = o;
   const col = def.col || sp.col, acc = def.acc || sp.acc, ex = def.extras || [], has = k => ex.includes(k);
-  const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), line = shade(col, -0.34), hd = HD_SPECIES.has(sp.id);
+  const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), hd = HD_SPECIES.has(sp.id);
+  const line = STYLE_3D ? rgba(shade(col, -0.5), 0.32) : shade(col, -0.34), lit = STYLE_3D ? shade3D : hdShade;   // 3D toys have only a faint outline
   const tex = texOf(sp.id), furry = hd && tex === 'fur', muzzle = furry && def.ears && def.ears !== 'fin' && !has('beak') && !has('snout');
   if (shape === 'tall') { rx *= 0.86; ry *= 1.08; }
   if (shape === 'wide') { rx *= 1.14; ry *= 0.88; }
@@ -4012,13 +4128,13 @@ function drawCreature(o) {
     const g = ctx.createLinearGradient(0, 0, R * 1.5, -R); g.addColorStop(0, acc); g.addColorStop(1, shade(acc, -0.18));
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(R * 0.6, -R * 1.15, R * 1.5, -R * 0.9);
     ctx.lineTo(R * 1.25, -R * 0.45); ctx.quadraticCurveTo(R * 1.02, -R * 0.55, R * 0.95, -R * 0.15);
-    ctx.quadraticCurveTo(R * 0.65, -R * 0.3, R * 0.5, R * 0.1); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle = shade(acc, -0.3); ctx.lineWidth = R * 0.025; ctx.stroke();
+    ctx.quadraticCurveTo(R * 0.65, -R * 0.3, R * 0.5, R * 0.1); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); soft3D(R * 0.8, -R * 0.5, R * 0.8, R * 0.6);
+    ctx.strokeStyle = STYLE_3D ? rgba(shade(acc, -0.4), 0.35) : shade(acc, -0.3); ctx.lineWidth = R * 0.025; ctx.stroke();
     ctx.restore();
   }
   if (has('butterfly')) for (const sd of [-1, 1]) {
     ctx.save(); ctx.translate(x + sd * rx * 0.3, cy - ry * 0.25); ctx.scale(sd * (0.7 + 0.3 * Math.cos(t * 4)), 1);
-    ell(R * 0.78, -R * 0.45, R * 0.62, R * 0.46, acc, -0.5); ell(R * 0.58, R * 0.28, R * 0.42, R * 0.32, shade(acc, 0.35), 0.4);
+    ell(R * 0.78, -R * 0.45, R * 0.62, R * 0.46, acc, -0.5); soft3D(R * 0.78, -R * 0.45, R * 0.62, R * 0.46); ell(R * 0.58, R * 0.28, R * 0.42, R * 0.32, shade(acc, 0.35), 0.4); soft3D(R * 0.58, R * 0.28, R * 0.42, R * 0.32);
     ell(R * 0.9, -R * 0.52, R * 0.16, R * 0.12, '#ffffff'); ell(R * 0.62, R * 0.32, R * 0.1, R * 0.08, '#ffffff');
     ctx.restore();
   }
@@ -4049,12 +4165,12 @@ function drawCreature(o) {
     const mc = sp.mane || ['#ff6a2b', '#ffb02e'];
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * TAU + Math.sin(t * 3) * 0.04, d = R * 0.88 + Math.sin(t * 8 + i) * 3;
-      ell(x + Math.cos(a) * d, hy + Math.sin(a) * d * 0.85, R * 0.34, R * 0.17, mc[i % mc.length], a);
+      ell(x + Math.cos(a) * d, hy + Math.sin(a) * d * 0.85, R * 0.34, R * 0.17, mc[i % mc.length], a); soft3D(x + Math.cos(a) * d, hy + Math.sin(a) * d * 0.85, R * 0.34, R * 0.17);
     }
   }
   if (has('petals')) for (let i = 0; i < 10; i++) {
     const a = i / 10 * TAU + Math.sin(t) * 0.05;
-    ell(x + Math.cos(a) * R * 0.9, hy + Math.sin(a) * R * 0.8, R * 0.38, R * 0.2, i % 2 ? acc : shade(acc, 0.4), a);
+    ell(x + Math.cos(a) * R * 0.9, hy + Math.sin(a) * R * 0.8, R * 0.38, R * 0.2, i % 2 ? acc : shade(acc, 0.4), a); soft3D(x + Math.cos(a) * R * 0.9, hy + Math.sin(a) * R * 0.8, R * 0.38, R * 0.2);
   }
   if (has('shell')) {
     ell(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc);
@@ -4063,7 +4179,7 @@ function drawCreature(o) {
     if (hd) {
       // a domed shell: shaded, with a rim of plates and growth rings in each one
       ctx.save(); ctx.beginPath(); ctx.ellipse(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, 0, 0, TAU); ctx.clip();
-      hdShade(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc, R); ctx.restore();
+      lit(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc, R); ctx.restore();
       ctx.strokeStyle = rgba(shade(acc, -0.4), 0.6); ctx.lineWidth = R * 0.02;
       for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, px = x + Math.cos(a) * rx * 1.12, py = cy - ry * 0.08 + Math.sin(a) * ry * 0.95; ell(px, py, R * 0.1, R * 0.08, plate, a); ctx.beginPath(); ctx.ellipse(px, py, R * 0.1, R * 0.08, a, 0, TAU); ctx.stroke(); }
     }
@@ -4080,10 +4196,10 @@ function drawCreature(o) {
   if (has('spikes')) [-0.85, -0.5, 0.5, 0.85].forEach(k => {
     const a = -Math.PI / 2 + k * 1.15, px = x + Math.cos(a) * rx, py = cy + Math.sin(a) * ry;
     const nx = Math.cos(a), ny = Math.sin(a), tx = -ny, ty = nx, s = R * 0.16;
-    tri(px + tx * s - nx * s, py + ty * s - ny * s, px + nx * s * 1.9, py + ny * s * 1.9, px - tx * s - nx * s, py - ty * s - ny * s, acc, 6);
+    tri(px + tx * s - nx * s, py + ty * s - ny * s, px + nx * s * 1.9, py + ny * s * 1.9, px - tx * s - nx * s, py - ty * s - ny * s, acc, 6); soft3D(px + nx * s * 0.4, py + ny * s * 0.4, s * 1.2, s * 1.2);
   });
-  if (has('crest')) { ctx.beginPath(); ctx.moveTo(x - R * 0.28, topY + R * 0.14); ctx.quadraticCurveTo(x - R * 0.1, topY - R * 0.7, x + R * 0.12, topY - R * 0.5); ctx.quadraticCurveTo(x + R * 0.2, topY - R * 0.15, x + R * 0.3, topY + R * 0.14); ctx.closePath(); ctx.fillStyle = acc; ctx.fill(); }
-  if (has('feathers')) for (let i = -1; i <= 1; i++) ell(x + i * R * 0.13, topY - R * 0.1 - (i ? 0 : R * 0.06), R * 0.08, R * 0.26, i ? shade(col, -0.12) : acc === '#ffffff' ? shade(col, -0.25) : acc, i * 0.45 + Math.sin(t * 3) * 0.06);
+  if (has('crest')) { ctx.beginPath(); ctx.moveTo(x - R * 0.28, topY + R * 0.14); ctx.quadraticCurveTo(x - R * 0.1, topY - R * 0.7, x + R * 0.12, topY - R * 0.5); ctx.quadraticCurveTo(x + R * 0.2, topY - R * 0.15, x + R * 0.3, topY + R * 0.14); ctx.closePath(); ctx.fillStyle = acc; ctx.fill(); soft3D(x, topY - R * 0.25, R * 0.3, R * 0.4); }
+  if (has('feathers')) for (let i = -1; i <= 1; i++) { ell(x + i * R * 0.13, topY - R * 0.1 - (i ? 0 : R * 0.06), R * 0.08, R * 0.26, i ? shade(col, -0.12) : acc === '#ffffff' ? shade(col, -0.25) : acc, i * 0.45 + Math.sin(t * 3) * 0.06); soft3D(x + i * R * 0.13, topY - R * 0.1, R * 0.1, R * 0.26); }
   if (has('flamecrown')) for (const i of [-1, 1, 0]) flame(x + i * R * 0.26, topY + R * 0.12 - (i ? 0 : R * 0.08), R * (i ? 0.17 : 0.24), t + i, sp.flame);
   if (has('crystals')) [[-0.38, 0.55, 0.14, -0.4], [0.38, 0.5, 0.13, 0.4], [0, 0.85, 0.18, 0]].forEach(([dx, h, w, a]) => {
     ctx.save(); ctx.translate(x + dx * R, topY + R * 0.28); ctx.rotate(a);
@@ -4100,12 +4216,12 @@ function drawCreature(o) {
     ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.moveTo(-0.18, -0.14); ctx.lineTo(0, -0.27); ctx.lineTo(0.05, -0.12); ctx.fill();
     ctx.restore();
   }
-  if (has('horns1')) for (const sd of [-1, 1]) tri(x + sd * R * 0.22, topY + R * 0.2, x + sd * R * 0.42, topY - R * 0.32, x + sd * R * 0.5, topY + R * 0.25, '#f6e7c4', 8);
+  if (has('horns1')) for (const sd of [-1, 1]) { tri(x + sd * R * 0.22, topY + R * 0.2, x + sd * R * 0.42, topY - R * 0.32, x + sd * R * 0.5, topY + R * 0.25, '#f6e7c4', 8); soft3D(x + sd * R * 0.38, topY, R * 0.16, R * 0.3); }
   if (has('horns2')) for (const sd of [-1, 1]) {
     ctx.beginPath(); ctx.moveTo(x + sd * R * 0.18, topY + R * 0.25);
     ctx.quadraticCurveTo(x + sd * R * 0.3, topY - R * 0.45, x + sd * R * 0.78, topY - R * 0.62);
     ctx.quadraticCurveTo(x + sd * R * 0.45, topY - R * 0.2, x + sd * R * 0.52, topY + R * 0.28); ctx.closePath();
-    ctx.fillStyle = '#f6e7c4'; ctx.fill(); ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = R * 0.02; ctx.stroke();
+    ctx.fillStyle = '#f6e7c4'; ctx.fill(); soft3D(x + sd * R * 0.45, topY - R * 0.2, R * 0.3, R * 0.4); ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = R * 0.02; ctx.stroke();
   }
   if (has('antlers1') || has('antlers2')) {
     const big = has('antlers2');
@@ -4124,15 +4240,23 @@ function drawCreature(o) {
   }
   drawEars(def.ears, x, cy, rx, ry, R, col, acc, t, asleep, hd, line);
   const marks = (sp.marks || []).concat(def.marks || []), mk = k => marks.includes(k);
-  const footCol = mk('socks') ? (sp.sock || shade(col, -0.35)) : dark, OUT = R * 0.045;
+  const footCol = mk('socks') ? (sp.sock || shade(col, -0.35)) : dark, OUT = R * (STYLE_3D ? 0.024 : 0.045);
+  if (STYLE_3D && !floating) {
+    // soft contact shadow where the toy touches the ground
+    const sg = ctx.createRadialGradient(x, gy - 4 - hop * 0.2, 0, x, gy - 4 - hop * 0.2, R * 0.95);
+    sg.addColorStop(0, `rgba(30,18,10,${0.35 * Math.max(0.3, 1 - hop / 120)})`); sg.addColorStop(1, 'rgba(30,18,10,0)');
+    ctx.save(); ctx.translate(x, gy - 4); ctx.scale(1, 0.3); ctx.translate(-x, -(gy - 4)); ctx.fillStyle = sg; ctx.fillRect(x - R, gy - 4 - R, R * 2, R * 2); ctx.restore();
+  }
   if (def.feet && !floating) for (const sd of [-1, 1]) {
     const px = x + sd * R * (chibi ? 0.36 : 0.45), py = gy - 8 - hop;
     ell(px, py, R * 0.27, R * 0.15, footCol);
+    if (STYLE_3D) { soft3D(px, py, R * 0.27, R * 0.15); continue; }
     ctx.strokeStyle = shade(footCol, -0.35); ctx.lineWidth = R * 0.028; ctx.beginPath(); ctx.ellipse(px, py, R * 0.27, R * 0.15, 0, 0, TAU); ctx.stroke();
     ctx.lineWidth = R * 0.02; for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(px + k * R * 0.08, py - R * 0.03); ctx.lineTo(px + k * R * 0.08, py + R * 0.1); ctx.stroke(); }
   }
   const fillFor = (ex2, ey2, erx, ery) => {
     const gg = ctx.createRadialGradient(ex2 - erx * 0.4, ey2 - ery * 0.5, R * 0.06, ex2, ey2, Math.max(erx, ery) * 1.25);
+    if (STYLE_3D) { gg.addColorStop(0, shade(col, 0.32)); gg.addColorStop(0.42, col); gg.addColorStop(1, shade(col, -0.12)); return gg; }
     gg.addColorStop(0, shade(col, 0.45)); gg.addColorStop(0.5, col); gg.addColorStop(1, shade(col, -0.25)); return gg;
   };
   const legacy = (part, r) => {
@@ -4166,7 +4290,7 @@ function drawCreature(o) {
       if (furry) for (let i = 0; i < 5; i++) ell(x + (i - 2) * brx * 0.22, by - bry * 0.52 + Math.abs(i - 2) * bry * 0.12, brx * 0.16, bry * 0.2, sp.belly);
     } else ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, sp.belly ? sp.belly + 'f0' : 'rgba(255,255,255,.35)');
     legacy('body', B); drawMarks('body', marks, B, R, col, acc, sp, t);
-    if (hd) { hdSurface(tex, x, by, brx, bry, col, R, 11, 'body'); hdShade(x, by, brx, bry, col, R); ell(x, by - bry * 0.95, hrx * 0.7, bry * 0.32, 'rgba(40,10,0,.2)'); }
+    if (hd) { hdSurface(tex, x, by, brx, bry, col, R, 11, 'body'); lit(x, by, brx, bry, col, R); ell(x, by - bry * 0.95, hrx * 0.7, bry * 0.32, STYLE_3D ? rgba(shade(col, -0.7), 0.35) : 'rgba(40,10,0,.2)'); }
     else ell(x + brx * 0.45, by + bry * 0.55, brx * 0.9, bry * 0.55, 'rgba(0,0,0,.09)');
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - brx * 1.3, by - bry * 1.3, brx * 2.6, bry * 2.6); }
     ctx.restore();
@@ -4177,7 +4301,9 @@ function drawCreature(o) {
       if (hd) {
         // a shaded arm with a lighter paw and little toe lines
         const ag = ctx.createLinearGradient(-R * 0.14, 0, R * 0.14, 0); ag.addColorStop(0, shade(col, sd > 0 ? -0.22 : 0.12)); ag.addColorStop(1, shade(col, sd > 0 ? 0.08 : -0.22));
-        ell(0, R * 0.13, R * 0.14, R * 0.23, ag); ell(0, R * 0.3, R * 0.11, R * 0.07, sp.belly || shade(col, 0.35));
+        ell(0, R * 0.13, R * 0.14, R * 0.23, ag);
+        soft3D(0, R * 0.13, R * 0.14, R * 0.23);
+        ell(0, R * 0.3, R * 0.11, R * 0.07, sp.belly || shade(col, 0.35));
         ctx.strokeStyle = rgba(line, 0.7); ctx.lineWidth = R * 0.014; for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(k * R * 0.035, R * 0.27); ctx.lineTo(k * R * 0.035, R * 0.33); ctx.stroke(); }
       } else ell(0, R * 0.13, R * 0.14, R * 0.23, shade(col, -0.04));
       if (mk('socks')) ell(0, R * 0.27, R * 0.12, R * 0.09, footCol);
@@ -4201,7 +4327,7 @@ function drawCreature(o) {
     ctx.save(); ctx.beginPath(); ctx.ellipse(x, hy, hrx, hry, 0, 0, TAU); ctx.clip();
     legacy('head', H); drawMarks('head', marks, H, R, col, acc, sp, t, fx, fy);
     if (hd) {
-      hdSurface(tex, x, hy, hrx, hry, col, R, 5, 'head'); hdShade(x, hy, hrx, hry, col, R);
+      hdSurface(tex, x, hy, hrx, hry, col, R, 5, 'head'); lit(x, hy, hrx, hry, col, R);
       if (muzzle) {
         // a soft muzzle: two puffy light cheeks under the nose, with a faint shadow beneath
         const mz = sp.belly || shade(col, 0.4);
@@ -4232,7 +4358,7 @@ function drawCreature(o) {
     legacy('head', W); legacy('body', region('body', rx, ry * 0.6, x, cy + ry * 0.4));
     drawMarks('head', marks, W, R, col, acc, sp, t, fx, fy); drawMarks('body', marks, region('body', rx * 0.8, ry * 0.55, x, cy + ry * 0.4), R, col, acc, sp, t);
     if (hd) {
-      hdSurface(tex, x, cy, rx, ry, col, R, 17, 'body'); hdShade(x, cy, rx, ry, col, R);
+      hdSurface(tex, x, cy, rx, ry, col, R, 17, 'body'); lit(x, cy, rx, ry, col, R);
       if (shape === 'square') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.moveTo(x - rx * 0.6, cy - ry * 0.95); ctx.lineTo(x - rx * 0.2, cy - ry * 0.3); ctx.lineTo(x + rx * 0.55, cy - ry * 0.55); ctx.moveTo(x - rx * 0.2, cy - ry * 0.3); ctx.lineTo(x - rx * 0.35, cy + ry * 0.5); ctx.stroke(); }
     } else {
       ell(x + rx * 0.45, cy + ry * 0.55, rx * 0.9, ry * 0.5, 'rgba(0,0,0,.07)');
@@ -4592,7 +4718,8 @@ function deadTree(x, h) {
 /* ---------- realistic backdrops ----------
    The still part of each habitat (sky, sunlit mountains, haze, perspective ground, trees) is painted once into an
    offscreen canvas at screen resolution and reused; only moving things are drawn every frame. Light comes from the left. */
-const toRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+// '#rrggbb' or 'rgb(r,g,b)' (what shade() returns) to [r, g, b]
+const toRgb = h => { if (h[0] !== '#') return (h.match(/\d+/g) || [0, 0, 0]).slice(0, 3).map(Number); const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const toHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 const mixC = (a, b, k) => { const A = toRgb(a), B = toRgb(b); return toHex(A.map((v, i) => v + (B[i] - v) * k)); };
 const rgba = (h, a) => { const c = toRgb(h); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
@@ -6441,7 +6568,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030160111';
+  const BUILD = '20261030161720';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
