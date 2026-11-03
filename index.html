@@ -1435,7 +1435,7 @@ function logic() {
     // chasing a rolling ball: keep heading for it; give up if the ball is put away
     if (pet.errand === 'kick') { if ((meta.decor || []).includes('ball')) { pet.tx = ballSpot(R); pet.td = DECOR_D.ball + 4; } else pet.errand = null; }
     if (pet.errand && pet.errand !== 'kick' && pet.errand !== 'pick' && !(meta.decor || []).includes(Object.keys(PLAY_WITH).find(k => PLAY_WITH[k] === pet.errand))) pet.errand = null;
-    if (!game && !state.asleep && !anim && !idle && !flying && !pet.errand && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.td = randomD(); pet.nextMove = T + 2500 + Math.random() * 3500; }
+    if (!game && !state.asleep && !anim && !idle && !flying && !pet.errand && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.td = randomD(); if (Math.abs(pet.tx - GARDEN.x) < 160 && pet.td < GARDEN.d + 70) pet.td = GARDEN.d + 70 + Math.random() * 90; pet.nextMove = T + 2500 + Math.random() * 3500; }
     if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4 && Math.abs(pet.td - pet.d) < 4) {
       // a happy pet sometimes shows off a trick it has learned, or goes and plays with its things
       const sk = learned();
@@ -3197,7 +3197,8 @@ const hitGarden = (p, g = meta.garden) => { const k = depthK(GARDEN.d), st = gar
 
 // drawn in the pet's side-view space, standing on GROUND (atDepth puts it at the plot's depth); visit = a friend's tree
 function drawGarden(t, g = meta.garden, visit = false) {
-  return [{ d: GARDEN.d, draw: () => atDepth(GARDEN.x, GARDEN.d, () => drawTree(t, g, visit)) }];
+  // the gauges stand at the tree's depth too, so a pet walking in front of the tree also walks in front of them
+  return [{ d: GARDEN.d, draw: () => { atDepth(GARDEN.x, GARDEN.d, () => drawTree(t, g, visit)); drawGardenBar(g); } }];
 }
 // a little caterpillar munching on the tree
 function drawBug(x, y, t, i) {
@@ -3280,7 +3281,7 @@ function drawTree(t, garden, visit) {
     ctx.font = '28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, x, by + 2);
   }
 }
-// the tree's status as two slim upright gauges, no frame, drawn over everything so it can always be read: soil moisture
+// the tree's status as two slim upright gauges, no frame, standing beside the tree in the yard: soil moisture
 // on the left of the tree, growth (or, once grown, the next fruit ripening, with the fruit count) on the right, with
 // bugs and fertiliser as little marks next to it
 function drawGardenBar(g) {
@@ -4137,7 +4138,6 @@ function drawHouse(t, dt = 0.016) {
     }) });
   }
   drawByDepth(yard);
-  if (hg) drawGardenBar(hg);
   scaled(640, 44, () => pillLabelRaw(ownerLive ? `🏠 Nhà của @${h.username} · 🟢 đang ở nhà` : `🏠 Nhà của @${h.username}`, 640, 44));
 }
 
@@ -7732,7 +7732,6 @@ function render(ts) {
     }) });
     if (anim && anim.type === 'clean') { const c = cleanSpot(); if (c) yard.push({ d: c.d + 2, draw: () => drawCleaning(t) }); }
     drawByDepth(yard);
-    if (!game) drawGardenBar(meta.garden);
     if (game) drawGame(t);
     if (state.asleep && state.lightOff) {
       ctx.fillStyle = 'rgba(8,12,34,.74)'; ctx.fillRect(0, -padTop, LW, LH + padTop);
@@ -7815,7 +7814,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261103155012';
+  const BUILD = '20261103155608';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
