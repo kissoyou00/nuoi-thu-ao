@@ -28,6 +28,7 @@
 <meta name="apple-mobile-web-app-title" content="Thú Ảo">
 <meta name="mobile-web-app-capable" content="yes">
 <style>html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<!-- File này được ghép tự động từ thư mục src/. Đừng sửa ở đây: sửa trong src/ rồi chạy tools\build.ps1 -->
 <title>Thú Ảo Bỏ Túi</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -989,7 +990,7 @@ function rollSpecies() {
 
 /* ---------- state ---------- */
 let state = null, anim = null, game = null, foodMenu = false, sayUntil = 0, resetArmed = 0, ticks = 0, banner = null;
-let pet = { x: 640, tx: 640, dir: 1, walking: false, nextMove: 0, nextIdle: 0 };
+let pet = { x: 640, tx: 640, d: 545, td: 545, dir: 1, walking: false, nextMove: 0, nextIdle: 0 };
 let idle = null, emote = null, face = null, pointer = { x: 0, y: 0, t: 0 }, petTaps = [], eggPoke = 0, drag = null;
 let talk = null, talkMenu = false, typer = 0, gameMenu = false;
 // y = where the pet's feet are; held = in the player's hand; air = flying after a throw
@@ -1003,7 +1004,7 @@ const curDef = () => curSp().stages[state.stageIdx];
 function newState(name, shell) {
   return { v: 2, name, shell, species: rollSpecies(), stageIdx: 0, eggStart: now(), hatched: false, born: 0, alive: true,
     hunger: 80, happy: 80, clean: 100, energy: 90, health: 100, weight: 5, coins: 10,
-    sick: false, doses: 0, asleep: false, lightOff: false, poops: [], poopAt: [], poopIn: 3, last: now(), log: [] };
+    sick: false, doses: 0, asleep: false, lightOff: false, poops: [], poopAt: [], poopPos: [], poopIn: 3, last: now(), log: [] };
 }
 const ageMin = () => state && state.hatched ? (now() - state.born) / 60000 : 0;
 function log(text) { state.log.unshift({ t: now(), text }); state.log = state.log.slice(0, 7); renderSide(); }
@@ -1018,6 +1019,8 @@ function load() {
       s.poops = (s.poops || []).map(p => (p >= 0.6 && p <= 1.5 ? p : 1));
       // when each poop was made (drives how much it stinks); older saves start the clock now
       s.poopAt = s.poops.map((_, i) => (s.poopAt && s.poopAt[i]) || now());
+      // older saves had poops in a row at the right; give each one a spot in the yard
+      s.poopPos = s.poops.map((_, i) => (s.poopPos && s.poopPos[i]) || [1180 - i * 160, 470 + ((i * 53) % 4) * 45]);
       return s;
     }
   } catch (e) {}
@@ -1249,7 +1252,7 @@ function step(f, offline) {
     s.poopIn = 4 + Math.random() * 4;
     if (s.poops.length < 3) {
       const size = +(0.6 + Math.random() * 0.9).toFixed(2);
-      s.poops.push(size); (s.poopAt = s.poopAt || []).push(offline ? s.last : now());
+      (s.poopPos = s.poopPos || []).push(poopSpot(offline)); s.poops.push(size); (s.poopAt = s.poopAt || []).push(offline ? s.last : now());
       if (!offline) {
         setFace('shy', 2600); setEmote('sweat', 2600); Sound.play('poop');
         say(size >= 1.25 ? `Ơ... ${s.name} vừa ị một bãi to tướng! Dọn giúp với!` : `Ơ... ${s.name} lỡ ị mất rồi, dọn giúp nhé!`, 4000);
@@ -1364,7 +1367,9 @@ function evolve() {
 
 /* ---------- animations & particles ---------- */
 function spawn(type, x, y, o = {}) {
-  parts.push({ type, x, y, vx: o.vx ?? (Math.random() - 0.5) * 80, vy: o.vy ?? -(60 + Math.random() * 70),
+  // particles belong to the depth being drawn, or else to the pet (in the egg room and friends' houses there is none)
+  const at = o.at || depthCtx || (state && state.hatched && state.alive && !house ? { ax: pet.x, d: petD() } : { ax: 0, d: null });
+  parts.push({ type, x, y, ax: at.ax, d: at.d, vx: o.vx ?? (Math.random() - 0.5) * 80, vy: o.vy ?? -(60 + Math.random() * 70),
     life: 0, max: o.max ?? 1.6, size: o.size ?? 1, color: o.color, text: o.text });
 }
 // pets are drawn 20% bigger in the zoomed-in phone view (not in minigames, which show the whole width)
@@ -1387,9 +1392,9 @@ function startAnim(type, dur, extra = {}) {
 }
 const busy = () => anim && anim.type !== 'heart';
 function animP() { return anim ? Math.min(1, (now() - anim.start) / anim.dur) : 0; }
-function maxPetX() { return 1180 - 70 - (state ? state.poops.length : 0) * 120 - petR(); }
+function maxPetX() { return 1110 - petR(); }
 // poops are stored as sizes (0.6 small .. 1.5 huge), laid out from the right edge
-const poopX = i => 1180 - i * 120;
+const poopX = i => ((state && state.poopPos && state.poopPos[i]) || [1180 - i * 120])[0];
 const poopLoad = () => state ? state.poops.reduce((a, p) => a + p, 0) : 0;
 // 0 = fresh, 1 = left for 6+ minutes and reeking
 const STINK_MIN = 6;
@@ -1403,13 +1408,14 @@ function logic() {
   const T = now();
   if (anim && T - anim.start >= anim.dur) {
     const d = anim; anim = null;
-    if (d.type === 'clean') { state.poops = []; state.poopAt = []; stinkWarned = 0; state.clean = 100; setFace('joy', 1600); setEmote('note', 1600); log(`Dọn dẹp sạch sẽ cho ${state.name}.`); say(`Sạch bong! ${state.name} thấy dễ chịu hơn.`); quest('clean'); renderSide(); }
+    if (d.type === 'clean') { state.poops = []; state.poopAt = []; state.poopPos = []; stinkWarned = 0; state.clean = 100; setFace('joy', 1600); setEmote('note', 1600); log(`Dọn dẹp sạch sẽ cho ${state.name}.`); say(`Sạch bong! ${state.name} thấy dễ chịu hơn.`); quest('clean'); renderSide(); }
     if (d.then === 'heart') startAnim('heart', 1600);
     if (d.type === 'eat') afterEat(d);
   }
   if ((!banner || T - banner.start >= banner.dur) && bannerQ.length) banner = { ...bannerQ.shift(), start: T };
   gameTick(T);
   weatherTick(T);
+  if (state.hatched && state.alive) gardenTick(T);
   if (state.trip) return;
   autoTalk(T);
   if (!bubble && pet.nextMove - T > 60000) pet.nextMove = T + 1500;
@@ -1417,19 +1423,20 @@ function logic() {
   if (state.hatched && state.alive) {
     const R = petR(), minX = 130 + R, maxX = Math.max(minX, maxPetX());
     if (idle && T - idle.start >= idle.dur) {
-      if (idle.type === 'roll') { const R0 = petR(); pet.x = Math.max(130 + R0, Math.min(Math.max(130 + R0, maxPetX()), pet.x + idle.dir * 130)); pet.tx = pet.x; }
+      if (idle.type === 'pick') harvest();
+      if (idle.type === 'roll') { const R0 = petR(); pet.x = Math.max(130 + R0, Math.min(Math.max(130 + R0, maxPetX()), pet.x + idle.dir * 130)); pet.tx = pet.x; pet.td = pet.d; }
       // after a kick the pet usually runs after the ball for another go
       if (idle.type === 'kick' && Math.random() < 0.7) { pet.errand = 'kick'; pet.nextIdle = T; pet.nextMove = T + 9000; }
       idle = null;
     }
     const flying = phys.held || phys.air || !!talk || !!bubble;
     // a new item waiting to be unboxed
-    if (unboxQ.length && !anim && !idle && !game && !flying && !state.asleep && !state.trip && !house && !panelKind) { const u = unboxQ.shift(); pet.errand = null; pet.tx = pet.x; startAnim('unbox', 3000, { item: u.id, how: u.how, tier: u.tier || 0 }); setFace('surprised', 1200); say(u.how === 'box' ? `Mở ${BOXES[u.tier - 1].name.toLowerCase()}... trong đó có gì nhỉ?` : u.how === 'steal' ? 'Chiến lợi phẩm từ nhà hàng xóm! Mở ra xem nào...' : u.how === 'gift' ? 'Có hộp quà bạn bè tặng! Mở ra xem nào...' : u.how === 'buy' ? 'Hàng về rồi! Mở hộp thôi...' : 'Một hộp quà bất ngờ! Mở ra xem nào...', 2500); }
+    if (unboxQ.length && !anim && !idle && !game && !flying && !state.asleep && !state.trip && !house && !panelKind) { const u = unboxQ.shift(); pet.errand = null; pet.tx = pet.x; pet.td = pet.d; startAnim('unbox', 3000, { item: u.id, how: u.how, tier: u.tier || 0 }); setFace('surprised', 1200); say(u.how === 'box' ? `Mở ${BOXES[u.tier - 1].name.toLowerCase()}... trong đó có gì nhỉ?` : u.how === 'steal' ? 'Chiến lợi phẩm từ nhà hàng xóm! Mở ra xem nào...' : u.how === 'gift' ? 'Có hộp quà bạn bè tặng! Mở ra xem nào...' : u.how === 'fruit' ? 'Bên trong trái cây có quà! Mở ra xem nào...' : u.how === 'buy' ? 'Hàng về rồi! Mở hộp thôi...' : 'Một hộp quà bất ngờ! Mở ra xem nào...', 2500); }
     // chasing a rolling ball: keep heading for it; give up if the ball is put away
-    if (pet.errand === 'kick') { if ((meta.decor || []).includes('ball')) pet.tx = ballSpot(R); else pet.errand = null; }
-    if (pet.errand && pet.errand !== 'kick' && !(meta.decor || []).includes(Object.keys(PLAY_WITH).find(k => PLAY_WITH[k] === pet.errand))) pet.errand = null;
-    if (!game && !state.asleep && !anim && !idle && !flying && !pet.errand && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.nextMove = T + 2500 + Math.random() * 3500; }
-    if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4) {
+    if (pet.errand === 'kick') { if ((meta.decor || []).includes('ball')) { pet.tx = ballSpot(R); pet.td = DECOR_D.ball + 4; } else pet.errand = null; }
+    if (pet.errand && pet.errand !== 'kick' && pet.errand !== 'pick' && !(meta.decor || []).includes(Object.keys(PLAY_WITH).find(k => PLAY_WITH[k] === pet.errand))) pet.errand = null;
+    if (!game && !state.asleep && !anim && !idle && !flying && !pet.errand && T > pet.nextMove) { pet.tx = minX + Math.random() * (maxX - minX); pet.td = randomD(); pet.nextMove = T + 2500 + Math.random() * 3500; }
+    if (!game && !state.asleep && !anim && !idle && !flying && T > pet.nextIdle && Math.abs(pet.tx - pet.x) < 4 && Math.abs(pet.td - pet.d) < 4) {
       // a happy pet sometimes shows off a trick it has learned, or goes and plays with its things
       const sk = learned();
       if (pet.errand) { const e = pet.errand; if (e === 'kick' && toy.ballV) { /* wait for the ball to stop */ } else { pet.errand = null; beginPlay(e, T); } }
@@ -1445,7 +1452,7 @@ function logic() {
 const IDLE_DUR = {
   jump: 1200, dance: 2400, spin: 900, chase: 1800, wave: 1400, look: 2000, yawn: 1800, sigh: 1800, sniff: 1800, wink: 900, stinky: 2000, swat: 2200,
   sit: 4200, stretch: 1900, scratch: 1700, hiccup: 2600, sneeze: 1900, daydream: 3600, butterfly: 4800, nap: 4800, roll: 1400, kiss: 1600, rumble: 1700, shiver: 1900,
-  kick: 1100, house: 5600, lamp: 4200, plant: 3400, admire: 2600, squeak: 2400, build: 4200, hug: 3200, watch: 3800, reach: 2600,
+  kick: 1100, pick: 2300, house: 5600, lamp: 4200, plant: 3400, admire: 2600, squeak: 2400, build: 4200, hug: 3200, watch: 3800, reach: 2600,
 };
 const DREAMS = ['cake', 'fish', 'icecream', 'pizza', 'boba', 'heart', 'star'];
 function startIdle(T) {
@@ -1479,7 +1486,7 @@ function startIdle(T) {
   if (type === 'shiver' && quiet()) say(`Brrr... ${n} thấy hơi lạnh.`, 2500);
   if (type === 'scratch' && quiet()) say(`${n} gãi gãi chỗ ngứa.`, 2200);
   if (type === 'stretch' && quiet()) say(`${n} vươn vai thật dài.`, 2200);
-  pet.tx = pet.x; pet.nextIdle = T + 4000 + Math.random() * 5000; pet.nextMove = T + IDLE_DUR[type] + 800;
+  pet.tx = pet.x; pet.td = pet.d; pet.nextIdle = T + 4000 + Math.random() * 5000; pet.nextMove = T + IDLE_DUR[type] + 800;
   if (type === 'dance') setEmote('note', 2400);
   if (type === 'sigh') setEmote('dots', 1800);
   if (type === 'look' && Math.random() < 0.5) setEmote('question', 1600);
@@ -1495,10 +1502,10 @@ function hitPet(p) {
   if (!state) return false;
   if (!state.hatched) return Math.hypot(p.x - 640, p.y - (GROUND - 130)) < 140;
   if (!state.alive || state.trip) return false;
-  const R = petR();
+  const R = petR(); p = toDepth(p, pet.x, petD());   // the pet stands back in the yard: test in its own space
   return Math.hypot((p.x - pet.x) / 1.2, p.y - (phys.y - R * 0.9)) < R * 1.25;
 }
-const canGrab = () => state && state.hatched && state.alive && !state.asleep && !state.trip && !game && !busy();
+const canGrab = () => state && state.hatched && state.alive && !state.asleep && !state.trip && !game && !house && !busy();
 function grab() {
   phys.held = true; phys.air = false; phys.heldAt = now(); phys.rot = 0; phys.vr = 0;
   idle = null; if (anim && anim.type === 'heart') anim = null;
@@ -1511,6 +1518,7 @@ function release() {
   let vx = (b.x - a.x) / dt * 1000, vy = (b.y - a.y) / dt * 1000;
   const sp = Math.hypot(vx, vy);
   if (sp > 3600) { vx *= 3600 / sp; vy *= 3600 / sp; }
+  if (petD() != null) { const k = depthK(petD()); vx /= k; vy /= k; }   // screen speed -> the pet's own (bigger) space
   phys.held = false; phys.air = true; phys.vx = vx; phys.vy = vy; phys.bonks = 0;
   phys.speed = Math.min(sp, 3600); phys.vr = Math.max(-14, Math.min(14, vx / petR() * 0.8));
   if (phys.speed > 300) { Sound.play('boing', 1); state.energy = clamp(state.energy - 1); if (now() > sayUntil - 1500) say(phys.speed > 1800 ? 'Víu!!!' : 'Bay nè!', 1500); }
@@ -1524,7 +1532,7 @@ function land() {
   const s = state, T = now(), sp = phys.speed, b = phys.bonks;
   phys.air = false; phys.vy = 0; phys.vx = 0; phys.y = GROUND;
   phys.rot = ((phys.rot % TAU) + TAU + Math.PI) % TAU - Math.PI;
-  pet.tx = pet.x; pet.nextMove = T + 1800; pet.nextIdle = T + 3500;
+  pet.tx = pet.x; pet.td = pet.d; pet.nextMove = T + 1800; pet.nextIdle = T + 3500;
   if (sp < 300) return;
   phys.flights = phys.flights.filter(f => T - f < 20000); phys.flights.push(T);
   if (b >= 2 || sp > 2700 || phys.flights.length >= 6) {
@@ -1543,8 +1551,9 @@ function land() {
 function stepPhys(dt) {
   const R = petR();
   if (phys.held) {
-    pet.x = Math.max(R, Math.min(LW - R, pointer.x));
-    phys.y = Math.max(R * 2, Math.min(GROUND, pointer.y + R * 0.85));
+    const q = toDepth(pointer, pet.x, petD());
+    pet.x = Math.max(R, Math.min(LW - R, q.x));
+    phys.y = Math.max(R * 2, Math.min(GROUND, q.y + R * 0.85));
     return;
   }
   if (!phys.air) { phys.rot *= Math.pow(0.0005, dt); return; }
@@ -1564,18 +1573,34 @@ function stepPhys(dt) {
   }
 }
 function tapPet(p) {
-  if (!hitPet(p)) return;
+  // at a friend's house my pet isn't in the picture; a tap on their tree helps look after it
+  if (house) { const hg = houseGarden(house); if (hg && hitGarden(p, hg)) helpGarden(); return; }
+  if (!hitPet(p)) {
+    if (state && state.hatched && state.alive && !game && !house && hitGarden(p)) { gardenAct(); return; }   // the tree in the garden
+    walkTo(p); return;
+  }
   const s = state, T = now();
   if (!s.hatched) { eggPoke = T; Sound.play('boing', 0.6); say('Quả trứng khẽ rung lên... hình như bé nghe thấy bạn!', 3000); return; }
   if (s.asleep) { setEmote('dots', 1500); say(`Suỵt... ${s.name} đang ngủ.`, 2500); return; }
   if (game || busy()) return;
-  idle = null; pet.tx = pet.x; pet.nextMove = T + 1500;
+  idle = null; pet.tx = pet.x; pet.td = pet.d; pet.nextMove = T + 1500;
   petTaps = petTaps.filter(x => T - x < 3000); petTaps.push(T);
   if (petTaps.length >= 7) { petTaps = []; Sound.play('lose'); setFace('dizzy', 2200); setEmote('vein', 2200); say(`Vuốt nhiều quá, ${s.name} chóng mặt rồi!`, 3000); return; }
   setFace('love', 1400); setEmote('heart', 1400); Sound.play('love');
   for (let i = 0; i < 2; i++) spawn('heart', pet.x + (Math.random() - 0.5) * 60, petTop(), { max: 1.3, size: 0.7 });
   if (T - (s.lastPet || 0) > 2000) { s.happy = clamp(s.happy + 2 * (trait('petJoy') || 1)); s.lastPet = T; quest('pet'); renderSide(); }
   say(`${s.name} thích được vuốt ve lắm!`, 2500);
+}
+// tapping the ground: the pet walks over there
+function walkTo(p) {
+  const s = state;
+  if (!s || !s.hatched || !s.alive || s.asleep || s.trip || game || house || busy() || phys.held || phys.air) return;
+  if (p.y < D_BACK - 40 || p.y > LH) return;
+  const R = petR(), T = now();
+  idle = null; pet.errand = null;
+  pet.tx = Math.max(130 + R, Math.min(Math.max(130 + R, maxPetX()), p.x)); pet.td = Math.max(D_BACK, Math.min(D_FRONT, p.y));
+  pet.nextMove = T + 7000; pet.nextIdle = T + 2500;
+  spawn('spark', p.x, p.y, { vx: 0, vy: -40, max: 0.6, size: 0.6, color: '#ffffff', at: { ax: 0, d: null } });
 }
 cv.addEventListener('pointerdown', e => {
   const p = toLogical(e); pointer = { ...p, t: now() };
@@ -1649,7 +1674,7 @@ function openTalk(kind, auto = false) {
     }
   }, 35);
   if (auto) { setEmote('alert', 1500); say(`${state.name} vừa gieo được một quẻ mới cho bạn!`, 4000); }
-  idle = null; pet.tx = 640; Sound.play(kind === 'fortune' ? 'magic' : 'ping');
+  idle = null; pet.tx = 640; pet.td = 600; Sound.play(kind === 'fortune' ? 'magic' : 'ping');
   if (now() - (state.lastTalk || 0) > 20000) { state.happy = clamp(state.happy + 2); state.lastTalk = now(); renderSide(); }
   if (!auto) quest('talk');
   if (kind === 'fortune' && !auto) say(`${state.name} nhìn vào quả cầu pha lê...`, 3000);
@@ -1708,7 +1733,7 @@ function startBubble(kind) {
   const total = lines.reduce((a, l) => a + l.s.length + 1, 0);
   bubble = { kind, title, lines, foot, total, w: Math.max(tw, ctx.measureText(foot).width, 220), made: now(), start: 0, doneAt: 0, readMs: Math.max(12000, total * 55), rect: null };
   // walk to the left so the wide bubble has room on the right
-  idle = null; pet.tx = 150 + petR(); pet.nextMove = now() + 999999;
+  idle = null; pet.tx = 150 + petR(); pet.td = 600; pet.nextMove = now() + 999999;
 }
 const bubbleTyping = () => bubble && (!bubble.start || now() - bubble.start < bubble.total * CHAR_MS);
 function drawBubble(b, t) {
@@ -1982,12 +2007,12 @@ const ICON_LABEL = {
   't-fortune': 'Bói vui', 't-news': 'Bản tin Làng Thú', 't-fact': 'Bạn có biết?', 't-joke': 'Chuyện cười', 't-riddle': 'Đố vui',
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
   'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ ngày và tuần', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
-  'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
-  'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà', 'h-rps': 'Oẳn tù tì với người đang ở đây',
+  'x-album': 'Album ảnh', 'x-garden': 'Vườn cây: gieo hạt, tưới nước, hái trái', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
+  'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-garden': 'Giúp chăm cây (có xu)', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà', 'h-rps': 'Oẳn tù tì với người đang ở đây',
 };
 // the extras menu uses emoji pictures
-const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
-  'x-closet': '👗', 'x-hood': '🏘️', 'x-rand': '🎲', 't-joke': '😂', 't-riddle': '🤔', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠', 'h-rps': '✊' };
+const EMO_ICON = { 'm-more': '✨', 'x-garden': '🌳', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
+  'x-closet': '👗', 'x-hood': '🏘️', 'x-rand': '🎲', 't-joke': '😂', 't-riddle': '🤔', 'h-gift': '🎁', 'h-garden': '🌳', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠', 'h-rps': '✊' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -2344,11 +2369,13 @@ function act(a) {
     if (!house) return;
     if (a === 'h-home') leaveHouse();
     if (a === 'h-steal') doSteal();
+    if (a === 'h-garden') helpGarden();
     if (a === 'h-gift' || a === 'h-note') openPanel(a.slice(2));
     syncMode(true); return;
   }
   if (a.startsWith('x-')) {
     if (a === 'x-recall') { if (s.trip) endTrip(true); }
+    else if (a === 'x-garden') { moreMenu = false; gardenAct(); }
     else if (a === 'x-rand') { randomVisit(); return; }
     else openPanel(a.slice(2));
     syncMode(true); renderSide(); save(); return;
@@ -2369,7 +2396,7 @@ function act(a) {
     case 'more': moreMenu = true; say(Net.online ? 'Nhiệm vụ, cửa hàng, ghé nhà bất kỳ, kỹ năng, album, thẻ khoe và hàng xóm.' : 'Nhiệm vụ, cửa hàng, phiêu lưu, kỹ năng, album, thẻ khoe và thăm nhà bạn bè.', 3500); break;
     case 'back4': moreMenu = false; closePanel(); break;
     case 'quit': if (game) endGame(true); break;
-    case 'clean': startAnim('clean', 2600); say(`Xoẹt xoẹt! Cầm chổi quét dọn cho ${s.name}...`); break;
+    case 'clean': startAnim('clean', Math.max(1600, s.poops.length * 1100), { spots: (s.poopPos || []).slice().sort((a, b) => a[0] - b[0]), done: [] }); say(`Xoẹt xoẹt! Cầm chổi quét dọn cho ${s.name}...`); break;
     case 'med':
       if (!s.sick) { s.happy = clamp(s.happy - 5); startAnim('no', 1200); setFace('angry', 1500); say(`${s.name} không ốm, không chịu uống thuốc.`); break; }
       s.doses++; startAnim('pill', 1600);
@@ -2410,9 +2437,9 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['more', 'm-more']]),
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-garden', 'x-garden'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
   trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
-  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['x-rand', 'x-rand'], ['h-home', 'h-home']]),
+  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note']].concat(houseGarden(house) ? [['h-garden', 'h-garden']] : []).concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['x-rand', 'x-rand'], ['h-home', 'h-home']]),
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
@@ -2462,7 +2489,7 @@ $('setup').addEventListener('submit', e => {
   e.preventDefault();
   const name = ($('nameIn').value.trim() || 'Bông').slice(0, 12);
   const shell = document.querySelector('input[name=shell]:checked').value;
-  state = newState(name, shell); setShell(shell); pet.x = pet.tx = 640;
+  state = newState(name, shell); setShell(shell); pet.x = pet.tx = 640; pet.d = pet.td = D_MID;
   log(`Bắt đầu ấp một quả trứng bí ẩn cho ${name}.`);
   syncMode(true); renderSide(); save();
 });
@@ -2597,6 +2624,9 @@ const QUESTS = {
   share: { text: 'Tạo 1 thẻ khoe thú', goal: 1, coin: 6 },
   gift: { text: 'Tặng quà cho 1 người bạn', goal: 1, coin: 12, online: true },
   note: { text: 'Để lại hoặc trả lời 1 lời nhắn', goal: 1, coin: 8, online: true },
+  water: { text: 'Tưới cây trong 🌳 Vườn 1 lần', goal: 1, coin: 6 },
+  helpg: { text: 'Giúp bạn bè chăm cây 1 lần', goal: 1, coin: 8, online: true },
+  harvest: { text: 'Cho bé hái 1 trái cây trong vườn', goal: 1, coin: 10, need: () => { const g = gardenState(); return !!g && g.p >= 1; } },
 };
 const WEEKLY = {
   wdaily: { text: 'Hoàn thành 15 nhiệm vụ ngày', goal: 15, coin: 60 },
@@ -2608,6 +2638,7 @@ const WEEKLY = {
   box: { text: 'Mở 3 hộp bí mật', goal: 3, coin: 45 },
   trip: { text: 'Ghé thăm nhà bạn bè 5 lần', goal: 5, coin: 50, online: true },
   gift: { text: 'Tặng quà 3 lần', goal: 3, coin: 50, online: true },
+  water: { text: 'Tưới cây 5 lần', goal: 5, coin: 30 },
 };
 const DAILY_N = 4, DAILY_BONUS = 20, WEEKLY_N = 3, WEEKLY_BONUS = 40;
 // the Monday that starts this week
@@ -2907,8 +2938,7 @@ function drawAccessoryFX(id, t) {
 function drawWear(x, cy, ry, R, t) {
   const w = meta.wear || {}, k = R / 100;
   const at = (id, ax, ay) => { if (!id) return; ctx.save(); ctx.translate(ax, ay); ctx.scale(k, k); drawAccessoryFX(id, t); ctx.restore(); };
-  at(w.neck, faceAt.x, faceAt.y + R * 0.42);
-  at(w.eyes, faceAt.x, faceAt.y - R * 0.08);
+  if (!faceAt.back) { at(w.neck, faceAt.x, faceAt.y + R * 0.42); at(w.eyes, faceAt.x, faceAt.y - R * 0.08); }
   at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
 }
 // o: live state while the pet plays (ball spin and bounce, plant sway and flower, someone peeking out of the house)
@@ -3016,8 +3046,272 @@ function drawDecorItem(id, x, y, t, name = state ? state.name : '', o = {}) {
     }
   }
 }
+/* ---------- garden: a fruit tree that grows in real time ----------
+   A plot at the back of the yard. Plant a seed, water it, and the tree grows while the soil is wet (each watering keeps it
+   wet for 3 hours; rain waters it too). 12 hours of wet soil and it is grown, with 3 fruits; after that a new fruit ripens
+   every 2 hours of wet soil, up to 3. The pet picks a fruit and finds a random thing to wear or to put in the yard inside.
+   Now and then a bug crawls onto the tree and slows it down until someone catches it. Friends visiting the house can help:
+   water it, fertilise it (a growth spurt) or catch a bug, and earn coins for it (see help_garden in supabase/schema.sql).
+   It runs on the clock, so it keeps growing while the game is closed. Kept in meta (it belongs to the home, not one pet):
+   meta.garden = { last, grow, wetUntil, picked, bugs, bugAt, fedUntil, told } where grow is the growth counted up to `last`. */
+const GARDEN = { x: 900, d: 448 };
+const GROW_MS = 12 * 3600e3, WET_MS = 3 * 3600e3, FRUIT_MS = 2 * 3600e3, FRUIT_MAX = 3, FERT_MS = 1.5 * 3600e3, BUG_MAX = 3;
+const FRUIT_COL = ['#ff5a5f', '#ff9f1c', '#ff6fb5', '#9b5de5', '#ffd23f'];
+let watering = 0, feeding = 0, helping = false;   // when the watering can / fertiliser bag were last used (not saved)
+// growth between the last count and T: wet time, slowed by the bugs on the tree
+const gardenGrow = (g, T = now()) => g.grow + Math.max(0, Math.min(T, g.wetUntil) - g.last) / (1 + 0.5 * (g.bugs || 0));
+function gardenCommit(g, T = now()) { if (T > g.last) { g.grow = gardenGrow(g, T); g.last = T; } }
+// how far grown (0..1), the fruits hanging now, bugs, wet or fertilised soil
+function gardenState(T = now(), g = meta.garden) {
+  if (!g) return null;
+  const grow = gardenGrow(g, T), p = Math.min(1, grow / GROW_MS);
+  const made = p < 1 ? 0 : FRUIT_MAX + Math.floor((grow - GROW_MS) / FRUIT_MS);
+  return { g, p, made, fruits: Math.max(0, Math.min(FRUIT_MAX, made - g.picked)), wet: g.wetUntil > T, fed: (g.fedUntil || 0) > T, bugs: g.bugs || 0, grow };
+}
+const hours = ms => fmtDuration(ms / 60000);
+function gardenStatus() {
+  const s = gardenState(); if (!s) return 'Mảnh vườn còn trống. Bấm vào để gieo hạt cây ăn quả.';
+  const T = now(), wet = s.wet ? `Đất còn ẩm ${hours(s.g.wetUntil - T)} nữa.` : 'Đất khô rồi, tưới nước để cây lớn tiếp nhé!';
+  const bugs = s.bugs ? ` Có ${s.bugs} con sâu làm cây chậm lớn!` : '';
+  if (s.p < 1) return `Cây đã lớn ${Math.floor(s.p * 100)}%, cần thêm khoảng ${hours(GROW_MS - s.grow)} đất ẩm nữa là ra trái. ${wet}${bugs}`;
+  if (s.fruits >= FRUIT_MAX) return `Cây đang có ${s.fruits} trái chín, bấm vào để bé hái!${bugs}`;
+  const next = FRUIT_MS - (s.grow - GROW_MS) % FRUIT_MS;
+  return `${s.fruits ? `Cây có ${s.fruits} trái chín. ` : ''}Trái tiếp theo chín sau khoảng ${hours(next)} đất ẩm. ${wet}${bugs}`;
+}
+// one help (from me or a friend) applied to a garden at the time it happened
+function applyHelp(g, kind, at) {
+  gardenCommit(g, at);
+  if (kind === 'water') g.wetUntil = Math.max(g.wetUntil, at + WET_MS);
+  if (kind === 'fert') { g.grow += FERT_MS; g.fedUntil = Math.max(g.fedUntil || 0, at + 2 * 3600e3); }
+  if (kind === 'bug') g.bugs = Math.max(0, (g.bugs || 0) - 1);
+}
+function water(T = now(), byRain = false) {
+  const g = meta.garden; if (!g) return;
+  applyHelp(g, 'water', T); saveMeta();
+  if (byRain) return;
+  watering = T; quest('water'); Sound.play('sip');
+  if (state && state.hatched && state.alive && !state.asleep) { setFace('happy', 1600); setEmote('note', 1600); }
+}
+// a bug flicked off the tree, with a little puff where it was
+function bugPop(x, y) {
+  const at = { ax: GARDEN.x, d: GARDEN.d };
+  spawn('txt', x, y - 20, { vx: 0, vy: -60, max: 1, text: 'Bắt được!', color: '#2f9e44', at });
+  for (let i = 0; i < 6; i++) spawn('spark', x + (Math.random() - 0.5) * 40, y, { vx: (Math.random() - 0.5) * 120, vy: -80, max: 0.6, size: 0.5, color: '#b2f2bb', at });
+  Sound.play('boing', 0.6);
+}
+// the plot, the menu button and a tap on the tree all come here: plant, pick, catch a bug, water, or tell how it is doing
+function gardenAct() {
+  const s = state; if (!s || !s.hatched || !s.alive) return;
+  const T = now(), st = gardenState(T);
+  if (!st) {
+    meta.garden = { last: T, grow: 0, wetUntil: 0, picked: 0, bugs: 0, bugAt: T + (3 + Math.random() * 3) * 3600e3 }; water(T);
+    say(`Gieo hạt và tưới nước rồi! Cây cần 12 giờ đất ẩm để lớn và ra trái. Mỗi lần tưới giữ ẩm 3 giờ.`, 6000); log('Gieo một hạt cây ăn quả trong vườn.'); return;
+  }
+  if (st.fruits > 0) {
+    if (s.asleep || s.trip || game || house || busy() || phys.held || phys.air) { say(`Cây có ${st.fruits} trái chín, đợi ${s.name} rảnh rồi hái nhé.`, 3000); return; }
+    const R = petR(); idle = null; pet.errand = 'pick'; pet.tx = GARDEN.x - 60 - R * 0.4; pet.td = GARDEN.d + 22; pet.nextMove = T + 9000; pet.nextIdle = T;
+    say(`${s.name} chạy ra vườn hái trái!`, 2500); return;
+  }
+  if (st.bugs > 0) {
+    applyHelp(st.g, 'bug', T); saveMeta(); bugPop(GARDEN.x, GROUND - 120);
+    say(st.bugs > 1 ? `Bắt được một con sâu! Còn ${st.bugs - 1} con nữa.` : 'Bắt hết sâu rồi, cây lại lớn nhanh như cũ!', 3000); return;
+  }
+  if (!st.wet) { water(T); say(`Tưới nước xong! ${gardenStatus()}`, 5000); return; }
+  say(gardenStatus(), 5000);
+}
+// a fruit picked: inside is something not owned yet, mostly from the cheaper boxes; with everything owned, coins
+function harvest() {
+  const st = gardenState(); if (!st || st.fruits <= 0) return;
+  const g = st.g; g.picked = Math.max(g.picked, st.made - FRUIT_MAX) + 1;
+  const W = { 1: 5, 2: 3, 3: 1.4, 4: 0.5 }, pool = SHOP.filter(i => !meta.owned.includes(i.id));
+  for (let i = 0; i < 8; i++) spawn('spark', GARDEN.x + (Math.random() - 0.5) * 120, GROUND - 120 - Math.random() * 80, { vx: 0, vy: -50, max: 0.8, size: 0.6, color: '#fff3bf', at: { ax: GARDEN.x, d: GARDEN.d } });
+  Sound.play('magic');
+  if (!pool.length) { giveCoins(10); say(`Trái cây ngọt quá! Bạn đã có đủ mọi món đồ, nên được 10 xu.`, 4000); saveMeta(); save(); return; }
+  let r = Math.random() * pool.reduce((a, i) => a + W[i.tier], 0), it = pool[0];
+  for (const i of pool) { r -= W[i.tier]; if (r <= 0) { it = i; break; } }
+  meta.owned.push(it.id); saveMeta(); log(`Hái trái cây, bên trong có ${it.name.toLowerCase()}.`);
+  gotItem(it.id, 'fruit'); quest('harvest'); save();
+}
+// every frame: bugs arrive on schedule (caught up after the game was closed), rain waters the plot, and the player hears
+// when the tree has grown or a fruit is ripe
+function gardenTick(T) {
+  const g = meta.garden; if (!g) return;
+  if (!g.bugAt) g.bugAt = T + (2 + Math.random() * 3) * 3600e3;
+  let newBugs = 0;
+  while (g.bugAt <= T) {
+    if ((g.bugs || 0) < BUG_MAX && gardenState(g.bugAt).p > 0.1) { gardenCommit(g, g.bugAt); g.bugs = (g.bugs || 0) + 1; newBugs++; }
+    g.bugAt += (2 + Math.random() * 3) * 3600e3;
+  }
+  if (newBugs) { saveMeta(); say(`Có sâu bò lên cây ăn quả! Bấm vào cây để bắt, không thì cây chậm lớn.`, 4500); }
+  const st = gardenState(T);
+  if ((weather.kind === 'rain' || weather.kind === 'storm') && g.wetUntil < T + WET_MS - 10 * 60e3) {
+    const dry = !st.wet; water(T, true);
+    if (dry && st.p < 1) say('Trời mưa tưới cây giúp bạn rồi!', 3000);
+  }
+  if (st.made > (g.told || 0)) {
+    const first = !g.told; g.told = st.made; saveMeta();
+    if (st.fruits > 0) { say(first ? `Cây ăn quả đã lớn và ra ${st.fruits} trái chín! Bấm vào cây để ${state.name} hái.` : 'Có trái mới chín trong vườn!', 5000); Sound.play('chirp'); }
+  }
+}
+// friends helped while I was away (from my inbox): apply each at the time it happened, then tell me who did what
+const HELP_TEXT = { water: 'tưới cây', fert: 'bón phân cho cây', bug: 'bắt sâu trên cây' };
+function gardenHelped(helps) {
+  const g = meta.garden; if (!g || !helps.length) return false;
+  helps.slice().sort((a, b) => a.at - b.at).forEach(h => applyHelp(g, h.kind, Number(h.at)));
+  saveMeta();
+  const who = {}; helps.forEach(h => { (who[h.username] = who[h.username] || new Set()).add(HELP_TEXT[h.kind]); });
+  Object.entries(who).forEach(([u, set]) => { queueBanner({ title: 'Bạn bè giúp vườn!', sub: `@${u} đã ${[...set].join(', ')} giúp bạn`, color: '#2f9e44', dur: 4500 }); log(`@${u} đã ${[...set].join(', ')} giúp bạn.`); });
+  Sound.play('chirp'); return true;
+}
+// in a friend's house: their garden as it is now, with the helps their game has not picked up yet
+function houseGarden(h) {
+  if (!h || !h.garden || typeof h.garden !== 'object') return null;
+  const g = { ...h.garden };
+  (h.helps || []).slice().sort((a, b) => a.at - b.at).forEach(x => applyHelp(g, x.kind, Number(x.at)));
+  return g;
+}
+// what a visitor can do for the tree right now: catch a bug first, then water soil that is drying, then fertilise
+function helpFor(g, T = now()) {
+  const st = gardenState(T, g); if (!st) return null;
+  return st.bugs > 0 ? 'bug' : g.wetUntil < T + 3600e3 ? 'water' : !st.fed ? 'fert' : null;
+}
+async function helpGarden() {
+  const h = house, g = houseGarden(h); if (!h || !g || helping) return;
+  if (!Net.online) { say('Cần đăng nhập để giúp bạn bè chăm cây.', 3500); return; }
+  const what = helpFor(g); if (!what) { say(`Cây nhà @${h.username} vừa được chăm xong, lát nữa quay lại giúp nhé.`, 3500); return; }
+  helping = true;
+  try {
+    await Net.push();
+    const r = await Net.rpc('help_garden', { code: h.code, what });
+    const T = now(); (h.helps = h.helps || []).push({ kind: what, at: T });
+    if (state && typeof r.coins === 'number') state.coins = r.coins;
+    if (what === 'water') watering = T; else if (what === 'fert') feeding = T; else bugPop(GARDEN.x, GROUND - 120);
+    Sound.play('win'); quest('helpg');
+    say(`Bạn đã ${HELP_TEXT[what]} giúp @${h.username}, được +${r.reward} xu!`, 4000);
+    log(`${HELP_TEXT[what][0].toUpperCase() + HELP_TEXT[what].slice(1)} giúp @${h.username} (+${r.reward} xu).`);
+    saveMeta(); save(); renderSide();
+  } catch (e) { say(errText(e), 4000); Sound.play('lose'); }
+  finally { helping = false; }
+}
+const hitGarden = (p, g = meta.garden) => { const k = depthK(GARDEN.d), st = gardenState(now(), g), h = (st ? 40 + 230 * st.p : 40) + 70; return p.x > GARDEN.x - 90 * k - (st ? 50 : 0) && p.x < GARDEN.x + 90 * k + (st ? 70 : 0) && p.y < GARDEN.d + 30 * k + (st ? 20 : 0) && p.y > GARDEN.d - h * k; };   // the gauges beside it count too
+
+// drawn in the pet's side-view space, standing on GROUND (atDepth puts it at the plot's depth); visit = a friend's tree
+function drawGarden(t, g = meta.garden, visit = false) {
+  return [{ d: GARDEN.d, draw: () => atDepth(GARDEN.x, GARDEN.d, () => drawTree(t, g, visit)) }];
+}
+// a little caterpillar munching on the tree
+function drawBug(x, y, t, i) {
+  const w = Math.sin(t * 6 + i * 2);
+  for (let k = 3; k >= 0; k--) ell(x + k * 7 + (k % 2 ? w * 1.5 : 0), y - Math.abs(Math.sin(t * 6 + k + i)) * 2, 6, 6, k % 2 ? '#94d82d' : '#74b816');
+  ell(x - 4, y - 1, 7, 7, '#5c940d'); ell(x - 6, y - 3, 1.8, 1.8, '#ffffff'); ell(x - 6, y - 3, 0.9, 0.9, '#000');
+  ctx.strokeStyle = '#5c940d'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 6, y - 7); ctx.lineTo(x - 9, y - 12); ctx.moveTo(x - 2, y - 7); ctx.lineTo(x - 1, y - 12); ctx.stroke();
+}
+function drawTree(t, garden, visit) {
+  const T = now(), st = gardenState(T, garden), x = GARDEN.x, y = GROUND + 8;
+  // the plot: a mound of earth, dark and glistening while wet, with a little wooden sign
+  ell(x, y + 4, 92, 26, 'rgba(40,30,15,.18)');
+  ell(x, y, 86, 22, st && st.wet ? '#6b4a2e' : '#b08a5a'); ell(x - 10, y - 5, 66, 13, st && st.wet ? '#7d5836' : '#c69c68');
+  if (st && st.wet) for (let i = 0; i < 4; i++) ell(x - 50 + i * 32, y - 2 + (i % 2) * 6, 7, 2.5, 'rgba(255,255,255,.28)');
+  if (st && st.fed) for (let i = 0; i < 12; i++) ell(x - 60 + rnd(i + 3) * 120, y - 6 + rnd(i + 9) * 14, 3, 2.2, i % 3 ? '#f5f0e1' : '#c4a777');   // fertiliser granules
+  rr(x + 74, y - 58, 6, 58, 2, '#8a5a3b'); rr(x + 52, y - 66, 52, 24, 5, '#d9a46a');
+  ctx.fillStyle = '#5c3a1e'; ctx.font = '800 15px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Vườn', x + 78, y - 53);
+  let hint = st || visit ? null : '🌱', topY = y - 30;
+  if (st) {
+    const p = st.p, sway = Math.sin(t * 1.3) * 0.03 * (1 + weather.gust), dry = !st.wet && p < 1;
+    let bugAt = [];
+    ctx.save(); ctx.translate(x, y); ctx.rotate(sway);
+    if (p < 0.08) {   // a seed just sprouting
+      ell(0, -6, 8, 6, '#8a5a3b'); ell(-6, -12, 7, 3.5, '#7cc35a', -0.6); ell(6, -13, 7, 3.5, '#8fd16a', 0.6); topY = y - 20;
+    } else if (p < 0.3) {   // a sprout: a stem and a few leaves
+      const h = 20 + p * 160;
+      ctx.strokeStyle = '#4f9a4a'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -4); ctx.quadraticCurveTo(4, -h * 0.5, 0, -h); ctx.stroke();
+      for (let i = 0; i < 4; i++) { const ly = -h * (0.35 + i * 0.2), sd = i % 2 ? 1 : -1; ell(sd * 13, ly, 14, 6, dry ? '#a6c46a' : '#6cc35f', sd * (dry ? 0.9 : 0.5)); }
+      bugAt = [[-14, -h * 0.4], [12, -h * 0.62], [-10, -h * 0.85]];
+      topY = y - h - 10;
+    } else {   // a tree: the trunk thickens and the crown fills out as it grows
+      const g = (p - 0.3) / 0.7, th = 50 + g * 110, cr = 34 + g * 62, tw = 10 + g * 10;
+      ctx.fillStyle = '#7a5532'; ctx.beginPath(); ctx.moveTo(-tw, 0); ctx.lineTo(-tw * 0.6, -th); ctx.lineTo(tw * 0.6, -th); ctx.lineTo(tw, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#5d3f22'; ctx.beginPath(); ctx.moveTo(tw * 0.2, 0); ctx.lineTo(tw * 0.2, -th); ctx.lineTo(tw * 0.6, -th); ctx.lineTo(tw, 0); ctx.closePath(); ctx.fill();
+      const leaf = dry ? ['#b7d77a', '#6e9a3e'] : ['#8fd16a', '#3f8a37'], cy = -th - cr * 0.55;
+      [[-0.62, 0.15, 0.62], [0.62, 0.12, 0.6], [0, -0.45, 0.78], [-0.25, 0.05, 0.7], [0.3, -0.12, 0.66]].forEach(([dx, dy, r]) => tdBall(dx * cr, cy + dy * cr, r * cr, leaf[0], leaf[1]));
+      ell(-cr * 0.3, cy - cr * 0.75, cr * 0.25, cr * 0.13, 'rgba(255,255,255,.2)', -0.5);
+      // ripe fruits hang in the crown, swinging a little, with a glint
+      const spots = [[-0.55, 0.35], [0.5, 0.25], [0.05, -0.2]];
+      for (let i = 0; i < st.fruits; i++) {
+        const [fx, fy] = spots[i], c = FRUIT_COL[(st.g.picked + i) % FRUIT_COL.length], fr = 9 + cr * 0.12, bob = Math.sin(t * 2.2 + i * 2) * 2;
+        const px = fx * cr, py = cy + fy * cr + bob;
+        ctx.strokeStyle = '#5d3f22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(px, py - fr - 6); ctx.lineTo(px, py - fr + 2); ctx.stroke();
+        tdBall(px, py, fr, shade(c, 0.45), shade(c, -0.25)); ell(px - fr * 0.35, py - fr * 0.4, fr * 0.28, fr * 0.18, 'rgba(255,255,255,.75)', -0.5);
+        ell(px + 4, py - fr - 3, 6, 3, '#6cc35f', 0.5);
+        if ((t * 1.4 + i) % 3 < 0.25) { starPath(px + fr * 0.7, py - fr * 0.6, 6, 0.35); ctx.fillStyle = '#fffbe0'; ctx.fill(); }
+      }
+      bugAt = [[-cr * 0.7, cy - cr * 0.05], [cr * 0.45, cy - cr * 0.55], [cr * 0.15, cy + cr * 0.45]];
+      topY = y + cy - cr * 1.25;
+    }
+    for (let i = 0; i < Math.min(st.bugs, bugAt.length); i++) drawBug(bugAt[i][0] + Math.sin(t * 0.7 + i) * 4, bugAt[i][1], t, i);
+    ctx.restore();
+    // the hint: at home what to do next; at a friend's, how I can help
+    if (visit) { const w = helpFor(garden, T); hint = w === 'bug' ? '🐛' : w === 'water' ? '💧' : w === 'fert' ? '🌿' : null; }
+    else hint = st.fruits > 0 ? '🍎' : st.bugs > 0 ? '🐛' : dry ? '💧' : null;
+  }
+  // the watering can tips over the plot and pours for a moment
+  const w = (T - watering) / 1800;
+  if (w >= 0 && w < 1) {
+    const tip = Math.sin(Math.min(1, w * 4) * Math.PI / 2) * (w > 0.85 ? (1 - w) / 0.15 : 1), cx = x - 70, cy2 = y - 120;
+    ctx.save(); ctx.translate(cx, cy2); ctx.rotate(-tip * 0.7);
+    rr(-30, -22, 60, 44, 10, '#4dabf7'); rr(-30, -22, 60, 10, 6, '#74c0fc'); ctx.strokeStyle = '#1c7ed6'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(-6, -24, 18, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(26, 4); ctx.lineTo(62, -16); ctx.lineWidth = 8; ctx.stroke(); ell(64, -17, 8, 5, '#1c7ed6');
+    ctx.restore();
+    if (tip > 0.6 && Math.random() < 0.8) spawn('drop', cx + 46 + Math.random() * 20, cy2 + 10, { vx: 40 + Math.random() * 40, vy: 40, max: 0.7 });
+  }
+  // the fertiliser bag shakes granules over the soil
+  const f = (T - feeding) / 1800;
+  if (f >= 0 && f < 1) {
+    const cx = x + 30, cy2 = y - 110 + Math.sin(f * 30) * 4;
+    ctx.save(); ctx.translate(cx, cy2); ctx.rotate(0.9 + Math.sin(f * 30) * 0.15);
+    rr(-24, -32, 48, 60, 8, '#c49a6c'); rr(-24, -32, 48, 12, 6, '#a47b4f'); ctx.fillStyle = '#2f9e44'; ctx.font = '800 20px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🌿', 0, 8);
+    ctx.restore();
+    if (Math.random() < 0.7) spawn('crumb', cx - 30 + Math.random() * 20, cy2 + 20, { vx: (Math.random() - 0.5) * 60, vy: 20, max: 0.8, size: 0.7, color: '#f5f0e1' });
+  }
+  // what to do next, floating above the plot
+  if (hint && !(w >= 0 && w < 1) && !(f >= 0 && f < 1)) {
+    const by = topY - 26 + Math.sin(t * 3) * 5;
+    ell(x, by, 26, 24, 'rgba(255,255,255,.92)'); tri(x - 8, by + 18, x + 8, by + 18, x, by + 30, 'rgba(255,255,255,.92)');
+    ctx.font = '28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, x, by + 2);
+  }
+}
+// the tree's status as two slim upright gauges, no frame, drawn over everything so it can always be read: soil moisture
+// on the left of the tree, growth (or, once grown, the next fruit ripening, with the fruit count) on the right, with
+// bugs and fertiliser as little marks next to it
+function drawGardenBar(g) {
+  const T = now(), st = gardenState(T, g); if (!st) return;
+  const k = depthK(GARDEN.d), side = 66 * k + 26, bottom = GARDEN.d + 12 * k, BH = 64, BW = 7;
+  const hm = ms => { const m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? `${Math.floor(m / 60)}g${m % 60 ? String(m % 60).padStart(2, '0') : ''}` : `${m}p`; };
+  const outlined = (txt, x, y, font) => { ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(30,35,20,.75)'; ctx.strokeText(txt, x, y); ctx.fillStyle = '#ffffff'; ctx.fillText(txt, x, y); };
+  const gauge = (cx, icon, frac, col, label) => {
+    const top = bottom - BH;
+    rr(cx - BW / 2 - 1.5, top - 1.5, BW + 3, BH + 3, (BW + 3) / 2, 'rgba(255,255,255,.85)');   // a white rim keeps it readable on any ground
+    rr(cx - BW / 2, top, BW, BH, BW / 2, 'rgba(60,70,50,.35)');
+    const h = BH * Math.max(0, Math.min(1, frac));
+    if (h > 0) rr(cx - BW / 2, bottom - Math.max(BW, h), BW, Math.max(BW, h), BW / 2, col);
+    ell(cx - 1, top + 7, 1.2, 3, 'rgba(255,255,255,.55)');
+    ell(cx, top - 11, 10, 10, 'rgba(255,255,255,.9)'); ctx.font = '12px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(icon, cx, top - 10);
+    outlined(label, cx, bottom + 10, '800 10px "Be Vietnam Pro", sans-serif');
+  };
+  const xw = GARDEN.x - side, xg = GARDEN.x + side;
+  scaled(xw, bottom, () => gauge(xw, '💧', Math.max(0, g.wetUntil - T) / WET_MS, st.wet ? '#339af0' : '#adb5bd', st.wet ? hm(g.wetUntil - T) : 'khô'));
+  scaled(xg, bottom, () => {
+    if (st.p < 1) gauge(xg, '🌱', st.p, '#51cf66', `${Math.floor(st.p * 100)}%`);
+    else gauge(xg, '🍎', st.fruits >= FRUIT_MAX ? 1 : ((st.grow - GROW_MS) % FRUIT_MS) / FRUIT_MS, '#ff922b', `${st.fruits}/${FRUIT_MAX}`);
+    let by = bottom - BH + 6;
+    if (st.bugs) { outlined(`🐛${st.bugs}`, xg + 24, by, '800 13px "Be Vietnam Pro", sans-serif'); by += 22; }
+    if (st.fed) outlined('🌿', xg + 22, by, '14px serif');
+  });
+}
 // where each decoration stands in the yard (the ball moves, this is just where it starts)
 const DECOR_X = { house: 140, lamp: 290, bed: 420, plant: 530, balloon: 610, rug: 660, ball: 700, teddy: 780, blocks: 880, duck: 990, aquarium: 1100 };
+// and how far back (its depth in the top-down yard): the tall things at the back, the small toys in front
+const DECOR_D = { house: 440, lamp: 452, bed: 470, plant: 446, balloon: 458, rug: 560, ball: 585, teddy: 612, blocks: 630, duck: 600, aquarium: 462 };
 // live state of the decorations the pet plays with
 const toy = { ballX: DECOR_X.ball, ballV: 0, ballA: 0, ballY: 0, ballVy: 0, plantWiggle: 0, plantBloom: 0, inFrom: 0, inTo: 0, duckSquish: 0, built: 6, hugUntil: 0, fishUntil: 0, tugUntil: 0 };
 function drawDecor(t, dt = 0) {
@@ -3029,8 +3323,9 @@ function drawDecor(t, dt = 0) {
     toy.ballA += toy.ballV * dt / 26;
     toy.ballVy -= 900 * dt; toy.ballY = Math.max(0, toy.ballY + toy.ballVy * dt); if (toy.ballY === 0 && toy.ballVy < 0) toy.ballVy = Math.abs(toy.ballVy) > 120 ? -toy.ballVy * 0.45 : 0;
   }
-  // the rug lies flat, so it goes down first; everything else stands on it
-  d.slice().sort((a, b) => (a === 'rug' ? -1 : 0) - (b === 'rug' ? -1 : 0)).forEach(id => {
+  // each decoration is drawn at its depth, sorted in with the pet and the poops; the rug lies flat, so it goes down first
+  const st = { ballRolling: Math.abs(toy.ballV) > 20, ballY: toy.ballY, hug: T < toy.hugUntil, built: toy.built, inside: T > toy.inFrom && T < toy.inTo };
+  return d.filter(id => DECOR_X[id] != null).map(id => {
     const o = {};
     if (id === 'ball') { o.angle = toy.ballA; o.hop = toy.ballY + (toy.ballV ? 0 : Math.abs(Math.sin(t * 1.5)) * 4); }
     if (id === 'plant') { const w = Math.max(0, (toy.plantWiggle - T) / 1600); o.sway = Math.sin(t * 14) * 0.2 * w; o.bloom = T < toy.plantBloom; }
@@ -3040,9 +3335,9 @@ function drawDecor(t, dt = 0) {
     if (id === 'teddy') o.hug = T < toy.hugUntil ? 0.6 + Math.sin(t * 10) * 0.4 : 0;
     if (id === 'aquarium') o.excited = T < toy.fishUntil;
     if (id === 'balloon') o.tug = T < toy.tugUntil ? 1 : 0;
-    if (DECOR_X[id] != null) drawDecorItem(id, id === 'ball' ? toy.ballX : DECOR_X[id], GROUND + 10, t, undefined, o);
+    const x = id === 'ball' ? toy.ballX : DECOR_X[id];
+    return { d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(x, DECOR_D[id], () => { drawDecorItem(id, x, GROUND + 10, t, undefined, o); drawDecorFX(t, [id], () => x, st); }) };
   });
-  drawDecorFX(t, d, id => id === 'ball' ? toy.ballX : DECOR_X[id], { ballRolling: Math.abs(toy.ballV) > 20, ballY: toy.ballY, hug: T < toy.hugUntil, built: toy.built, inside: T > toy.inFrom && T < toy.inTo });
 }
 /* each kind of decoration has its own little life: smoke from the house chimney and a warm doorway at night, a cone of
    lamplight with moths and dust motes, a butterfly by day and fireflies by night round the plant, glints on the balloons,
@@ -3120,15 +3415,16 @@ function planPlay(T) {
   const d = pick(opts), R = petR();
   if (d === 'admire') { beginPlay('admire', T); return true; }
   const ix = DECOR_X[d], spot = d === 'ball' ? ballSpot(R) : d === 'house' ? ix + 60 + R : ix + (pet.x < ix ? -1 : 1) * (R + 40);
-  pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.nextMove = T + 9000; pet.nextIdle = T;
+  pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.td = DECOR_D[d] + 4; pet.nextMove = T + 9000; pet.nextIdle = T;
   return true;
 }
 function beginPlay(type, T) {
-  const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'admire' ? pet.x + pet.dir : DECOR_X[PLAY_ITEM[type]];
+  const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'pick' ? GARDEN.x : type === 'admire' ? pet.x + pet.dir : DECOR_X[PLAY_ITEM[type]];
   const dir = target >= pet.x ? 1 : -1; pet.dir = dir;
   idle = { type, start: T, dur: IDLE_DUR[type], dir };
-  if (type !== 'admire') quest('toy');
-  pet.tx = pet.x; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
+  if (type !== 'admire' && type !== 'pick') quest('toy');
+  if (type === 'pick') say(`${s.name} nhón chân, nhảy lên hái trái...`, 2500);
+  pet.tx = pet.x; pet.td = pet.d; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
   const quiet = () => now() > sayUntil, w = Object.values(meta.wear || {}).filter(Boolean)[0];
   if (type === 'house') { toy.inFrom = T + IDLE_DUR.house * 0.22; toy.inTo = T + IDLE_DUR.house * 0.78; if (quiet()) say(`${n} chui vào nhà nghỉ một chút...`, 3000); }
   if (type === 'lamp' && quiet()) say(todNow() === 'day' ? `${n} tựa vào cột đèn, ngắm trời mây.` : `${n} ngồi dưới ánh đèn, ngắm lũ thiêu thân bay quanh.`, 3000);
@@ -3233,7 +3529,7 @@ function startTrip(id) {
   closePanel();
 }
 function endTrip(early) {
-  const s = state, tr = TRIPS.find(x => x.id === s.trip.id); s.trip = null; pet.x = pet.tx = 640;
+  const s = state, tr = TRIPS.find(x => x.id === s.trip.id); s.trip = null; pet.x = pet.tx = 640; pet.d = pet.td = D_MID;
   if (early) { say(`${s.name} quay về sớm, chưa kịp tìm được gì.`, 4000); log(`Gọi ${s.name} về sớm.`); return; }
   s.energy = clamp(s.energy - 15); s.hunger = clamp(s.hunger - 15); s.happy = clamp(s.happy + 15); s.coins += tr.coin;
   let gift = '';
@@ -3365,12 +3661,13 @@ function drawVisitor(t, dt) {
   if (walking) v.x += Math.sign(d) * Math.min(Math.abs(d), 130 * dt);
   if (T > v.until && v.x < -200) { visitor = null; say(`${v.name} về nhà rồi. Hẹn gặp lại!`, 3000); return; }
   if (!walking && !v.said) { v.said = true; spawn('txt', v.x, GROUND - R * 2.1, { vx: 0, vy: -40, max: 1.6, text: 'Xin chào!', color: '#e64980' }); setFace('laugh', 1800); setEmote('heart', 1800); }
-  const hop = walking ? Math.abs(Math.sin(t * 9)) * 12 : Math.max(0, Math.sin(t * 3.1 + 1) - 0.6) * 60, ry = R * 0.9, cy = GROUND - ry - hop;
+  const hop = walking ? Math.abs(Math.sin(t * 9)) * 12 : Math.max(0, Math.sin(t * 3.1 + 1) - 0.6) * 60, ry = R * 0.9, cy = GROUND - ry - hop - legLift(v.sp, def, R);
   const dir = walking ? Math.sign(d) : pet.x > v.x ? 1 : -1;
+  v.yaw = turnToward(v.yaw || 0, walking ? dir * 1.35 : 0, dt);
   ell(v.x, GROUND + 4, R * 0.85, R * 0.16, 'rgba(30,20,10,.2)');
   const keep = { ...faceAt };
   ctx.save(); if (v.variant && VARIANT[v.variant]) ctx.filter = VARIANT[v.variant].filter;
-  drawCreature({ x: v.x, cy, rx: R, ry, R, gy: GROUND, sp: v.sp, def, t, md: 'happy', look: dir * 0.7, lookY: 0, wag: 2, dir, sick: false, asleep: false, hop });
+  drawCreature({ x: v.x, cy, rx: R, ry, R, gy: GROUND, sp: v.sp, def, t, md: 'happy', look: dir * 0.7, lookY: 0, wag: 2, dir, sick: false, asleep: false, hop, mo: { step: t * 9, stride: walking ? 1 : 0, yaw: v.yaw } });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = v.wear || {}; drawWear(v.x, cy, ry, R, t); meta.wear = mine; ctx.restore();
   faceAt = keep;
   pillLabel(v.name, v.x, cy - ry - R * 0.75);
@@ -3396,6 +3693,9 @@ const NET_ERR = {
   gift_limit: 'Mỗi ngày chỉ được tặng quà 5 lần.', not_enough_coins: 'Không đủ xu.', no_item: 'Bạn không còn món đồ này.', empty_gift: 'Hãy chọn xu hoặc một món đồ để tặng.',
   no_pet: 'Bạn cần có một bé thú còn sống.', their_no_pet: 'Nhà này chưa có thú.', too_young: 'Bé nhà bạn phải lớn tuổi hơn bé nhà này mới dám lẻn vào.',
   too_common: 'Bé nhà bạn phải thuộc loài hiếm hơn bé nhà này mới dám lẻn vào.', already_today: 'Hôm nay bạn đã lẻn vào nhà này rồi.', steal_limit: 'Mỗi ngày chỉ được lẻn vào nhà người khác 3 lần.',
+  no_garden: 'Nhà này chưa trồng cây.', help_limit: 'Hôm nay bạn đã giúp chăm cây 15 lần rồi, mai nhé!', helped_today: 'Hôm nay bạn đã giúp cây nhà này việc đó rồi.',
+  still_wet: 'Đất còn ẩm, chưa cần tưới.', just_fed: 'Cây vừa được bón phân rồi.', no_bugs: 'Cây không còn sâu nào.',
+  help_garden: 'Máy chủ chưa cập nhật tính năng giúp chăm cây (chủ game cần chạy lại file schema.sql).',
   nothing_to_steal: 'Nhà này chẳng có món đồ nào để lấy.', empty_note: 'Hãy viết vài chữ đã.', note_limit: 'Mỗi ngày chỉ để lại 3 lời nhắn cho một nhà.',
   'Invalid login credentials': 'Sai tên đăng nhập hoặc mật khẩu.', 'User already registered': 'Tên đăng nhập này đã có người dùng.', 'already registered': 'Tên đăng nhập này đã có người dùng.',
 };
@@ -3466,6 +3766,8 @@ const Net = {
       this.push();
     }
     NotePop.update(ib.book);
+    // friends who helped with my fruit tree: apply it, save it, then mark it seen
+    if (ib.helps && ib.helps.length) { gardenHelped(ib.helps); await this.push(); try { await this.rpc('ack_helps'); } catch (e) {} }
     syncMode(true); if (panelKind === 'hood') renderPanel();
   },
   async logout() { await this.push(); try { await this.sb.auth.signOut(); } catch (e) {} localStorage.removeItem(OWNER_KEY); [KEY, META_KEY, DEX_KEY].forEach(k => localStorage.removeItem(k)); location.reload(); },
@@ -3752,7 +4054,8 @@ const Live = {
 // my pet while visiting: it wanders about their house (and the hosts see it move)
 const houseMe = { x: 440, tx: 440, next: 0 };
 function moveHouseMe(dt) {
-  const T = now(); if (T > houseMe.next) { houseMe.tx = 260 + Math.random() * 760; houseMe.next = T + 4000 + Math.random() * 4000; }
+  // it keeps to the left, clear of the garden on the right
+  const T = now(); if (T > houseMe.next) { houseMe.tx = 200 + Math.random() * 560; houseMe.next = T + 4000 + Math.random() * 4000; }
   const d = houseMe.tx - houseMe.x; if (Math.abs(d) > 2) houseMe.x += Math.sign(d) * Math.min(Math.abs(d), 90 * dt);
   return d;
 }
@@ -3762,8 +4065,11 @@ function drawLivePet(o, t, dt, label) {
   const d = (o.tx != null ? o.tx : o.x) - o.x, walking = Math.abs(d) > 3;
   if (walking) o.x += Math.sign(d) * Math.min(Math.abs(d), 150 * dt);
   if (walking) o.dir = Math.sign(d);
-  const b = drawCreatureAt(sp, o.idx, o.x, sp.stages[Math.min(o.idx, sp.stages.length - 1)].R * 0.85, t + o.x * 0.01, 'happy', o.dir || -1, o.wear, o.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0);
-  pillLabel(label, o.x, b.cy - b.ry - b.R * 0.7);
+  o.yaw = turnToward(o.yaw || 0, walking ? o.dir * 1.35 : 0, dt);   // sideways while walking, facing us when it stops
+  atDepth(o.x, o.d || 540, () => {
+    const b = drawCreatureAt(sp, o.idx, o.x, sp.stages[Math.min(o.idx, sp.stages.length - 1)].R * 0.85, t + o.x * 0.01, 'happy', o.dir || -1, o.wear, o.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0, o.yaw);
+    pillLabel(label, o.x, b.cy - b.ry - b.R * 0.7);
+  });
 }
 function drawLiveGuests(t, dt) { for (const [u, o] of Object.entries(Live.others)) if (!house || u !== house.username) drawLivePet(o, t, dt, `🟢 @${u}`); }
 // the rock-paper-scissors card
@@ -3789,45 +4095,49 @@ $('rpsCard').addEventListener('click', e => {
 });
 setInterval(() => { if (Live.rps && Live.rps.stage !== 'done' && Live.rps.stage !== 'asked') rpsRender(); }, 1000);
 // their home: their habitat, their decorations, their pet (and mine, visiting)
-function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0) {
-  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = walkHop || Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
+function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0, yaw = 0) {
+  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = walkHop || Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob - legLift(sp, def, Rr);
   ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(30,20,10,.2)');
   ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
-  drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob });
+  drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob, mo: { step: t * 9, stride: walkHop ? 1 : 0, yaw } });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = wear || {}; drawWear(x, cy, ry, Rr, t); meta.wear = mine; ctx.restore();
   return { cy, ry, R: Rr };
 }
 function drawHouse(t, dt = 0.016) {
   const h = house, p = h.pet, sp = p ? spById(p.species) : null;
   const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
-  drawBackdrop(theme, tod); BACKDROPS[theme].live(t, tod);
+  drawBackdrop(theme, tod);
   h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), theme, hour: new Date().getHours() };
-  drawSkyLife(t, theme, tod, h.weather.kind, h.weather.wind);
-  drawAtmosphere(t, theme, tod, h.weather.kind);
-  (h.decor || []).forEach(id => { if (DECOR_X[id]) drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); });
-  drawDecorFX(t, h.decor || [], id => DECOR_X[id]);
-  drawDepthHaze(theme, tod); h.theme = theme; h.tod = tod;
+  drawGroundLive(t, theme, tod, h.weather.kind); h.theme = theme; h.tod = tod;
+  // their decorations, their pet, other visitors and mine, drawn back to front
+  const yard = (h.decor || []).filter(id => DECOR_X[id]).map(id => ({ d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(DECOR_X[id], DECOR_D[id], () => { drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); drawDecorFX(t, [id], () => DECOR_X[id]); }) }));
+  const hg = houseGarden(h); if (hg) yard.push(...drawGarden(t, hg, true));   // their fruit tree, which I can help look after
   fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
   // the owner's pet: walking live where the owner's game has it when they are online, otherwise standing at home
   const ownerLive = Live.others[h.username];
   if (p && p.alive) {
     const md = h.moodUntil > now() ? h.mood : 'happy';
-    if (ownerLive) { ownerLive.sp = ownerLive.sp || p.species; drawLivePet(ownerLive, t, dt, `🟢 ${p.name}`); }
-    else {
-      const b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
-      if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 820, b.cy - b.ry, b.R, t);
-      pillLabel(p.name, 820, b.cy - b.ry - b.R * 0.7);
-    }
+    if (ownerLive) { ownerLive.sp = ownerLive.sp || p.species; ownerLive.d = 500; yard.push({ d: 500, draw: () => drawLivePet(ownerLive, t, dt, `🟢 ${p.name}`) }); }
+    else yard.push({ d: 500, draw: () => atDepth(640, 500, () => {
+      const b = drawCreatureAt(sp, p.stageIdx, 640, 0, t, md, -1, h.wear, p.variant);
+      if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 640, b.cy - b.ry, b.R, t);
+      pillLabel(p.name, 640, b.cy - b.ry - b.R * 0.7);
+    }) });
   } else {
     ctx.font = '700 30px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.fillText(p ? 'Bé thú nhà này đã rời đi' : 'Nhà này chưa có thú', 820, GROUND - 120);
+    ctx.fillText(p ? 'Bé thú nhà này đã rời đi' : 'Nhà này chưa có thú', 640, GROUND - 120);
   }
-  drawLiveGuests(t, dt);   // other visitors who are here right now
+  yard.push({ d: 540, draw: () => drawLiveGuests(t, dt) });   // other visitors who are here right now
   if (state && state.hatched && state.alive && !state.trip) {
     const d = moveHouseMe(dt), walking = Math.abs(d) > 3;
-    const b = drawCreatureAt(curSp(), state.stageIdx, houseMe.x, curDef().R * 0.85, t + 1, 'happy', walking ? Math.sign(d) : 1, meta.wear, state.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0);
+    houseMe.yaw = turnToward(houseMe.yaw || 0, walking ? Math.sign(d) * 1.35 : 0, dt);
+    yard.push({ d: 590, draw: () => atDepth(houseMe.x, 590, () => {
+    const b = drawCreatureAt(curSp(), state.stageIdx, houseMe.x, curDef().R * 0.85, t + 1, 'happy', walking ? Math.sign(d) : 1, meta.wear, state.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0, houseMe.yaw);
     pillLabel(`${state.name} (khách)`, houseMe.x, b.cy - b.ry - b.R * 0.7);
+    }) });
   }
+  drawByDepth(yard);
+  if (hg) drawGardenBar(hg);
   scaled(640, 44, () => pillLabelRaw(ownerLive ? `🏠 Nhà của @${h.username} · 🟢 đang ở nhà` : `🏠 Nhà của @${h.username}`, 640, 44));
 }
 
@@ -4034,6 +4344,37 @@ function shade(hex, amt) {
   const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v + (tg - v) * a));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
+// the bright, fresh look: a colour with more saturation and a little more light (cached; non-#rrggbb colours pass through)
+const VIVID = new Map();
+function vivid(c, sat = 1.25, lift = 0.06) {
+  if (typeof c !== 'string' || c.length !== 7 || c[0] !== '#') return c;
+  let v = VIVID.get(c); if (v) return v;
+  const n = parseInt(c.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0, l = (mx + mn) / 2, s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  if (d) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
+  s = Math.min(1, s * sat); l += (1 - l) * lift;
+  const C = (1 - Math.abs(2 * l - 1)) * s, X = C * (1 - Math.abs((h / 60) % 2 - 1)), m = l - C / 2;
+  const q = h < 60 ? [C, X, 0] : h < 120 ? [X, C, 0] : h < 180 ? [0, C, X] : h < 240 ? [0, X, C] : h < 300 ? [X, 0, C] : [C, 0, X];
+  v = '#' + q.map(k => Math.round(Math.max(0, Math.min(1, k + m)) * 255).toString(16).padStart(2, '0')).join('');
+  VIVID.set(c, v); return v;
+}
+// the same for a whole painted canvas, once (with the browser's filter, or pixel by pixel where canvases can't be filtered)
+function vividCanvas(cnv, sat = 1.3, bright = 1.06) {
+  const c = cnv.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+  if ('filter' in CanvasRenderingContext2D.prototype) {
+    const tmp = document.createElement('canvas'); tmp.width = cnv.width; tmp.height = cnv.height; tmp.getContext('2d').drawImage(cnv, 0, 0);
+    c.clearRect(0, 0, cnv.width, cnv.height); c.filter = `saturate(${sat}) brightness(${bright})`; c.drawImage(tmp, 0, 0); c.filter = 'none';
+  } else {
+    const img = c.getImageData(0, 0, cnv.width, cnv.height), p = img.data;
+    for (let i = 0; i < p.length; i += 4) {
+      const gy = p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11;
+      p[i] = (gy + (p[i] - gy) * sat) * bright; p[i + 1] = (gy + (p[i + 1] - gy) * sat) * bright; p[i + 2] = (gy + (p[i + 2] - gy) * sat) * bright;
+    }
+    c.putImageData(img, 0, 0);
+  }
+  c.restore();
+}
 function ell(x, y, rx, ry, fill, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), rot, 0, TAU); ctx.fillStyle = fill; ctx.fill(); }
 function rr(x, y, w, h, r, fill) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); ctx.fillStyle = fill; ctx.fill(); }
 function tri(ax, ay, bx, by, cx, cy, fill, round) {
@@ -4127,7 +4468,7 @@ const SHADE3D_CACHE = new Map();   // colour stops per body colour, so the colou
 function shade3D(cx, cy, rx, ry, col, R) {
   const m = Math.max(rx, ry), oval = () => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); };
   let st = SHADE3D_CACHE.get(col);
-  if (!st) { st = [rgba(shade(col, -0.5), 0.38), rgba(shade(col, -0.7), 0.7), rgba(shade(col, -0.75), 0.78)]; SHADE3D_CACHE.set(col, st); }
+  if (!st) { st = [rgba(shade(col, -0.35), 0.26), rgba(shade(col, -0.5), 0.5), rgba(shade(col, -0.6), 0.6)]; SHADE3D_CACHE.set(col, st); }
   // one gradient: broad sheen near the light, clear in the middle, form shadow towards the far edge
   let g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.45, 0, cx - rx * 0.08, cy - ry * 0.05, m * 1.18);
   g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(0.24, 'rgba(255,255,255,.14)'); g.addColorStop(0.42, 'rgba(0,0,0,0)');
@@ -4154,7 +4495,7 @@ function soft3D(cx, cy, rx, ry) {
   // (instead of clipping to it) keeps this cheap enough for every frame
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
   const g = ctx.createRadialGradient(p.x - m * 0.35, p.y - m * 0.45, 0, p.x - m * 0.1, p.y - m * 0.1, m * 1.3);
-  g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(0.35, 'rgba(255,255,255,.08)'); g.addColorStop(0.68, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.34)');
+  g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(0.35, 'rgba(255,255,255,.08)'); g.addColorStop(0.68, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.24)');
   ctx.fillStyle = g; ctx.fill(); ctx.restore();
 }
 // short hair strokes, lighter and darker, combed outward from the centre
@@ -4184,6 +4525,11 @@ function brush(x1, y1, x2, y2, w, fill) {
 }
 
 /* ---------- creature parts ---------- */
+/* how the parts move this frame, set by drawCreature from o.mo: the walk cycle (step, in radians, and stride 0..1), ears
+   swinging out (+) or in, arms raised (0..1), which arm waves (-1, 1 or 0) and where the eyes look up or down.
+   Still pictures (cards, album, shop) get the neutral pose. */
+const POSE0 = { step: 0, stride: 0, ear: 0, arm: 0, wave: 0, lookY: 0 };
+let POSE = POSE0;
 function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line = shade(col, -0.34)) {
   if (!type) return;
   for (const sd of [-1, 1]) {
@@ -4192,7 +4538,7 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
       const h = type === 'fox' ? 0.62 : type === 'pointy' ? 0.78 : 0.48, w = type === 'pointy' ? 0.2 : 0.3;
       ctx.translate(x + sd * rx * 0.52, cy - ry * 0.66);
       const twitch = (t + sd * 0.7) % 4.3 < 0.2 ? Math.sin(t * 70) * 0.13 * sd : 0;
-      ctx.rotate(sd * (type === 'pointy' ? 0.45 : 0.32) + (asleep ? sd * 0.3 : 0) + twitch);
+      ctx.rotate(sd * (type === 'pointy' ? 0.45 : 0.32) + (asleep ? sd * 0.3 : 0) + twitch + sd * POSE.ear * 0.7);
       if (hd && (type === 'cat' || type === 'fox')) {
         // shaded ear with an outline, an inner ear (pink for cats, pale for foxes, whose tips are darker) and a few tufts of fur
         const k = h / 0.48, fox = type === 'fox';
@@ -4212,26 +4558,27 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
       else tri(-R * w * 0.5, -R * h * 0.5, 0, -R * h, R * w * 0.5, -R * h * 0.5, type === 'pointy' ? '#2a1d24' : acc, 8);
     } else if (type === 'long') {
       ctx.translate(x + sd * rx * 0.35, cy - ry * 0.8);
-      ctx.rotate(sd * (0.18 + Math.sin(t * 2 + sd) * 0.05) + (asleep ? sd * 0.9 : 0));
+      // long ears flop the most: they lag behind every bounce and bob with each step
+      ctx.rotate(sd * (0.18 + Math.sin(t * 2 + sd) * 0.05) + (asleep ? sd * 0.9 : 0) + sd * POSE.ear * 1.5 + sd * POSE.stride * Math.max(0, Math.sin(POSE.step * 2)) * 0.12);
       if (hd) {
         const lg = ctx.createLinearGradient(-R * 0.17, 0, R * 0.17, 0); lg.addColorStop(0, shade(col, 0.15)); lg.addColorStop(1, shade(col, -0.18));
         ell(0, -R * 0.45, R * 0.17, R * 0.5, lg); soft3D(0, -R * 0.45, R * 0.17, R * 0.5); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.ellipse(0, -R * 0.45, R * 0.17, R * 0.5, 0, 0, TAU); ctx.stroke();
         const ig = ctx.createLinearGradient(0, -R * 0.8, 0, -R * 0.05); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffe0e8'); ell(0, -R * 0.42, R * 0.08, R * 0.38, ig);
       } else { ell(0, -R * 0.45, R * 0.17, R * 0.5, col); ell(0, -R * 0.42, R * 0.08, R * 0.38, '#ffb3c1'); }
     } else if (type === 'round') {
-      const ex = x + sd * rx * 0.62, ey = cy - ry * 0.72;
+      const ex = x + sd * rx * 0.62, ey = cy - ry * 0.72 + POSE.ear * R * 0.06;
       if (hd) {
         const rg = ctx.createRadialGradient(ex - R * 0.08, ey - R * 0.1, 0, ex, ey, R * 0.28); rg.addColorStop(0, shade(col, 0.25)); rg.addColorStop(1, shade(col, -0.2));
         ell(ex, ey, R * 0.26, R * 0.26, rg); soft3D(ex, ey, R * 0.26, R * 0.26); ctx.strokeStyle = line; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.arc(ex, ey, R * 0.26, 0, TAU); ctx.stroke();
         const ig = ctx.createRadialGradient(ex, ey + R * 0.04, 0, ex, ey, R * 0.15); ig.addColorStop(0, '#ff9fb6'); ig.addColorStop(1, '#ffd0d9'); ell(ex, ey, R * 0.14, R * 0.14, ig);
       } else { ell(ex, ey, R * 0.26, R * 0.26, col); ell(ex, ey, R * 0.14, R * 0.14, '#ffb3c1'); }
     } else if (type === 'fin') {
-      ctx.translate(x + sd * rx * 0.88, cy - ry * 0.3); ctx.scale(sd, 1); ctx.rotate(-0.4 + Math.sin(t * 3) * 0.06);
+      ctx.translate(x + sd * rx * 0.88, cy - ry * 0.3); ctx.scale(sd, 1); ctx.rotate(-0.4 + Math.sin(t * 3) * 0.06 + POSE.ear * 0.5 + POSE.stride * Math.sin(POSE.step * 2) * 0.12);
       ctx.beginPath(); ctx.moveTo(0, -R * 0.1); ctx.quadraticCurveTo(R * 0.45, -R * 0.55, R * 0.6, -R * 0.1);
       ctx.quadraticCurveTo(R * 0.4, R * 0.05, R * 0.55, R * 0.2); ctx.quadraticCurveTo(R * 0.25, R * 0.2, 0, R * 0.15); ctx.closePath();
       ctx.fillStyle = acc; ctx.fill(); soft3D(R * 0.3, -R * 0.1, R * 0.32, R * 0.3);
     } else if (type === 'leafear') {
-      ctx.translate(x + sd * rx * 0.82, cy - ry * 0.55); ctx.scale(sd, 1); ctx.rotate(-0.45 + (asleep ? 0.4 : 0));
+      ctx.translate(x + sd * rx * 0.82, cy - ry * 0.55); ctx.scale(sd, 1); ctx.rotate(-0.45 + (asleep ? 0.4 : 0) + POSE.ear * 0.6 + Math.sin(t * 2.4 + sd) * 0.05);
       ell(R * 0.15, 0, R * 0.34, R * 0.14, col); soft3D(R * 0.15, 0, R * 0.34, R * 0.14); ell(R * 0.17, 0, R * 0.22, R * 0.07, '#ffd9c4');
     }
     ctx.restore();
@@ -4382,10 +4729,21 @@ function drawMarks(part, marks, r, R, col, acc, sp, t, fx = r.x, fy = r.y) {
     if (has('zigzag')) { ctx.strokeStyle = dk; ctx.lineWidth = R * 0.05; for (const sd of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 4; k++) { const yy = r.y - r.ry * 0.6 + k * r.ry * 0.3, xx = r.x + sd * (r.rx * 0.85 - (k % 2) * R * 0.1); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); } }
   }
 }
+// chibi pets with feet stand on short legs: callers raise the body by this much and drawCreature fills the gap with legs
+function legLift(sp, def, R) {
+  const shape = def.shape || sp.shape || 'round';
+  return def.feet && ['round', 'tall', 'wide', 'pear'].includes(shape) && !(def.extras || []).includes('tentacles') ? R * 0.18 : 0;
+}
+// turn an angle a towards to by at most rate*dt, the short way round
+function turnToward(a, to, dt, rate = 7) { const d = Math.atan2(Math.sin(to - a), Math.cos(to - a)); return a + Math.sign(d) * Math.min(Math.abs(d), rate * dt); }
 function drawCreature(o) {
   const { x, cy, R, gy, sp, def, t, md, look, dir, sick, asleep, hop = 0 } = o;
   let { rx, ry } = o;
-  const col = def.col || sp.col, acc = def.acc || sp.acc, ex = def.extras || [], has = k => ex.includes(k);
+  POSE = o.mo ? { ...POSE0, ...o.mo } : POSE0;
+  const fwd = dir || 1;
+  // which way it faces (POSE.yaw): 0 towards us, ±π/2 sideways (+ = right), π away from us, showing its back
+  const yaw = POSE.yaw || 0, yS = Math.sin(yaw), yC = Math.cos(yaw), back = yC < -0.25, faceSq = 0.62 + 0.38 * Math.max(0, yC);
+  const col = vivid(def.col || sp.col), acc = vivid(def.acc || sp.acc), ex = def.extras || [], has = k => ex.includes(k);
   const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), hd = HD_SPECIES.has(sp.id);
   const line = STYLE_3D ? rgba(shade(col, -0.5), 0.32) : shade(col, -0.34), lit = STYLE_3D ? shade3D : hdShade;   // 3D toys have only a faint outline
   const tex = texOf(sp.id), furry = hd && tex === 'fur', muzzle = furry && def.ears && def.ears !== 'fin' && !has('beak') && !has('snout');
@@ -4396,8 +4754,8 @@ function drawCreature(o) {
   const chibi = ['round', 'tall', 'wide', 'pear'].includes(shape);
   const hy = chibi ? cy - ry * 0.32 : cy, hrx = chibi ? rx * 0.86 : rx, hry = chibi ? ry * 0.68 : ry;
   const by = cy + ry * 0.5, brx = rx * (shape === 'wide' || shape === 'pear' ? 0.8 : 0.66), bry = ry * 0.5;
-  const fx = x + look * R * 0.18, fy = (chibi ? hy + hry * 0.1 : cy - ry * 0.05) + (o.lookY || 0) * R * 0.07, my = fy + R * 0.2;
-  faceAt = { x: fx, y: fy, R };
+  const fx = x + (back ? 0 : look * R * 0.18 * Math.max(0, yC) + yS * R * 0.42), fy = (chibi ? hy + hry * 0.1 : cy - ry * 0.05) + (o.lookY || 0) * R * 0.07, my = fy + R * 0.2;
+  faceAt = { x: fx, y: fy, R, back, sq: faceSq };
   const floating = shape === 'ghost' || has('tentacles');
 
   /* ---- behind the body ---- */
@@ -4406,6 +4764,8 @@ function drawCreature(o) {
     g.addColorStop(0, acc + '88'); g.addColorStop(1, acc + '00');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, cy, R * 2.1 * (1 + Math.sin(t * 2) * 0.04), 0, TAU); ctx.fill();
   }
+  // wings, the shell and the tail grow from the back: behind the body seen from the front, in front of it from behind
+  const wingsAt = () => {
   if (has('wings')) for (const sd of [-1, 1]) {
     ctx.save(); ctx.translate(x + sd * rx * 0.45, cy - ry * 0.25); ctx.scale(sd, 1); ctx.rotate(-0.25 - Math.sin(t * 5) * 0.22);
     const g = ctx.createLinearGradient(0, 0, R * 1.5, -R); g.addColorStop(0, acc); g.addColorStop(1, shade(acc, -0.18));
@@ -4427,6 +4787,8 @@ function drawCreature(o) {
     ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(R * 0.5, 0, R * 0.56, R * 0.22, 0, 0, TAU); ctx.stroke();
     ctx.restore();
   }
+  };
+  if (!back) wingsAt();
   if (has('mane') && hd) {
     // a mane of flame-like locks in two layers: deep red behind, golden in front, tips flickering
     // species with their own mane colours (the unicorn's pastel rainbow) colour each lock from that list
@@ -4455,6 +4817,7 @@ function drawCreature(o) {
     const a = i / 10 * TAU + Math.sin(t) * 0.05;
     ell(x + Math.cos(a) * R * 0.9, hy + Math.sin(a) * R * 0.8, R * 0.38, R * 0.2, i % 2 ? acc : shade(acc, 0.4), a); soft3D(x + Math.cos(a) * R * 0.9, hy + Math.sin(a) * R * 0.8, R * 0.38, R * 0.2);
   }
+  const shellAt = () => {
   if (has('shell')) {
     ell(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, acc);
     ctx.strokeStyle = shade(acc, -0.35); ctx.lineWidth = R * 0.04; ctx.beginPath(); ctx.ellipse(x, cy - ry * 0.08, rx * 1.2, ry * 1.03, 0, 0, TAU); ctx.stroke();
@@ -4469,13 +4832,16 @@ function drawCreature(o) {
     for (const sd of [-1, 1]) { ell(x + sd * rx * 1.07, cy - ry * 0.1, R * 0.11, R * 0.24, plate); ell(x + sd * rx * 0.72, cy - ry * 0.86, R * 0.2, R * 0.12, plate, sd * 0.5); }
     ell(x, cy - ry * 1.0, R * 0.3, R * 0.12, plate);
   }
+  };
+  if (!back) shellAt();
   if (has('tentacles')) for (let i = 0; i < 5; i++) {
     const bx = x + (i - 2) * rx * 0.36;
     ctx.strokeStyle = i % 2 ? acc : shade(col, -0.1); ctx.lineWidth = R * 0.11; ctx.lineCap = 'round'; ctx.beginPath();
     for (let k = 0; k <= 8; k++) { const yy = cy + ry * 0.55 + k * R * 0.09, xx = bx + Math.sin(t * 3 + k * 0.8 + i) * R * 0.09; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
     ctx.stroke();
   }
-  drawTail(def, sp, x, cy, chibi ? brx * 1.05 : rx, ry, R, dir, t * (o.wag || 1), col, acc);
+  const tailAt = () => drawTail(def, sp, x, cy, (chibi ? brx * 1.05 : rx) * Math.max(0.15, Math.abs(yS)), ry, R, dir, t * (o.wag || 1), col, acc);
+  if (!back) tailAt();
   if (has('spikes')) [-0.85, -0.5, 0.5, 0.85].forEach(k => {
     const a = -Math.PI / 2 + k * 1.15, px = x + Math.cos(a) * rx, py = cy + Math.sin(a) * ry;
     const nx = Math.cos(a), ny = Math.sin(a), tx = -ny, ty = nx, s = R * 0.16;
@@ -4521,7 +4887,7 @@ function drawCreature(o) {
       }
     }
   }
-  drawEars(def.ears, x, cy, rx, ry, R, col, acc, t, asleep, hd, line);
+  drawEars(def.ears, x - yS * R * 0.08, cy, rx, ry, R, col, acc, t, asleep, hd, line);
   const marks = (sp.marks || []).concat(def.marks || []), mk = k => marks.includes(k);
   const footCol = mk('socks') ? (sp.sock || shade(col, -0.35)) : dark, OUT = R * (STYLE_3D ? 0.024 : 0.045);
   if (STYLE_3D && !floating) {
@@ -4531,8 +4897,16 @@ function drawCreature(o) {
     ctx.save(); ctx.translate(x, gy - 4); ctx.scale(1, 0.3); ctx.translate(-x, -(gy - 4)); ctx.fillStyle = sg; ctx.fillRect(x - R, gy - 4 - R, R * 2, R * 2); ctx.restore();
   }
   if (def.feet && !floating) for (const sd of [-1, 1]) {
-    const px = x + sd * R * (chibi ? 0.36 : 0.45), py = gy - 8 - hop;
-    ell(px, py, R * 0.27, R * 0.15, footCol);
+    // while walking the feet step in turn: each swings forward and back and lifts on the way through, on a short leg
+    const ph = POSE.step + (sd > 0 ? 0 : Math.PI), swing = Math.sin(ph) * POSE.stride, up = Math.max(0, Math.cos(ph)) * POSE.stride;
+    // seen from the side the feet line up and swing along the walk; from the front or back they only lift
+    const spread = 0.6 + 0.4 * Math.abs(yC), px = x + sd * R * (chibi ? 0.36 : 0.45) * spread + fwd * swing * R * 0.26 * Math.abs(yS), py = gy - 8 - hop - up * R * 0.22;
+    if (chibi && (POSE.stride > 0.02 || gy - hop - (by + bry) > 4)) {
+      const hx = x + sd * R * 0.27 * spread, hy0 = by + bry * 0.45;
+      ctx.lineCap = 'round'; ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = R * 0.2; ctx.beginPath(); ctx.moveTo(hx, hy0); ctx.lineTo(px, py - R * 0.06); ctx.stroke();
+      ctx.strokeStyle = rgba(shade(col, 0.4), 0.45); ctx.lineWidth = R * 0.06; ctx.beginPath(); ctx.moveTo(hx - R * 0.05, hy0 + R * 0.04); ctx.lineTo(px - R * 0.05, py - R * 0.1); ctx.stroke();
+    }
+    ell(px, py, R * 0.27, R * 0.15, footCol, -fwd * swing * 0.25);
     if (STYLE_3D) { soft3D(px, py, R * 0.27, R * 0.15); continue; }
     ctx.strokeStyle = shade(footCol, -0.35); ctx.lineWidth = R * 0.028; ctx.beginPath(); ctx.ellipse(px, py, R * 0.27, R * 0.15, 0, 0, TAU); ctx.stroke();
     ctx.lineWidth = R * 0.02; for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(px + k * R * 0.08, py - R * 0.03); ctx.lineTo(px + k * R * 0.08, py + R * 0.1); ctx.stroke(); }
@@ -4562,25 +4936,32 @@ function drawCreature(o) {
   ctx.save();
   if (shape === 'ghost') ctx.globalAlpha = 0.94;
   if (chibi) {
+    if (back) armsAt();
     /* body */
     const B = region('body', brx, bry, x, by);
     ell(x, by, brx, bry, fillFor(x, by, brx, bry));
     ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx, bry, 0, 0, TAU); ctx.clip();
+    if (!back) { ctx.save(); ctx.translate(yS * brx * 0.3, 0);   // the light belly faces us, so it slides round as it turns
     if (hd && sp.belly) {
       // the light belly patch, softly graded; furry pets get a scalloped fluffy edge on the chest
       const bg2 = ctx.createRadialGradient(x - brx * 0.1, by - bry * 0.1, 0, x, by + bry * 0.2, brx * 0.8); bg2.addColorStop(0, '#ffffff'); bg2.addColorStop(1, sp.belly);
       ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, bg2);
       if (furry) for (let i = 0; i < 5; i++) ell(x + (i - 2) * brx * 0.22, by - bry * 0.52 + Math.abs(i - 2) * bry * 0.12, brx * 0.16, bry * 0.2, sp.belly);
     } else ell(x, by + bry * 0.18, brx * 0.62, bry * 0.78, sp.belly ? sp.belly + 'f0' : 'rgba(255,255,255,.35)');
+    ctx.restore(); }
     legacy('body', B); drawMarks('body', marks, B, R, col, acc, sp, t);
     if (hd) { hdSurface(tex, x, by, brx, bry, col, R, 11, 'body'); lit(x, by, brx, bry, col, R); ell(x, by - bry * 0.95, hrx * 0.7, bry * 0.32, STYLE_3D ? rgba(shade(col, -0.7), 0.35) : 'rgba(40,10,0,.2)'); }
     else ell(x + brx * 0.45, by + bry * 0.55, brx * 0.9, bry * 0.55, 'rgba(0,0,0,.09)');
+    if (back) ell(x, by - bry * 0.1, brx * 0.14, bry * 0.75, rgba(shade(col, -0.5), 0.1));   // the soft groove of the spine
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - brx * 1.3, by - bry * 1.3, brx * 2.6, bry * 2.6); }
     ctx.restore();
     ctx.strokeStyle = line; ctx.lineWidth = OUT; ctx.beginPath(); ctx.ellipse(x, by, brx, bry, 0, 0, TAU); ctx.stroke();
-    /* arms */
+    /* arms (behind the body when it shows its back) */
+    function armsAt() {
     if (!has('birdwings') && !mk('noarms')) for (const sd of [-1, 1]) {
-      ctx.save(); ctx.translate(x + sd * brx * 0.9, by - bry * 0.25); ctx.rotate(sd * (0.55 + Math.sin(t * 2 + sd) * 0.08));
+      // arms swing against the legs while walking, go up for jumps and dances, and one waves hello
+      const swingA = POSE.stride * Math.sin(POSE.step + (sd > 0 ? Math.PI : 0)) * 0.85 * fwd, waveA = sd === POSE.wave ? 1.9 + Math.sin(t * 14) * 0.35 : 0;
+      ctx.save(); ctx.translate(x + sd * brx * 0.9, by - bry * 0.25); ctx.rotate(sd * (0.55 + Math.sin(t * 2 + sd) * 0.08 + POSE.arm * 1.7 + waveA) + swingA);
       if (hd) {
         // a shaded arm with a lighter paw and little toe lines
         const ag = ctx.createLinearGradient(-R * 0.14, 0, R * 0.14, 0); ag.addColorStop(0, shade(col, sd > 0 ? -0.22 : 0.12)); ag.addColorStop(1, shade(col, sd > 0 ? 0.08 : -0.22));
@@ -4593,11 +4974,14 @@ function drawCreature(o) {
       ctx.strokeStyle = line; ctx.lineWidth = OUT * 0.8; ctx.beginPath(); ctx.ellipse(0, R * 0.13, R * 0.14, R * 0.23, 0, 0, TAU); ctx.stroke();
       ctx.restore();
     }
+    }
+    if (!back) armsAt();
     /* fluffy ruff under the chin */
     if (mk('collar')) {
       const cc = sp.collar || '#ffffff';
       for (let i = 0; i < 9; i++) { const a = Math.PI * (0.08 + i * 0.105), px = x + Math.cos(a) * hrx * 0.78, py = hy + hry * 0.62 + Math.sin(a) * hry * 0.35; ell(px, py, R * 0.15, R * 0.12, i % 2 ? cc : shade(cc, -0.08)); }
     }
+    if (back) shellAt();   // from behind the shell covers the body, and the head shows above it
     /* head */
     const H = region('head', hrx, hry, x, hy);
     if (furry) {
@@ -4611,18 +4995,25 @@ function drawCreature(o) {
     legacy('head', H); drawMarks('head', marks, H, R, col, acc, sp, t, fx, fy);
     if (hd) {
       hdSurface(tex, x, hy, hrx, hry, col, R, 5, 'head'); lit(x, hy, hrx, hry, col, R);
-      if (muzzle) {
+      if (muzzle && !back) {
         // a soft muzzle: two puffy light cheeks under the nose, with a faint shadow beneath
         const mz = sp.belly || shade(col, 0.4);
         ell(fx, fy + R * 0.25, R * 0.24, R * 0.09, 'rgba(60,20,0,.12)');
         for (const sd of [-1, 1]) { const mg = ctx.createRadialGradient(fx + sd * R * 0.1, fy + R * 0.12, 0, fx + sd * R * 0.11, fy + R * 0.16, R * 0.15); mg.addColorStop(0, '#ffffff'); mg.addColorStop(1, mz); ell(fx + sd * R * 0.11, fy + R * 0.16, R * 0.135, R * 0.1, mg); }
         for (const sd of [-1, 1]) [[0.17, 0.13], [0.2, 0.18], [0.14, 0.19]].forEach(([a, b]) => ell(fx + sd * R * a, fy + R * b, R * 0.011, R * 0.011, rgba(shade(col, -0.5), 0.6)));
       }
-      for (const sd of [-1, 1]) { const cg2 = ctx.createRadialGradient(fx + sd * R * 0.5, fy + R * 0.12, 0, fx + sd * R * 0.5, fy + R * 0.12, R * 0.16); cg2.addColorStop(0, 'rgba(255,110,130,.45)'); cg2.addColorStop(1, 'rgba(255,110,130,0)'); ctx.fillStyle = cg2; ctx.fillRect(fx + sd * R * 0.5 - R * 0.2, fy - R * 0.08, R * 0.4, R * 0.4); }
+      if (!back) for (const sd of [-1, 1]) { const cg2 = ctx.createRadialGradient(fx + sd * R * 0.5, fy + R * 0.12, 0, fx + sd * R * 0.5, fy + R * 0.12, R * 0.16); cg2.addColorStop(0, 'rgba(255,110,130,.45)'); cg2.addColorStop(1, 'rgba(255,110,130,0)'); ctx.fillStyle = cg2; ctx.fillRect(fx + sd * R * 0.5 - R * 0.2, fy - R * 0.08, R * 0.4, R * 0.4); }
     } else {
       ell(x + hrx * 0.45, hy + hry * 0.55, hrx * 0.9, hry * 0.5, 'rgba(0,0,0,.07)');
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.ellipse(x - hrx * 0.04, hy - hry * 0.04, hrx * 0.84, hry * 0.82, 0, Math.PI * 1.12, Math.PI * 1.42); ctx.stroke();
+    }
+    if (back) {
+      // the back of the head: a darker nape and a little swirl of hair at the crown
+      ell(x, hy + hry * 0.55, hrx * 0.8, hry * 0.45, rgba(shade(col, -0.45), 0.16));
+      ctx.strokeStyle = rgba(shade(col, -0.45), 0.35); ctx.lineWidth = R * 0.025; ctx.lineCap = 'round'; ctx.beginPath();
+      for (let a = 0; a < 2.6 * Math.PI; a += 0.25) { const r = R * 0.02 + a * R * 0.012; ctx.lineTo(x + Math.cos(a) * r, hy - hry * 0.45 + Math.sin(a) * r * 0.7); }
+      ctx.stroke();
     }
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - hrx * 1.3, hy - hry * 1.3, hrx * 2.6, hry * 2.6); }
     ctx.restore();
@@ -4637,7 +5028,7 @@ function drawCreature(o) {
     const W = region('head', rx, ry, x, cy);
     bodyPath(shape, x, cy, rx, ry); ctx.fillStyle = fillFor(x, cy, rx, ry); ctx.fill();
     ctx.save(); bodyPath(shape, x, cy, rx, ry); ctx.clip();
-    ell(x, cy + ry * 0.38, rx * 0.6, ry * 0.46, sp.belly ? sp.belly + 'e0' : 'rgba(255,255,255,.32)');
+    if (!back) ell(x + yS * rx * 0.3, cy + ry * 0.38, rx * 0.6, ry * 0.46, sp.belly ? sp.belly + 'e0' : 'rgba(255,255,255,.32)');
     legacy('head', W); legacy('body', region('body', rx, ry * 0.6, x, cy + ry * 0.4));
     drawMarks('head', marks, W, R, col, acc, sp, t, fx, fy); drawMarks('body', marks, region('body', rx * 0.8, ry * 0.55, x, cy + ry * 0.4), R, col, acc, sp, t);
     if (hd) {
@@ -4655,6 +5046,9 @@ function drawCreature(o) {
   ctx.restore();
 
   /* ---- face ---- */
+  if (back) { tailAt(); if (!chibi) shellAt(); wingsAt(); }
+  // turned sideways the face slides round to the side and narrows; from behind it is hidden
+  if (!back) { ctx.save(); ctx.translate(fx, 0); ctx.scale(faceSq, 1); ctx.translate(-fx, 0);
   drawFace(fx, fy, R, md, t, look, def.eye || 'dot', sp.iris || acc, col, hd);
   if (muzzle) {
     // a small nose with a shine: pink for cats and rabbits, dark for the others
@@ -4681,6 +5075,7 @@ function drawCreature(o) {
   if (has('fangs') && !has('beak')) for (const sd of [-1, 1]) tri(fx + sd * R * 0.11, my + R * 0.02, fx + sd * R * 0.05, my + R * 0.02, fx + sd * R * 0.08, my + R * 0.1, '#ffffff');
   if (has('gem')) { const gx = x, gy2 = topY + R * 0.3; ctx.beginPath(); ctx.moveTo(gx, gy2 - R * 0.11); ctx.lineTo(gx + R * 0.08, gy2); ctx.lineTo(gx, gy2 + R * 0.11); ctx.lineTo(gx - R * 0.08, gy2); ctx.closePath(); ctx.fillStyle = '#4aa8ea'; ctx.fill(); ell(gx - R * 0.02, gy2 - R * 0.03, R * 0.025, R * 0.035, '#fff'); }
   if (has('moon')) { const mx = x, mmy = topY + R * 0.3; ell(mx, mmy, R * 0.1, R * 0.1, '#ffe680'); ell(mx + R * 0.05, mmy - R * 0.03, R * 0.085, R * 0.085, col); }
+  ctx.restore(); }
 
   /* ---- on top ---- */
   if (has('cap')) {
@@ -4772,13 +5167,20 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
   const [eyes, mouth] = FACES[md] || FACES.neutral;
   const ex = R * 0.34, ey = fy - R * 0.08, er = R * 0.12, ink = '#2a1d24', lip = '#7a2335';
   const c11 = t % 11.3, canBlink = eyes === 'open' || eyes === 'sad' || eyes === 'angry';
-  const blink = canBlink && ((t % 3.7) < 0.12 || c11 < 0.1 || (c11 > 0.22 && c11 < 0.32));
+  // a blink squeezes the eyes shut and open again over ~0.15 s (now and then twice); only the shut moment is drawn as a line
+  const bw = (ph, len) => ph >= 0 && ph < len ? Math.sin(ph / len * Math.PI) : 0;
+  const bk = canBlink ? Math.max(bw(t % 3.7, 0.16), bw(c11, 0.13), bw(c11 - 0.22, 0.13)) : 0, blink = bk > 0.8;
+  // when nothing draws its gaze the pet glances about, a new spot every second or so; pupils also follow lookY
+  if (Math.abs(look) < 0.05) look += (rnd(Math.floor(t * 0.9 + fx * 0.01)) - 0.5) * 0.9;
+  const ly = (POSE.lookY || 0) * R * 0.025;
   ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = R * 0.06;
   for (const sd of [-1, 1]) {
     const cx = fx + sd * ex;
     let e = eyes;
     if (e === 'wink') e = sd > 0 ? 'joy' : 'open';
     if (blink) e = 'closed';
+    const squash = bk > 0 && !blink;
+    if (squash) { ctx.save(); ctx.translate(cx, ey); ctx.scale(1, 1 - bk * 0.85); ctx.translate(-cx, -ey); }
     switch (e) {
       case 'closed': ctx.beginPath(); ctx.arc(cx, ey - er * 0.3, er * 0.85, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); break;
       case 'joy': ctx.beginPath(); ctx.arc(cx, ey + er * 0.45, er * 0.85, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke(); break;
@@ -4804,7 +5206,7 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
           const sharp = eyeStyle === 'sharp', dot = eyeStyle === 'dot', ew = er * (dot ? 0.98 : 1.08), eh = er * (dot ? 1.28 : 1.3), il = look * er * (dot ? 0.18 : 0.35);
           ell(cx, ey, ew, eh, dot ? ink : '#ffffff');
           ctx.save(); ctx.beginPath(); ctx.ellipse(cx, ey, ew, eh, 0, 0, TAU); ctx.clip();
-          const ir = dot ? ew * 0.95 : er * 0.78, iy = ey + er * (dot ? 0.04 : 0.12);
+          const ir = dot ? ew * 0.95 : er * 0.78, iy = ey + er * (dot ? 0.04 : 0.12) + ly;
           const ig = ctx.createRadialGradient(cx + il, iy + ir * 0.35, ir * 0.1, cx + il, iy, ir * 1.05);
           ig.addColorStop(0, shade(iris, 0.55)); ig.addColorStop(0.55, iris); ig.addColorStop(1, shade(iris, -0.55));
           ctx.fillStyle = ig; ctx.beginPath(); ctx.ellipse(cx + il, iy, ir, ir * (dot ? 1.3 : 1.15), 0, 0, TAU); ctx.fill();
@@ -4826,14 +5228,14 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
           break;
         }
         if (eyeStyle === 'dot') {
-          ell(cx + lx, ey, er * 0.85, er * 1.15, ink);
+          ell(cx + lx, ey + ly, er * 0.85, er * 1.15, ink);
           ell(cx + lx - er * 0.3, ey - er * 0.42, er * 0.32, er * 0.36, '#fff');
           ell(cx + lx + er * 0.28, ey + er * 0.38, er * 0.14, er * 0.14, '#fff');
         } else {
           ell(cx, ey, er * 1.05, er * 1.25, '#ffffff');
           ctx.save(); ctx.beginPath(); ctx.ellipse(cx, ey, er * 1.05, er * 1.25, 0, 0, TAU); ctx.clip();
           const il = look * er * 0.35;
-          ell(cx + il, ey + er * 0.12, er * 0.72, er * 0.88, iris);
+          ell(cx + il, ey + er * 0.12 + ly, er * 0.72, er * 0.88, iris);
           ell(cx + il, ey + er * 0.42, er * 0.5, er * 0.4, shade(iris, 0.3));
           ell(cx + il, ey + er * 0.12, er * 0.36, er * (eyeStyle === 'sharp' ? 0.62 : 0.48), ink);
           if (eyeStyle === 'sharp') {
@@ -4851,6 +5253,7 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
         }
       }
     }
+    if (squash) ctx.restore();
     if (eyes === 'sad') { ctx.beginPath(); ctx.moveTo(cx + sd * er, ey - er * 1.55); ctx.lineTo(cx - sd * er, ey - er * 2.05); ctx.stroke(); }
     if (eyes === 'angry') { ctx.beginPath(); ctx.moveTo(cx + sd * er * 1.1, ey - er * 2.05); ctx.lineTo(cx - sd * er * 0.9, ey - er * 1.45); ctx.stroke(); }
     if (eyes === 'cry') {
@@ -5698,11 +6101,299 @@ function bakeBackdrop(theme, tod, w) {
 const BAKED = { base: '', w: 0, img: null, timer: 0 };
 function drawBackdrop(theme, tod) {
   const base = theme + '|' + tod, w = Math.min(4096, Math.round(cv.width * zoom));   // painted at the size it shows (zoomed on phones), so it stays sharp
-  if (!BAKED.img || BAKED.base !== base) { BAKED.img = bakeBackdrop(theme, tod, w); BAKED.base = base; BAKED.w = w; }
+  if (!BAKED.img || BAKED.base !== base) { BAKED.img = bakeGround(theme, tod, w); BAKED.base = base; BAKED.w = w; }
   // window resized (or the phone view zoomed in): rebake once it settles; a sharper copy than needed is kept (minigames unzoom)
   else if ((w > BAKED.w * 1.05 || w < BAKED.w * 0.4) && !BAKED.timer) BAKED.timer = setTimeout(() => { BAKED.timer = 0; BAKED.base = ''; }, 300);
-  ctx.drawImage(BAKED.img, 0, 0, LW, LH);
-  if (padTop) { drawSkyExt(theme, tod); bandDone = true; }
+  ctx.drawImage(BAKED.img, 0, -SKY_MAX, LW, LH + SKY_MAX);   // top-down ground: it already covers the phone band
+  bandDone = true;
+}
+/* ---------- top-down yard: the home (and friends' houses) seen from above at a slant ----------
+   The ground of each habitat is painted once: lawn, sand, snow, sea floor..., a patch to play on in the middle and the
+   habitat's scenery (trees, rocks, crystals, coral...) at the back. Everything standing on the ground has a depth d, the
+   screen y of its feet. The pet, poops and decorations are still drawn in their side-view space standing on GROUND;
+   atDepth() moves that space so GROUND lands on d and shrinks it a little the further back d is. */
+const D_BACK = 430, D_FRONT = 650, D_MID = 545;
+const depthK = d => 0.62 + 0.2 * Math.max(0, Math.min(1, (d - D_BACK) / (D_FRONT - D_BACK)));
+const randomD = () => D_BACK + 10 + Math.random() * (D_FRONT - D_BACK - 20);
+const petD = () => game ? null : pet.d;   // minigames keep the side view they were laid out for, with the full-size pet
+let depthCtx = null;   // the depth being drawn; particles spawned meanwhile belong to it
+function atDepth(x, d, fn) {
+  if (d == null) return fn();
+  const k = depthK(d), prev = depthCtx;
+  ctx.save(); ctx.translate(x, d); ctx.scale(k, k); ctx.translate(-x, -GROUND); depthCtx = { ax: x, d };
+  try { return fn(); } finally { ctx.restore(); depthCtx = prev; }
+}
+// a point of the screen picture -> the side-view space of something standing at (ax, d), and back
+const toDepth = (p, ax, d) => { if (d == null) return p; const k = depthK(d); return { ...p, x: ax + (p.x - ax) / k, y: GROUND + (p.y - d) / k }; };
+const fromDepth = (x, y, ax, d) => { if (d == null) return { x, y, k: 1 }; const k = depthK(d); return { x: ax + (x - ax) * k, y: d + (y - GROUND) * k, k }; };
+// a body returned by drawPet (side-view space) as it shows on screen, for the chat bubble
+const bodyOnScreen = b => { const d = petD(); if (!b || d == null) return b; const p = fromDepth(b.x, b.cy, pet.x, d); return { ...b, x: p.x, cy: p.y, rx: b.rx * p.k, ry: b.ry * p.k, R: b.R * p.k }; };
+const drawByDepth = list => list.sort((a, b) => a.d - b.d).forEach(o => o.draw());
+
+// what each habitat's ground looks like: lawn colours, the play patch, grass tufts, and the scenery at the back
+const GROUND_LOOK = {
+  meadow: { g: ['#7cc257', '#68b04a'], patch: ['#ecce96', '#c99f63'], tuft: ['#4e9636', '#9ad670'], flowers: 1, props: ['tree', 'tree', 'bush', 'rock', 'bush'], pond: 'water', gap: 0.45 },
+  forest: { g: ['#58a04a', '#3f873a'], patch: ['#c9a66d', '#9a7748'], tuft: ['#2f7030', '#7cc35a'], props: ['tree', 'tree', 'pine', 'tree', 'log', 'shroom', 'bush'], gap: 0.15, tree: ['#6cbf55', '#2e6e2e'] },
+  fairy: { g: ['#a7e08f', '#8dd07f'], patch: ['#f8e9c8', '#e2c79a'], tuft: ['#6fb85a', '#c8f0a8'], flowers: 1, props: ['shroom', 'shroom', 'tree', 'bush'], pond: 'water', sparkle: '#fff3a8', gap: 0.4, tree: ['#b9e98f', '#5aa65a'], cap: ['#ff8fb8', '#e8457a'] },
+  canyon: { g: ['#e2a56a', '#cf8a52'], patch: ['#f5d29f', '#dfa86e'], tuft: ['#a8763f', '#d9a35f'], props: ['mesa', 'cactus', 'rock', 'cactus', 'mesa'], speck: '#b06a3a', gap: 0.5, rock: ['#d98a5a', '#9c5432'] },
+  sky: { g: ['#f6f9ff', '#d9e5f7'], patch: ['#fff4d2', '#f1dca6'], props: ['cloud', 'cloud', 'pillar', 'cloud'], sparkle: '#ffffff', gap: 0.35, puffs: 1 },
+  storm: { g: ['#5f8d55', '#4a7444'], patch: ['#a8926d', '#7f6a4a'], tuft: ['#355f30', '#7aa86a'], props: ['tree', 'rock', 'bush', 'rock'], pond: 'puddle', gap: 0.45, tree: ['#5f9a55', '#2c5a2e'] },
+  volcano: { g: ['#4d3f3c', '#382d2c'], patch: ['#857469', '#5f504a'], props: ['rock', 'vent', 'rock', 'rock'], pond: 'lava', cracks: 1, speck: '#2a2020', gap: 0.5, rock: ['#6b5d5a', '#2f2626'] },
+  ocean: { g: ['#e3d3a2', '#cdb882'], patch: ['#f3e7c2', '#dccb98'], props: ['coral', 'weed', 'coral', 'rock', 'weed'], tint: 'rgba(50,150,210,.2)', shells: 1, gap: 0.35 },
+  haunted: { g: ['#4f4e63', '#3c3b50'], patch: ['#7a6d5f', '#5a4f44'], tuft: ['#34334a', '#6c6b86'], props: ['grave', 'deadtree', 'grave', 'pumpkin', 'grave'], gap: 0.4, rock: ['#8a8a9a', '#4e4e5e'] },
+  snow: { g: ['#f4f8fc', '#dae6f2'], patch: ['#dcecf8', '#bad4ea'], props: ['pine', 'pine', 'rock', 'snowman', 'pine'], snowy: 1, pond: 'ice', gap: 0.35, sparkle: '#ffffff' },
+  crystal: { g: ['#4c4170', '#382f58'], patch: ['#73679c', '#544a7c'], props: ['crystal', 'rock', 'crystal', 'crystal'], sparkle: '#b8f3ff', speck: '#2c2548', gap: 0.4, rock: ['#6d6396', '#3a3260'] },
+  space: { g: ['#9092a0', '#757786'], patch: ['#adafbc', '#8f91a0'], props: ['rock', 'crater', 'crystal', 'rock'], craters: 1, speck: '#5f6170', gap: 0.45, rock: ['#a5a7b4', '#5c5e6c'] },
+};
+const PATCH = { x: 640, y: 548, rx: 600, ry: 152 };
+const patchWob = a => 1 + Math.sin(a * 3 + 1) * 0.05 + Math.sin(a * 7 + 2) * 0.03 + Math.sin(a * 13) * 0.015;
+function patchPath(grow = 0) {
+  ctx.beginPath();
+  for (let i = 0; i <= 120; i++) {
+    const a = i / 120 * TAU, r = patchWob(a), x = PATCH.x + Math.cos(a) * (PATCH.rx + grow) * r, y = PATCH.y + Math.sin(a) * (PATCH.ry + grow * 0.5) * r;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+const inPatch = (x, y) => ((x - PATCH.x) / PATCH.rx) ** 2 + ((y - PATCH.y) / PATCH.ry) ** 2 < 1.08;
+
+// scenery seen from above at a slant, lit from the upper left like the pets; (x, y) is where it touches the ground
+const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(25,35,15,${a})`);
+function tdBall(x, y, r, light, dark) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, light); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+const TD_PROP = {
+  tree(x, y, s, L) {
+    const [c1, c2] = L.tree || ['#8fd16a', '#3f8a37'];
+    tdShadow(x + 18 * s, y + 4, 72 * s, 22 * s, 0.25);
+    rr(x - 9 * s, y - 54 * s, 18 * s, 56 * s, 4 * s, '#7a5532'); rr(x + 2 * s, y - 54 * s, 7 * s, 56 * s, 3 * s, '#5d3f22');
+    [[-34, -72, 40], [34, -74, 38], [0, -106, 48], [-14, -80, 42], [18, -90, 40]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
+    ell(x - 18 * s, y - 124 * s, 16 * s, 9 * s, 'rgba(255,255,255,.18)', -0.5);
+    if (L.snowy) [[0, -146, 30], [-36, -104, 20], [34, -106, 18]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.45 * s, '#ffffff'));
+  },
+  pine(x, y, s, L) {
+    tdShadow(x + 14 * s, y + 3, 50 * s, 16 * s, 0.25);
+    rr(x - 7 * s, y - 30 * s, 14 * s, 32 * s, 3 * s, '#6b4a2b');
+    [[0, 62, 26], [-28, 50, 22], [-54, 38, 18], [-76, 24, 14]].forEach(([dy, w, h], i) => {
+      const by = y - 22 * s + dy * s * 0.9 - i * 6 * s;
+      tri(x - w * s, by, x + w * s, by, x, by - (h + 34) * s, '#2f6f3f'); tri(x - w * s, by, x, by, x, by - (h + 34) * s, '#3f8a4f');
+      if (L.snowy) { tri(x - w * 0.55 * s, by - (h + 34) * s * 0.45, x + w * 0.55 * s, by - (h + 34) * s * 0.45, x, by - (h + 34) * s, '#ffffff'); }
+    });
+  },
+  bush(x, y, s, L) {
+    const [c1, c2] = L.tree || ['#86c95f', '#3d8034'];
+    tdShadow(x + 6 * s, y + 2, 36 * s, 10 * s);
+    [[-16, -14, 18], [16, -14, 18], [0, -24, 22]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
+    if (L.flowers) [[-12, -26], [10, -32], [18, -18]].forEach(([dx, dy]) => ell(x + dx * s, y + dy * s, 3.4 * s, 3.4 * s, '#ff7a8a'));
+  },
+  rock(x, y, s, L) {
+    const [c1, c2] = L.rock || ['#b9bdc2', '#858a91'];
+    tdShadow(x + 5 * s, y + 2, 30 * s, 9 * s);
+    ell(x, y - 10 * s, 27 * s, 16 * s, c2); ell(x - 5 * s, y - 15 * s, 18 * s, 9 * s, c1);
+    if (L.snowy) ell(x - 3 * s, y - 20 * s, 16 * s, 6 * s, '#ffffff');
+  },
+  log(x, y, s) {
+    tdShadow(x + 4 * s, y + 3, 52 * s, 9 * s);
+    rr(x - 48 * s, y - 24 * s, 96 * s, 24 * s, 12 * s, '#8a5d36'); rr(x - 48 * s, y - 24 * s, 96 * s, 8 * s, 4 * s, '#a87648');
+    ell(x + 46 * s, y - 12 * s, 9 * s, 12 * s, '#d9b07a'); ell(x + 46 * s, y - 12 * s, 4 * s, 6 * s, '#b88a55');
+  },
+  shroom(x, y, s, L) {
+    const [c1, c2] = L.cap || ['#ff6b5a', '#c23b32'];
+    tdShadow(x + 6 * s, y + 2, 30 * s, 9 * s);
+    rr(x - 8 * s, y - 34 * s, 16 * s, 34 * s, 6 * s, '#f6ead2');
+    ctx.beginPath(); ctx.ellipse(x, y - 34 * s, 32 * s, 24 * s, 0, Math.PI, 0); ctx.lineTo(x + 32 * s, y - 32 * s); ctx.lineTo(x - 32 * s, y - 32 * s); ctx.fillStyle = c2; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x - 2 * s, y - 37 * s, 28 * s, 20 * s, 0, Math.PI, 0); ctx.fillStyle = c1; ctx.fill();
+    [[-14, -46, 5], [6, -52, 4], [16, -40, 4], [-2, -40, 3]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.8 * s, '#fff6ea'));
+  },
+  cactus(x, y, s) {
+    tdShadow(x + 8 * s, y + 2, 26 * s, 8 * s);
+    rr(x - 11 * s, y - 70 * s, 22 * s, 70 * s, 11 * s, '#4f9a4a'); rr(x - 11 * s, y - 70 * s, 9 * s, 70 * s, 5 * s, '#6cb85e');
+    rr(x - 30 * s, y - 50 * s, 12 * s, 26 * s, 6 * s, '#4f9a4a'); rr(x - 30 * s, y - 28 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
+    rr(x + 18 * s, y - 60 * s, 12 * s, 24 * s, 6 * s, '#4f9a4a'); rr(x + 8 * s, y - 40 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
+    ell(x, y - 72 * s, 5 * s, 4 * s, '#ff8fb8');
+  },
+  mesa(x, y, s) {
+    tdShadow(x + 14 * s, y + 4, 80 * s, 18 * s, 0.28);
+    ctx.beginPath(); ctx.moveTo(x - 70 * s, y); ctx.lineTo(x - 60 * s, y - 70 * s); ctx.lineTo(x + 62 * s, y - 74 * s); ctx.lineTo(x + 72 * s, y); ctx.closePath(); ctx.fillStyle = '#b8603a'; ctx.fill();
+    for (let i = 1; i < 4; i++) { ctx.fillStyle = 'rgba(80,30,10,.18)'; ctx.fillRect(x - 68 * s + i * 2 * s, y - i * 18 * s, 136 * s, 4 * s); }
+    ell(x, y - 72 * s, 62 * s, 16 * s, '#e09a66'); ell(x - 14 * s, y - 75 * s, 34 * s, 8 * s, '#f0b480');
+  },
+  cloud(x, y, s) {
+    tdShadow(x + 10 * s, y + 6, 70 * s, 14 * s, 0.1);
+    [[-40, -16, 26], [40, -16, 24], [-14, -30, 32], [18, -34, 30], [0, -12, 28]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, '#ffffff', '#c9d8ef'));
+  },
+  pillar(x, y, s) {
+    tdShadow(x + 10 * s, y + 3, 32 * s, 9 * s);
+    rr(x - 20 * s, y - 86 * s, 40 * s, 86 * s, 4 * s, '#efe6cf'); rr(x + 6 * s, y - 86 * s, 14 * s, 86 * s, 3 * s, '#d4c8a8');
+    for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 10 * s - 1, y - 84 * s, 2, 80 * s);
+    ell(x, y - 88 * s, 26 * s, 9 * s, '#fff7e0'); ell(x, y - 88 * s, 16 * s, 5 * s, '#ffd86b');
+  },
+  vent(x, y, s) {
+    tdShadow(x + 6 * s, y + 3, 44 * s, 11 * s);
+    ctx.beginPath(); ctx.moveTo(x - 42 * s, y); ctx.lineTo(x - 14 * s, y - 40 * s); ctx.lineTo(x + 14 * s, y - 40 * s); ctx.lineTo(x + 42 * s, y); ctx.closePath(); ctx.fillStyle = '#3a2f2e'; ctx.fill();
+    ell(x, y - 40 * s, 15 * s, 6 * s, '#ff7a2a'); ell(x, y - 40 * s, 8 * s, 3 * s, '#ffd36b');
+  },
+  coral(x, y, s) {
+    const c = ['#ff7f8f', '#ff9f5a', '#c78bff', '#ff6fb0'][Math.floor(Math.abs(x * 7 + y) % 4)];
+    tdShadow(x + 5 * s, y + 2, 30 * s, 8 * s, 0.18);
+    ctx.strokeStyle = c; ctx.lineCap = 'round'; ctx.lineWidth = 9 * s;
+    [[0, -50, -6], [-20, -38, -30], [20, -42, 24], [-8, -28, -16]].forEach(([dx, dy, tx]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * s, y + dy * 0.5 * s, x + tx * s, y + dy * s); ctx.stroke(); ell(x + tx * s, y + dy * s, 7 * s, 7 * s, shade(c, 0.3)); });
+  },
+  weed(x, y, s) {
+    ctx.strokeStyle = '#3f9a5a'; ctx.lineCap = 'round'; ctx.lineWidth = 6 * s;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 8 * s, y); ctx.bezierCurveTo(x + i * 8 * s + 14 * s, y - 30 * s, x + i * 8 * s - 14 * s, y - 50 * s, x + i * 10 * s, y - (70 + i * 8) * s); ctx.stroke(); }
+  },
+  grave(x, y, s, L) {
+    const [c1, c2] = L.rock;
+    tdShadow(x + 8 * s, y + 3, 30 * s, 8 * s);
+    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, 0); ctx.lineTo(x + 22 * s, y); ctx.closePath(); ctx.fillStyle = c2; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, -Math.PI / 2); ctx.lineTo(x, y); ctx.closePath(); ctx.fillStyle = c1; ctx.fill();
+    ctx.fillStyle = 'rgba(30,30,45,.55)'; ctx.fillRect(x - 2 * s, y - 50 * s, 4 * s, 22 * s); ctx.fillRect(x - 9 * s, y - 44 * s, 18 * s, 4 * s);
+    ell(x - 10 * s, y - 2 * s, 10 * s, 4 * s, '#4f6b3f');
+  },
+  deadtree(x, y, s) {
+    tdShadow(x + 14 * s, y + 3, 50 * s, 14 * s, 0.25);
+    ctx.strokeStyle = '#2e2a33'; ctx.lineCap = 'round';
+    const br = (x0, y0, a, len, w, n) => { const x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); if (n > 0) { br(x1, y1, a - 0.5, len * 0.66, w * 0.62, n - 1); br(x1, y1, a + 0.45, len * 0.6, w * 0.62, n - 1); } };
+    br(x, y, -Math.PI / 2, 56 * s, 13 * s, 3);
+  },
+  pumpkin(x, y, s) { pumpkin(x, y, s * 0.42); },
+  snowman(x, y, s) {
+    tdShadow(x + 8 * s, y + 3, 30 * s, 9 * s);
+    tdBall(x, y - 22 * s, 24 * s, '#ffffff', '#c8d8ea'); tdBall(x, y - 58 * s, 17 * s, '#ffffff', '#c8d8ea');
+    ell(x - 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333'); ell(x + 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333');
+    tri(x, y - 57 * s, x + 14 * s, y - 55 * s, x, y - 53 * s, '#f08c2a');
+    rr(x - 16 * s, y - 44 * s, 32 * s, 6 * s, 3 * s, '#e8574a');
+  },
+  crystal(x, y, s) {
+    const c = ['#7ee8ff', '#ff9ff0', '#b39cff'][Math.floor(Math.abs(x * 3 + y) % 3)];
+    tdShadow(x + 6 * s, y + 2, 32 * s, 9 * s);
+    [[-16, 44, -0.25, 9], [0, 64, 0, 12], [16, 40, 0.3, 9]].forEach(([dx, h, a, w]) => {
+      ctx.save(); ctx.translate(x + dx * s, y); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(w * s, -h * s); ctx.lineTo(w * s, 0); ctx.closePath();
+      ctx.fillStyle = shade(c, -0.25); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(0, 0); ctx.closePath(); ctx.fillStyle = shade(c, 0.25); ctx.fill();
+      ctx.restore();
+    });
+  },
+  crater(x, y, s) {
+    ell(x, y - 6 * s, 46 * s, 15 * s, 'rgba(60,62,75,.35)'); ell(x + 4 * s, y - 4 * s, 38 * s, 11 * s, 'rgba(40,42,55,.3)');
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(x, y - 6 * s, 46 * s, 15 * s, 0, 0.1, Math.PI - 0.1); ctx.stroke();
+  },
+};
+
+// the painting is seeded by the habitat's name, so it is the same every time; it also notes where its ponds, vents and
+// crystals are, for the live layer
+const GROUND_LIVE = {};
+function bakeGround(theme, tod, w) {
+  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, H = LH + SKY_MAX, h = Math.round(w * H / LW), k = w / LW, saved = ctx;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  let seed = [...theme].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) % 2147483647 || 7;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const live = GROUND_LIVE[theme] = { ponds: [], vents: [], glints: [], cracks: [] };
+  try {
+    ctx = out.getContext('2d'); ctx.setTransform(k, 0, 0, k, 0, SKY_MAX * k);
+    const top = -SKY_MAX;
+    ctx.fillStyle = vgrad(top, LH, L.g[0], L.g[1]); ctx.fillRect(0, top, LW, H);
+    for (let i = 0; i < 60; i++) {   // soft light and dark blotches so the ground isn't flat
+      const x = r() * LW, y = top + r() * H, rad = 60 + r() * 160, light = r() < 0.5;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, light ? 'rgba(255,255,230,.15)' : 'rgba(20,40,10,.07)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    if (L.puffs) for (let i = 0; i < 26; i++) { const x = r() * LW, y = top + r() * H; tdBall(x, y, 30 + r() * 50, 'rgba(255,255,255,.7)', 'rgba(200,215,240,.25)'); }
+    // the play patch: a darker rim of trodden ground, then the patch, lighter in the middle, with pebbles
+    patchPath(16); ctx.fillStyle = 'rgba(30,40,15,.16)'; ctx.fill();
+    patchPath(); const pg = ctx.createRadialGradient(PATCH.x - 80, PATCH.y - 60, 30, PATCH.x, PATCH.y, PATCH.rx);
+    pg.addColorStop(0, shade(L.patch[0], 0.08)); pg.addColorStop(0.7, L.patch[0]); pg.addColorStop(1, L.patch[1]); ctx.fillStyle = pg; ctx.fill();
+    ctx.save(); patchPath(); ctx.clip();
+    ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(60,40,20,.14)'; patchPath(); ctx.stroke();
+    for (let i = 0; i < 320; i++) {
+      const x = PATCH.x + (r() - 0.5) * PATCH.rx * 2, y = PATCH.y + (r() - 0.5) * PATCH.ry * 2, rad = 1 + r() * 3.4;
+      ell(x, y, rad, rad * 0.7, r() < 0.5 ? rgba(L.speck || shade(L.patch[1], -0.3), 0.45) : 'rgba(255,250,235,.5)');
+    }
+    if (L.shells) for (let i = 0; i < 14; i++) { const x = PATCH.x + (r() - 0.5) * PATCH.rx * 1.7, y = PATCH.y + (r() - 0.5) * PATCH.ry * 1.6; if (r() < 0.5) { starPath(x, y, 8, 0.5); ctx.fillStyle = '#ff9a6b'; ctx.fill(); } else ell(x, y, 6, 4.5, '#fff1e0'); }
+    ctx.restore();
+    // grass tufts, flowers, pebbles outside the patch
+    const tuft = (x, y, s) => {
+      ctx.lineCap = 'round';
+      [[-5, -9], [0, -13], [5, -9]].forEach(([dx, dy]) => { ctx.strokeStyle = L.tuft[0]; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * 0.4 * s, y + dy * 0.5 * s, x + dx * s, y + dy * s); ctx.stroke(); });
+      ctx.strokeStyle = L.tuft[1]; ctx.lineWidth = 1.4 * s; ctx.beginPath(); ctx.moveTo(x, y - 1); ctx.lineTo(x, y - 11 * s); ctx.stroke();
+    };
+    for (let i = 0; i < 260; i++) {
+      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
+      if (L.tuft) tuft(x, y, 0.8 + r() * 0.7);
+      else ell(x, y, 2 + r() * 3, 1.5 + r() * 2, rgba(L.speck || shade(L.g[1], -0.25), 0.35));
+    }
+    if (L.flowers) for (let i = 0; i < 90; i++) {
+      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
+      const col = ['#fff6d8', '#ffd84a', '#ff9eb5', '#c9b6ff'][Math.floor(r() * 4)];
+      for (let p = 0; p < 5; p++) { const a = p / 5 * TAU; ell(x + Math.cos(a) * 3.4, y + Math.sin(a) * 2.4, 2.6, 2, col); }
+      ell(x, y, 1.8, 1.8, '#f2a33a');
+    }
+    if (L.snowy) for (let i = 0; i < 120; i++) { const x = r() * LW, y = top + r() * H; live.glints.push([x, y]); }
+    if (L.sparkle) for (let i = 0; i < 40; i++) live.glints.push([r() * LW, top + r() * (H - 60)]);
+    if (L.craters) for (let i = 0; i < 9; i++) { const x = r() * LW, y = 380 + r() * 320; TD_PROP.crater(x, y, 0.6 + r() * 0.6, L); }
+    if (L.cracks) for (let i = 0; i < 7; i++) {   // glowing lava cracks across the ground
+      let x = r() * LW, y = top + 120 + r() * (H - 200); const pts = [[x, y]];
+      for (let j = 0; j < 6; j++) { x += 20 + r() * 40; y += (r() - 0.5) * 30; pts.push([x, y]); }
+      ctx.strokeStyle = '#2a1a16'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke();
+      ctx.strokeStyle = '#ff6a1f'; ctx.lineWidth = 2.5; ctx.stroke();
+      live.cracks.push(pts);
+    }
+    // a pond (or puddle, lava pool, frozen pond) at the back on the left
+    const pond = L.pond && { x: 205, y: 330, rx: 150, ry: 58, kind: L.pond };
+    if (pond) {
+      const P = { water: ['#8f7a4c', '#3f8fc9', '#6cc0e8'], puddle: ['#6b5a40', '#506a80', '#7e98ad'], lava: ['#2a1a16', '#ff5a1a', '#ffc04a'], ice: ['#b7cde0', '#9fd2f0', '#e8f6ff'] }[pond.kind];
+      ell(pond.x, pond.y + 4, pond.rx + 10, pond.ry + 9, P[0]);
+      const g = ctx.createRadialGradient(pond.x + 20, pond.y + 10, 10, pond.x, pond.y, pond.rx); g.addColorStop(0, P[1]); g.addColorStop(1, P[2]);
+      ell(pond.x, pond.y, pond.rx, pond.ry, g);
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(pond.x, pond.y, pond.rx - 6, pond.ry - 4, 0, Math.PI * 1.05, Math.PI * 1.7); ctx.stroke();
+      if (pond.kind === 'water') [[-50, -8, 20], [54, 10, 16], [4, -18, 12]].forEach(([dx, dy, rad]) => { ell(pond.x + dx, pond.y + dy + 2, rad, rad * 0.55, '#3e8f3a'); ell(pond.x + dx, pond.y + dy, rad, rad * 0.55, '#5fb54f'); });
+      live.ponds.push(pond);
+    }
+    // the scenery: rows of props at the back, smaller and denser further away, drawn back to front
+    const props = [];
+    for (let y = top + 30; y < 395; y += 64) for (let x = -30; x < LW + 40; x += 150) {
+      if (r() < L.gap) continue;
+      const px = x + (r() - 0.5) * 110, py = y + (r() - 0.5) * 40;
+      if (pond && ((px - pond.x) / (pond.rx + 50)) ** 2 + ((py - pond.y) / (pond.ry + 60)) ** 2 < 1) continue;
+      if (py > 330 && inPatch(px, py + 40)) continue;
+      props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
+    }
+    props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
+    vividCanvas(out);   // brighter, fresher colours (before the sea tint and the dusk or night tint)
+    if (L.tint) { ctx.fillStyle = L.tint; ctx.fillRect(0, top, LW, H); }
+    if (OUTDOOR.includes(theme) && tod !== 'day') { ctx.fillStyle = tod === 'night' ? 'rgba(10,18,60,.5)' : 'rgba(110,45,70,.2)'; ctx.fillRect(0, top, LW, H); }
+    if (theme === 'haunted' || theme === 'crystal' || theme === 'space') { ctx.fillStyle = 'rgba(10,8,30,.12)'; ctx.fillRect(0, top, LW, H); }
+  } finally { ctx = saved; }
+  return out;
+}
+
+// what moves on the ground: cloud shadows, rippling ponds, lava glow and smoke, twinkles, light through the sea, fog
+function drawGroundLive(t, theme, tod, wkind) {
+  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, live = GROUND_LIVE[theme]; if (!live) return;
+  ctx.save();
+  if (OUTDOOR.includes(theme) && tod === 'day' && wkind !== 'rain' && wkind !== 'storm')
+    for (let i = 0; i < 2; i++) { const x = ((t * 16 + i * 760) % (LW + 700)) - 350; ell(x, 150 + i * 330, 260, 95, 'rgba(20,40,10,.07)'); }
+  for (const p of live.ponds) {
+    if (p.kind === 'lava') { ctx.globalAlpha = 0.35 + Math.sin(t * 2) * 0.15; glow(p.x, p.y, p.rx * 1.1, '#ff7a2a', 0.6); ctx.globalAlpha = 1; }
+    else for (let i = 0; i < 3; i++) { const a = (t * 0.5 + i / 3) % 1; ctx.strokeStyle = `rgba(255,255,255,${0.45 * (1 - a)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x - 30 + i * 30, p.y + 4, 10 + a * 30, 4 + a * 10, 0, 0, TAU); ctx.stroke(); }
+  }
+  for (const pts of live.cracks) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 1.6 + pts[0][0]); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  for (const v of live.vents) for (let i = 0; i < 3; i++) { const ph = (t * 0.3 + i / 3 + v.x * 0.001) % 1; ctx.globalAlpha = (1 - ph) * 0.4; ell(v.x + Math.sin(ph * 5 + i) * 10, v.y - 40 * v.s - ph * 90, 10 + ph * 18, 8 + ph * 14, '#8a7f7a'); }
+  ctx.globalAlpha = 1;
+  live.glints.forEach(([x, y], i) => { const a = Math.sin(t * 2.2 + i * 1.7); if (a > 0.6) { ctx.globalAlpha = (a - 0.6) * 2.2; starPath(x, y, 3 + (i % 3) * 2, 0.35); ctx.fillStyle = L.sparkle || '#ffffff'; ctx.fill(); } });
+  ctx.globalAlpha = 1;
+  if (theme === 'ocean') {   // ripples of light on the sea floor and bubbles rising
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 3;
+    for (let i = 0; i < 14; i++) { const x = (i * 97 + Math.sin(t * 0.7 + i) * 30) % LW, y = -SKY_MAX + ((i * 131) % (LH + SKY_MAX)); ctx.beginPath(); ctx.ellipse(x, y, 40 + Math.sin(t + i) * 10, 14, Math.sin(i), 0, TAU); ctx.stroke(); }
+    for (let i = 0; i < 10; i++) { const y = LH - ((t * 50 + i * 97) % (LH + SKY_MAX)), x = (i * 137) % LW + Math.sin(t * 2 + i) * 8; ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4 + (i % 3) * 2, 0, TAU); ctx.stroke(); }
+  }
+  if (theme === 'haunted') for (let i = 0; i < 4; i++) { const x = ((t * 14 + i * 400) % (LW + 600)) - 300; ell(x, 250 + i * 120, 240, 40, 'rgba(200,200,230,.08)'); }
+  ctx.restore();
 }
 /* tall phone screens: a real painting above the 16:9 backdrop instead of a stretched strip. It continues the colours at the
    seam (with a soft mirrored blend), deepens towards the top, and adds what belongs up there in each habitat. Baked once
@@ -5900,7 +6591,7 @@ function drawBokeh(t, theme, tod, kind) {
 function drawVignette() {
   if (!padTop) return;
   const w = cv.width, h = cv.height, g = ctx.createRadialGradient(w / 2, h * 0.58, Math.min(w, h) * 0.42, w / 2, h * 0.55, Math.hypot(w, h) * 0.62);
-  g.addColorStop(0, 'rgba(10,8,24,0)'); g.addColorStop(1, 'rgba(10,8,24,.32)');
+  g.addColorStop(0, 'rgba(10,8,24,0)'); g.addColorStop(1, 'rgba(10,8,24,.2)');
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
 }
 // a friend's house has its own weather, from its habitat, the same for everyone during the hour
@@ -6000,12 +6691,8 @@ function drawRarityFX(t, rar) {
 function drawScene(t) {
   const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod);
-  BACKDROPS[theme].live(t, tod);
-  drawSkyLife(t, theme, tod, weather.kind, weather.gust);
-  drawAtmosphere(t, theme, tod, weather.kind);
-  drawAmbientBack(t, theme);
+  drawGroundLive(t, theme, tod, weather.kind);
   drawRarityFX(t, sp.rarity);
-  drawDepthHaze(theme, tod);
 }
 function drawBadge() {
   const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', r = RARITY[sp.rarity];
@@ -6240,8 +6927,25 @@ function drawEgg(t) {
   }
   ctx.restore();
 }
+// each poop has its own spot in the yard, spread over a few depths so they don't stand in a line
+const poopD = i => ((state && state.poopPos && state.poopPos[i]) || [0, 470 + ((i * 53) % 4) * 45])[1];
+// where a new poop lands: just behind the pet, where it was standing (or anywhere on the play patch when it happened
+// while the game was closed), never on top of another poop
+function poopSpot(offline) {
+  const others = (state && state.poopPos) || [], free = (x, d) => others.every(([ox, od]) => Math.hypot(ox - x, (od - d) * 2) > 120);
+  for (let k = 0; k < 40; k++) {
+    const near = !offline && k < 12;
+    const x = near ? pet.x - pet.dir * petR() * (1 + Math.random() * 0.5) + (Math.random() - 0.5) * 60 : 160 + Math.random() * 960;
+    const d = near ? pet.d + (Math.random() - 0.5) * 40 : D_BACK + 10 + Math.random() * (D_FRONT - D_BACK - 15);
+    const cx = Math.round(Math.max(150, Math.min(1130, x))), cd = Math.round(Math.max(D_BACK + 5, Math.min(D_FRONT, d)));
+    if (free(cx, cd)) return [cx, cd];
+  }
+  return [Math.round(160 + Math.random() * 960), D_MID];
+}
 function drawPoops(t) {
-  state.poops.forEach((s, i) => {
+  return state.poops.map((s, i) => ({ d: poopD(i), draw: () => atDepth(poopX(i), poopD(i), () => { drawPoop(t, s, i); drawPoopFlies(t, s, i); }) }));
+}
+function drawPoop(t, s, i) {
     const x = poopX(i), y = GROUND + 18, tiers = s < 0.85 ? 2 : s < 1.25 ? 3 : 4, L = stinkOf(i), age = poopAgeMin(i), wind = weather.gust || 0;
     // a greenish stain spreads under poop that has been sitting a while
     if (L > 0.25) ell(x, y + 6, (60 + L * 70) * s, (12 + L * 10) * s, `rgba(110,140,50,${0.12 + L * 0.2})`);
@@ -6291,10 +6995,33 @@ function drawPoops(t) {
       ell(x + wind * 30, y - 20, 140 * pulse * s, 40 * pulse * s, `rgba(150,190,90,${(L - 0.8) * 1.4})`);
       if (Math.random() < 0.004) spawn('txt', x, top - 40, { vx: wind * 40, vy: -40, max: 1.6, text: pick(['thối quá!', 'ặc ặc...', 'hôi rình!']), color: '#5c7a2e' });
     }
+}
+/* cleaning: the broom and its dustpan pop up at each poop in turn (the order is set when cleaning starts), sweep it into
+   the pan and move on to the next; with nothing to sweep there is no broom at all */
+function cleanSpot() {
+  const sp = anim && anim.type === 'clean' && anim.spots; if (!sp || !sp.length) return null;
+  const p = Math.min(0.999, animP()) * sp.length, k = Math.floor(p);
+  return { k, u: p - k, x: sp[k][0], d: sp[k][1] };
+}
+function drawCleaning(t) {
+  const c = cleanSpot(); if (!c) return;
+  const { x, d, u, k } = c, fade = Math.max(0, Math.min(1, u / 0.15, (1 - u) / 0.12));
+  if (u > 0.55 && !anim.done[k]) { anim.done[k] = 1; sweepPoop(x, d); }
+  atDepth(x, d, () => {
+    const bx = x - 120 + Math.min(1, u / 0.58) * 115, swing = Math.sin(t * 16) * 0.32;
+    if (u < 0.6 && Math.random() < 0.6) spawn('dust', bx + 40, GROUND + 8 + Math.random() * 10, { vx: 120 + Math.random() * 80, vy: -30 - Math.random() * 40, max: 0.6, size: 0.6 + Math.random() * 0.6 });
+    ctx.globalAlpha = fade; drawDustpan(x + 96, GROUND + 16); drawBroom(bx, GROUND + 16, swing); ctx.globalAlpha = 1;
   });
 }
-const DUSTPAN_X = 1236;
-const sweepX = () => -60 + animP() * 1340;
+// the poop at (x, d) is flicked into the pan, with a few sparkles where it was
+function sweepPoop(x, d) {
+  const s = state, i = (s.poopPos || []).findIndex(p => p[0] === x && p[1] === d); if (i < 0) return;
+  const at = { ax: x, d };
+  spawn('swept', x, GROUND + 6, { vx: 150, vy: -520, max: 0.5, size: s.poops[i], at });
+  for (let j = 0; j < 5; j++) spawn('spark', x + (Math.random() - 0.5) * 80, GROUND - Math.random() * 50, { vx: 0, vy: -60, max: 0.6, size: 0.5, color: '#ffffff', at });
+  Sound.play('boing', 0.5);
+  s.poops.splice(i, 1); (s.poopAt || []).splice(i, 1); s.poopPos.splice(i, 1);
+}
 function drawBroom(x, y, swing) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(-0.38 + swing);
   rr(-6, -300, 12, 250, 6, '#a0703c'); rr(-3, -300, 4, 250, 2, 'rgba(255,255,255,.25)');
@@ -6317,8 +7044,7 @@ function drawFly(x, y, t, k, dir) {
   ctx.strokeStyle = 'rgba(40,40,50,.25)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 10 * dir, y + 1); ctx.lineTo(x - 22 * dir, y + 3); ctx.stroke();
 }
 // flies orbit each poop; a dirty pet attracts a few around its head too
-function drawFlies(t, body) {
-  state.poops.forEach((s, i) => {
+function drawPoopFlies(t, s, i) {
     const px = poopX(i), py = GROUND - 30 * s, n = fliesFor(s, i);
     for (let k = 0; k < n; k++) {
       const a = t * (2.2 + k * 0.37) + k * 2.1 + i, rx = 40 + 22 * s, ry = 26 * s;
@@ -6329,7 +7055,8 @@ function drawFlies(t, body) {
       ctx.fillStyle = 'rgba(40,40,50,.65)'; ctx.font = 'italic 700 20px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('vo ve...', px + 6, py - 120 * s);
     }
-  });
+}
+function drawFlies(t, body) {
   if (!body || state.asleep) return;
   const swatting = idle && idle.type === 'swat';
   const n = swatting ? 2 : state.clean < 30 ? 2 : 0;
@@ -6384,7 +7111,7 @@ function mood() {
   if (anim && anim.type === 'no') return 'sad';
   if (anim && anim.type === 'heart') return 'love';
   if (anim && anim.type === 'pill') return 'disgust';
-  if (anim && anim.type === 'clean') return Math.abs(sweepX() - pet.x) < petR() * 1.4 ? 'surprised' : 'happy';
+  if (anim && anim.type === 'clean') return 'happy';
   if (game) {
     if (game.phase === 'reveal') { const r = game.results[game.results.length - 1]; return r === true ? 'laugh' : r === false ? 'sad' : 'surprised'; }
     return game.phase === 'anim' || game.phase === 'shuffle' ? 'surprised' : 'happy';
@@ -6479,11 +7206,11 @@ const prints = [];
 function footstep(x, R, g) {
   const theme = THEME_BY_TYPE[curSp().type] || 'meadow';
   if (['run', 'hop', 'skip'].includes(g)) for (let i = 0; i < (g === 'run' ? 2 : 3); i++) spawn('dust', x - pet.dir * R * 0.4 + (Math.random() - 0.5) * R * 0.5, GROUND + 6, { vx: -pet.dir * (30 + Math.random() * 50), vy: -20 - Math.random() * 30, max: 0.5, size: 0.45 + Math.random() * 0.3 });
-  if (PRINT_COL[theme] && g !== 'tiptoe') { prints.push({ x: x + (prints.length % 2 ? 1 : -1) * R * 0.2, t: now(), dir: pet.dir }); if (prints.length > 16) prints.shift(); }
+  if (PRINT_COL[theme] && g !== 'tiptoe') { const q = fromDepth(x + (prints.length % 2 ? 1 : -1) * R * 0.2, GROUND + 8, pet.x, petD()); prints.push({ x: q.x, y: q.y, k: q.k, t: now(), dir: pet.dir }); if (prints.length > 16) prints.shift(); }
 }
 function drawPrints(T) {
   const theme = THEME_BY_TYPE[curSp().type] || 'meadow', c = PRINT_COL[theme]; if (!c) return;
-  for (const p of prints) { const a = 1 - (T - p.t) / 7000; if (a <= 0) continue; ell(p.x, GROUND + 8, 9, 3.5, c + (0.4 * a).toFixed(3) + ')'); ell(p.x + p.dir * 8, GROUND + 5, 3, 1.6, c + (0.3 * a).toFixed(3) + ')'); }
+  for (const p of prints) { const a = 1 - (T - p.t) / 7000; if (a <= 0) continue; const k = p.k || 1; ell(p.x, p.y, 9 * k, 3.5 * k, c + (0.4 * a).toFixed(3) + ')'); ell(p.x + p.dir * 8 * k, p.y - 3 * k, 3 * k, 1.6 * k, c + (0.3 * a).toFixed(3) + ')'); }
 }
 // speed lines behind a running pet
 function speedLines(x, R, dir, t) {
@@ -6496,20 +7223,23 @@ function drawPet(t, dt) {
   // asleep: on its bed if it has one, otherwise in the middle of the room
   const bed = (meta.decor || []).includes('bed') ? Math.max(130 + R, DECOR_X.bed) : null;
   const target = game ? GAMES[game.type].petX : s.asleep ? (bed != null ? bed : Math.min(640, Math.max(130 + R, maxPetX()))) : pet.tx;
+  const targetD = s.asleep ? (bed != null ? DECOR_D.bed + 6 : D_MID) : pet.td;
   stepPhys(dt);
   const flying = phys.held || phys.air;
-  const T = now(), dx = target - pet.x, canMove = (!anim || anim.type === 'heart') && !idle && !flying;
-  pet.walking = canMove && !game && Math.abs(dx) > 3;
+  const T = now(), dx = target - pet.x, dd = game ? 0 : targetD - pet.d, canMove = (!anim || anim.type === 'heart') && !idle && !flying;
+  // a step towards the back covers more ground than it looks, so depth counts 1.6 times in the distance
+  const dist = Math.hypot(dx, dd * 1.6);
+  pet.walking = canMove && !game && dist > 3;
   // each walk gets a gait that suits the moment; a short crouch before setting off, a settle on arrival
-  if (pet.walking && !pet.wasWalking) { pet.gait = chooseGait(Math.abs(dx)); pet.gaitStart = T; pet.stepN = -1; }
+  if (pet.walking && !pet.wasWalking) { pet.gait = chooseGait(dist); pet.gaitStart = T; pet.stepN = -1; }
   if (!pet.walking && pet.wasWalking) { pet.arriveT = T; pet.arriveHop = ['skip', 'hop', 'run'].includes(pet.gait) && Math.random() < 0.5; }
   pet.wasWalking = pet.walking;
   const G = GAITS[pet.gait] || GAITS.walk, ge = (T - (pet.gaitStart || 0)) / 1000, ready = ge > 0.14;
   const ph = (ge * G.f) % 1, inAir = pet.gait !== 'hop' || ph < 0.62;
-  if (canMove && Math.abs(dx) > 1) {
+  if (canMove && dist > 1) {
     const v = (game ? 400 : pet.errand === 'kick' ? 170 : pet.walking ? (ready && inAir ? G.speed * (pet.gait === 'hop' ? 1.6 : 1) : 0) : 95) * dt;
-    pet.x += Math.sign(dx) * Math.min(Math.abs(dx), v);
-    if (pet.walking && Math.sign(dx) !== pet.dir) { pet.dir = Math.sign(dx); pet.turnT = T; }
+    const f = Math.min(1, v / dist); pet.x += dx * f; pet.d += dd * f;
+    if (pet.walking && Math.abs(dx) > 2 && Math.sign(dx) !== pet.dir) { pet.dir = Math.sign(dx); pet.turnT = T; }
   }
   let x = pet.x, hop = 0, look = pet.walking ? pet.dir * 0.7 : 0, lookY = 0, tilt = 0, sx = 1, sy = 1, fade = 1, shrink = 1;
   if (pet.walking) {
@@ -6524,8 +7254,6 @@ function drawPet(t, dt) {
     sy = 1 - Math.sin(p * Math.PI * 2) * 0.08 * (1 - p);
     if (pet.arriveHop) hop = Math.sin(p * Math.PI) * 26;
   }
-  if (pet.turnT && T - pet.turnT < 200) sx *= 0.3 + 0.7 * Math.abs(1 - 2 * (T - pet.turnT) / 200);   // a quick squeeze as it turns round
-  drawPrints(T);
   if (idle) {
     const e = (T - idle.start) / 1000, p = Math.min(1, (T - idle.start) / idle.dur);
     switch (idle.type) {
@@ -6539,7 +7267,7 @@ function drawPet(t, dt) {
       case 'sigh': sy = 1 - Math.sin(p * Math.PI) * 0.1; lookY = 1; break;
       case 'sniff': tilt = Math.sin(Math.min(1, p * 3) * Math.PI / 2) * 0.18 * (p > 0.8 ? (1 - p) * 5 : 1); look = 1; lookY = 0.6; break;
       case 'wink': tilt = Math.sin(p * Math.PI) * 0.1; break;
-      case 'stinky': { const away = s.poops.length && x < poopX(0) ? -1 : 1; tilt = away * 0.16 * Math.sin(Math.min(1, p * 4) * Math.PI / 2) + Math.sin(e * 26) * 0.035; look = away; lookY = -0.3; x += Math.sin(e * 26) * 3; break; }
+      case 'stinky': { const near = s.poops.reduce((b, _, i) => Math.abs(poopX(i) - x) < Math.abs(poopX(b) - x) ? i : b, 0), away = s.poops.length && x < poopX(near) ? -1 : 1; tilt = away * 0.16 * Math.sin(Math.min(1, p * 4) * Math.PI / 2) + Math.sin(e * 26) * 0.035; look = away; lookY = -0.3; x += Math.sin(e * 26) * 3; break; }
       case 'swat': tilt = Math.sin(e * 14) * 0.13; look = Math.sin(e * 6); lookY = -0.6; hop = Math.abs(Math.sin(e * 7)) * 16; break;
       case 'sit': sy = 0.9; tilt = Math.sin(e * 1.5) * 0.025; lookY = 0.2; break;
       case 'stretch': sy = 1 + Math.sin(p * Math.PI * 2) * 0.17; tilt = Math.sin(p * Math.PI) * 0.06 * idle.dir; break;
@@ -6627,6 +7355,11 @@ function drawPet(t, dt) {
         if (Math.random() < 0.03) setEmote('alert', 700);
         break;
       }
+      case 'pick': {
+        // reaching up into the tree for a fruit: two hops, both arms up
+        const ph = (p * 2) % 1; hop = Math.sin(ph * Math.PI) * 55; sy = ph < 0.12 || ph > 0.9 ? 0.88 : 1.06; look = idle.dir * 0.5; lookY = -1;
+        break;
+      }
       case 'reach': {
         // jump again and again for the balloons
         const ph = (p * 3) % 1; hop = Math.sin(ph * Math.PI) * 70; sy = ph < 0.12 || ph > 0.9 ? 0.86 : 1.08; look = idle.dir * 0.4; lookY = -1;
@@ -6651,9 +7384,8 @@ function drawPet(t, dt) {
   if (anim && anim.type === 'heart') { hop = Math.abs(Math.sin((T - anim.start) / 1000 * Math.PI * 3)) * 40; sy = hop < 6 ? 0.88 : 1.06; }
   if (anim && anim.type === 'no') { x += Math.sin(t * 30) * 9; tilt = Math.sin(t * 30) * 0.06; }
   if (anim && anim.type === 'clean') {
-    // the pet watches the broom and hops over it as it passes underneath
-    const d = sweepX() - x; look = Math.max(-1, Math.min(1, d / 300)); lookY = 0.5;
-    if (Math.abs(d) < R * 1.4) { hop = Math.cos((d / (R * 1.4)) * Math.PI / 2) * 80; sy = 1.08; }
+    // the pet watches the broom at work
+    const c = cleanSpot(); if (c) { look = Math.max(-1, Math.min(1, (c.x - x) / 300)); lookY = 0.5; }
   }
   if (anim && anim.type === 'react') {
     if (anim.fx === 'zap') { x += Math.sin(t * 70) * 6; hop = Math.abs(Math.sin(t * 18)) * 26; }
@@ -6687,8 +7419,9 @@ function drawPet(t, dt) {
   }
   if (face && face.until > T && face.f === 'dizzy') tilt = Math.sin(t * 6) * 0.15;
   if (T - pointer.t < 2500 && !game && !s.asleep && !talk && !(idle && idle.type === 'look')) {
-    look = Math.max(-1, Math.min(1, (pointer.x - x) / 260));
-    lookY = Math.max(-1, Math.min(1, (pointer.y - (GROUND - R)) / 260));
+    const pp = toDepth(pointer, pet.x, petD());   // the pointer in the pet's own space (it stands back in the yard)
+    look = Math.max(-1, Math.min(1, (pp.x - x) / 260));
+    lookY = Math.max(-1, Math.min(1, (pp.y - (GROUND - R)) / 260));
   }
   if (phys.held) {
     const h = drag ? drag.hist : [], a = h[0], b = h[h.length - 1];
@@ -6703,10 +7436,29 @@ function drawPet(t, dt) {
   let grow = 1;
   if (anim && anim.type === 'evolve') { const p = animP(); grow = 1 + Math.sin(p * Math.PI) * 0.15; }
   const breath = s.asleep ? Math.sin(t * 1.6) * 0.045 : Math.sin(t * 4) * 0.025;
-  const Rg = R * grow, rx = Rg * (1 - breath * 0.6), ry = Rg * 0.9 * (1 + breath), cy = GROUND - ry - hop;
+  const Rg = R * grow, rx = Rg * (1 - breath * 0.6), ry = Rg * 0.9 * (1 + breath), cy = GROUND - ry - hop - legLift(sp, def, Rg);
   const shk = Math.max(0.3, 1 - hop / 500);
   ell(x, GROUND + 4, Rg * 0.85 * shk * (2 - sy) * shrink, Rg * 0.16 * shk * shrink, `rgba(30,20,10,${0.2 * shk * fade})`);
   const wag = ['happy', 'love', 'laugh', 'joy', 'wink'].includes(md) ? 2.4 : md === 'sad' || md === 'cry' || md === 'tired' ? 0.4 : 1;
+  // the limbs, ears and eyes: a walk cycle at the gait's pace, ears on a spring that lags behind every bounce and turn,
+  // arms up for jumps, dances and cheers, one arm waving hello
+  const mo = pet.mo || (pet.mo = { step: 0, stride: 0, ear: 0, earV: 0, lastY: cy, turn: 0, yaw: 0 });
+  // it turns to face where it walks: its back when heading up the yard, sideways across it, towards us coming down;
+  // standing still it turns back to face the player (the turn itself is smooth, through the side view)
+  let yawTo = 0;
+  if (pet.walking && !flying) { yawTo = Math.atan2(dx, dd * 1.6); yawTo = Math.abs(yawTo) > Math.PI * 0.75 ? Math.PI : yawTo * 0.86; }
+  else if (idle && idle.type === 'pick') yawTo = Math.PI;   // reaching into the tree, its back to us
+  mo.yaw = turnToward(mo.yaw, yawTo, dt, pet.walking ? 8 : 5);
+  const walkOn = pet.walking && ready && !flying && pet.gait !== 'hop';
+  mo.stride += ((walkOn ? 1 : 0) - mo.stride) * Math.min(1, dt * 10);
+  if (walkOn) mo.step += dt * Math.PI * G.f;
+  const vy = dt > 0 ? (cy - mo.lastY) / dt : 0; mo.lastY = cy;
+  if (pet.turnT && pet.turnT !== mo.turn) { mo.turn = pet.turnT; mo.earV += 5; }
+  const earTo = Math.max(-0.45, Math.min(0.6, -vy * 0.0011)) + (s.asleep ? 0.3 : md === 'sad' || md === 'cry' || md === 'tired' ? 0.35 : 0);
+  mo.earV += ((earTo - mo.ear) * 170 - mo.earV * 11) * Math.min(dt, 0.033); mo.ear += mo.earV * Math.min(dt, 0.033);
+  const it = idle && idle.type, ip = idle ? Math.min(1, (T - idle.start) / idle.dur) : 0;
+  const arm = it === 'pick' || it === 'reach' ? 1 : it === 'jump' ? Math.min(1, hop / 40) : it === 'dance' ? 0.5 + Math.sin(t * 8) * 0.5 : it === 'stretch' ? Math.sin(ip * Math.PI) : (md === 'laugh' || md === 'joy') && !pet.walking ? 0.35 + Math.sin(t * 9) * 0.25 : phys.held ? 0.8 : 0;
+  const pose = { step: mo.step, stride: mo.stride, ear: mo.ear, arm, wave: it === 'wave' ? pet.dir : 0, lookY, yaw: mo.yaw };
   ctx.save();
   if (!idle && !game && !flying && !s.asleep) tilt -= weather.gust * 0.06;
   const pivY = phys.held ? cy - ry : phys.air || Math.abs(phys.rot) > 0.05 || (idle && idle.type === 'roll') ? cy : GROUND - hop;
@@ -6714,7 +7466,7 @@ function drawPet(t, dt) {
   ctx.globalAlpha = fade;
   if (fade > 0.02) {
     if (s.variant && VARIANT[s.variant]) ctx.filter = VARIANT[s.variant].filter;
-    drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop });
+    drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop, mo: pose });
     ctx.filter = 'none';
     drawWear(x, cy, ry, Rg, t);
   }
@@ -6851,6 +7603,8 @@ function drawParticles(dt) {
     if (p.type === 'spark') p.vy += 260 * dt;
     p.x += p.vx * dt; p.y += p.vy * dt;
     ctx.globalAlpha = 1 - p.life / p.max;
+    // a particle from something standing in the yard moves in that thing's side-view space
+    if (p.d != null) { const k = depthK(p.d); ctx.save(); ctx.translate(p.ax, p.d); ctx.scale(k, k); ctx.translate(-p.ax, -GROUND); }
     if (p.type === 'heart') { heartPath(p.x + Math.sin(p.life * 6) * 8, p.y, 20 * p.size); ctx.fillStyle = '#ff5d7a'; ctx.fill(); }
     else if (p.type === 'spark') { starPath(p.x, p.y, 12 * p.size); ctx.fillStyle = p.color; ctx.fill(); }
     else if (p.type === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, 14 * p.size, 0, TAU); ctx.fillStyle = 'rgba(220,245,255,.45)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -6871,6 +7625,7 @@ function drawParticles(dt) {
     else if (p.type === 'dust') { ell(p.x, p.y - 6, 12 * p.size * (1 + p.life * 2), 7 * p.size * (1 + p.life), 'rgba(225,205,175,.7)'); }
     else if (p.type === 'drop') { p.vy += 500 * dt; drop(p.x, p.y, 7, 'rgba(110,180,240,.9)'); }
     else if (p.type === 'z') { ctx.fillStyle = '#f2f5ff'; ctx.font = `800 ${Math.round(40 * p.size)}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Z', p.x, p.y); }
+    if (p.d != null) ctx.restore();
   }
   ctx.globalAlpha = 1;
 }
@@ -6949,41 +7704,36 @@ function render(ts) {
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
   if (house) { drawHouse(t, dt); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
-  if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t, dt); } else drawRoom(t);
+  // things standing in the yard (decorations, poops, visitors, the pet) are drawn back to front by their depth
+  const yard = [];
+  if (state && state.hatched) { drawScene(t); drawEventDecor(t); yard.push(...drawDecor(t, dt), ...drawGarden(t)); } else drawRoom(t);
   fillBand();   // the sky band (phones) is stretched from the bare scene, so texts, the pet and particles above it are not smeared
   if (!state || !state.hatched) drawEgg(t);
-  else if (state.trip) { drawPoops(t); drawTripSign(t); }
+  else if (state.trip) { yard.push(...drawPoops(t)); drawByDepth(yard); atDepth(640, D_MID, () => drawTripSign(t)); }
   else {
-    drawPoops(t);
-    if (visitor) drawVisitor(t, dt);
-    drawLiveGuests(t, dt);   // players visiting my house right now
-    const body = drawPet(t, dt);
-    if (anim && anim.type === 'eat') drawFood(anim.food, body);
-    if (anim && anim.type === 'unbox') drawUnbox(body, animP(), anim.item, t);
-    if (anim && anim.type === 'react') reactFX(body, t);
-    drawFlies(t, body);
-    if (talk) drawTalkProp(body, t, talk.kind); else if (bubble && bubble.start) drawTalkProp(body, t, bubble.kind);
-    lastBody = body;
-    if (anim && anim.type === 'pill') {
-      const p = animP(), sx = body.x + body.R * 1.6, sy = body.cy - 40, tx = body.x, ty = body.cy + body.R * 0.15;
-      const px = sx + (tx - sx) * easeOut(p), py = sy + (ty - sy) * easeOut(p) - Math.sin(p * Math.PI) * 60;
-      ctx.save(); ctx.translate(px, py); ctx.rotate(p * 6);
-      rr(-26, -11, 26, 22, 11, '#e8574a'); rr(0, -11, 26, 22, 11, '#ffffff'); ctx.restore();
-    }
-    if (game) drawGame(t);
-    if (anim && anim.type === 'clean') {
-      // a broom sweeps left to right; each poop it reaches is flicked into the dustpan at the right edge
-      const sx = sweepX(), swing = Math.sin(t * 16) * 0.32;
-      drawDustpan(DUSTPAN_X, GROUND + 16);
-      const keepIdx = state.poops.map((p, i) => i).filter(i => poopX(i) - 30 * state.poops[i] > sx);
-      if (keepIdx.length !== state.poops.length) {
-        state.poops.forEach((sz, i) => { if (!keepIdx.includes(i)) { const fx = poopX(i), life = 0.55; spawn('swept', fx, GROUND + 6, { vx: (DUSTPAN_X - fx) / life, vy: -560, max: life, size: sz }); Sound.play('boing', 0.5); } });
-        state.poopAt = keepIdx.map(i => (state.poopAt || [])[i] || now()); state.poops = keepIdx.map(i => state.poops[i]);
+    yard.push(...drawPoops(t));
+    if (visitor) { const v = visitor; yard.push({ d: 520, draw: () => atDepth(v.x, 520, () => drawVisitor(t, dt)) }); }
+    yard.push({ d: 540, draw: () => drawLiveGuests(t, dt) });   // players visiting my house right now (each at its own depth)
+    drawPrints(now());
+    yard.push({ d: petD() == null ? 9999 : pet.d, draw: () => atDepth(pet.x, petD(), () => {
+      const body = drawPet(t, dt);
+      if (anim && anim.type === 'eat') drawFood(anim.food, body);
+      if (anim && anim.type === 'unbox') drawUnbox(body, animP(), anim.item, t);
+      if (anim && anim.type === 'react') reactFX(body, t);
+      drawFlies(t, body);
+      if (talk) drawTalkProp(body, t, talk.kind); else if (bubble && bubble.start) drawTalkProp(body, t, bubble.kind);
+      lastBody = body;
+      if (anim && anim.type === 'pill') {
+        const p = animP(), sx = body.x + body.R * 1.6, sy = body.cy - 40, tx = body.x, ty = body.cy + body.R * 0.15;
+        const px = sx + (tx - sx) * easeOut(p), py = sy + (ty - sy) * easeOut(p) - Math.sin(p * Math.PI) * 60;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(p * 6);
+        rr(-26, -11, 26, 22, 11, '#e8574a'); rr(0, -11, 26, 22, 11, '#ffffff'); ctx.restore();
       }
-      if (Math.random() < 0.7) spawn('dust', sx + 40, GROUND + 8 + Math.random() * 12, { vx: 140 + Math.random() * 90, vy: -30 - Math.random() * 50, max: 0.7, size: 0.7 + Math.random() * 0.7 });
-      if (Math.random() < 0.3) spawn('spark', sx - 70 - Math.random() * 120, GROUND - Math.random() * 50, { vx: 0, vy: -60, max: 0.6, size: 0.5, color: '#ffffff' });
-      drawBroom(sx, GROUND + 16, swing);
-    }
+    }) });
+    if (anim && anim.type === 'clean') { const c = cleanSpot(); if (c) yard.push({ d: c.d + 2, draw: () => drawCleaning(t) }); }
+    drawByDepth(yard);
+    if (!game) drawGardenBar(meta.garden);
+    if (game) drawGame(t);
     if (state.asleep && state.lightOff) {
       ctx.fillStyle = 'rgba(8,12,34,.74)'; ctx.fillRect(0, -padTop, LW, LH + padTop);
       const g = ctx.createRadialGradient(310, 210, 20, 310, 260, 420); g.addColorStop(0, 'rgba(170,190,255,.22)'); g.addColorStop(1, 'rgba(170,190,255,0)');
@@ -7003,7 +7753,7 @@ function render(ts) {
   if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
   drawBanner();
   worldSpace();
-  if (bubble && lastBody && state && state.hatched) drawBubble(lastBody, t);
+  if (bubble && lastBody && state && state.hatched) drawBubble(bodyOnScreen(lastBody), t);
   if (shotQ.length) takeShots();
   requestAnimationFrame(render);
 }
@@ -7065,7 +7815,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261103103544';
+  const BUILD = '20261103155012';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
