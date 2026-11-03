@@ -4038,7 +4038,7 @@ async function claimGifts() {
                walking about live, and two of them can play rock-paper-scissors */
 const RPS_COIN = 5, RPS_DAILY = 5, RPS_ICON = { r: '✊', p: '✋', s: '✌️' }, RPS_NAME = { r: 'Búa', p: 'Bao', s: 'Kéo' };
 const Live = {
-  lobby: null, room: null, roomCode: '', others: {}, online: {}, lastSent: 0, lastX: null, lastTrack: 0, rps: null,
+  lobby: null, room: null, roomCode: '', others: {}, online: {}, lastSent: 0, lastX: null, lastTrack: 0, lastInfo: '', rps: null,
   info() { const s = state || {}; return { u: Net.username, code: Net.code, name: s.name || '', sp: s.species || '', idx: s.stageIdx || 0, wear: meta.wear || {}, variant: s.variant || '', x: Math.round(this.myX()), at: house ? house.username : '' }; },
   myX() { return house ? houseMe.x : pet.x; },
   start() {
@@ -4056,18 +4056,20 @@ const Live = {
     this.leaveRoom(); this.roomCode = code;
     const ch = Net.sb.channel('house-' + code, { config: { presence: { key: Net.username }, broadcast: { self: false } } });
     ch.on('presence', { event: 'sync' }, () => this.syncOthers())
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => this.joined(key, (newPresences || [])[0]))
-      .on('presence', { event: 'leave' }, ({ key }) => this.left(key))
+      // re-tracking shows up as a leave of the old presence and a join of the new one under the same key: an update, not a
+      // real departure and return (that used to reset the visitor's pet, cancel a game and repeat the banners every 20 s)
+      .on('presence', { event: 'join' }, ({ key, currentPresences, newPresences }) => { if (!(currentPresences && currentPresences.length) && !this.others[key]) this.joined(key, (newPresences || [])[0]); })
+      .on('presence', { event: 'leave' }, ({ key, currentPresences }) => { if (!(currentPresences && currentPresences.length)) this.left(key); })
       .on('broadcast', { event: 'pos' }, ({ payload }) => { const o = this.others[payload.u]; if (o) o.tx = payload.x; })
       .on('broadcast', { event: 'rps' }, ({ payload }) => this.rpsMsg(payload))
-      .subscribe(st => { if (st === 'SUBSCRIBED') { ch.track(this.info()); this.lastTrack = now(); } });
+      .subscribe(st => { if (st === 'SUBSCRIBED') { const inf = this.info(); ch.track(inf); this.lastTrack = now(); this.lastInfo = JSON.stringify({ ...inf, x: 0 }); } });
     this.room = ch;
   },
   leaveRoom() { if (this.room) { try { Net.sb.removeChannel(this.room); } catch (e) {} } this.room = null; this.roomCode = ''; this.others = {}; this.rpsEnd(); },
   syncOthers() {
     const ps = this.flat(this.room ? this.room.presenceState() : {});
     for (const k of Object.keys(this.others)) if (!ps[k]) delete this.others[k];
-    for (const [k, p] of Object.entries(ps)) { const o = this.others[k]; this.others[k] = { ...p, x: o ? o.x : (p.x < 640 ? -160 : LW + 160), tx: o && o.tx != null ? o.tx : p.x }; }
+    for (const [k, p] of Object.entries(ps)) { const o = this.others[k]; this.others[k] = { ...(o || {}), ...p, x: o ? o.x : (p.x < 640 ? -160 : LW + 160), tx: o && o.tx != null ? o.tx : p.x }; }
     syncMode(true);
   },
   joined(key, p) {
@@ -4085,7 +4087,10 @@ const Live = {
     if (!this.lobby) return;
     const where = house ? house.code : Net.code;
     if (this.roomCode !== where) { this.joinRoom(where); try { this.lobby.track(this.info()); } catch (e) {} }
-    if (this.room && T - this.lastTrack > 20000) { this.lastTrack = T; try { this.room.track(this.info()); this.lobby.track(this.info()); } catch (e) {} }
+    if (this.room && T - this.lastTrack > 20000) {
+      this.lastTrack = T; const inf = this.info(), sig = JSON.stringify({ ...inf, x: 0 });
+      if (sig !== this.lastInfo) { this.lastInfo = sig; try { this.room.track(inf); this.lobby.track(inf); } catch (e) {} }
+    }
     if (this.room && this.count() && T - this.lastSent > 330) {
       const x = Math.round(this.myX());
       if (x !== this.lastX || T - this.lastSent > 4000) { this.lastSent = T; this.lastX = x; this.room.send({ type: 'broadcast', event: 'pos', payload: { u: Net.username, x } }); }
@@ -7933,7 +7938,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261103164758';
+  const BUILD = '20261103165637';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
