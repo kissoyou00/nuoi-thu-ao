@@ -122,6 +122,20 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 .talk-act button.alt { background: transparent; color: #2b2220; box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
 .talk-act button:focus-visible { outline: 3px solid #2b2220; outline-offset: 2px; }
 #talkRead { display: none; }
+/* live rock-paper-scissors with another player in the same house */
+.rpscard {
+  position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 5; width: min(340px, calc(100% - 32px)); box-sizing: border-box;
+  background: linear-gradient(#fffaf0, #ffe8cc); color: #2b2220; border-radius: 18px; padding: 12px 16px; display: grid; gap: 8px; text-align: center;
+  box-shadow: inset 0 0 0 3px #f08c00, 0 14px 34px rgba(0,0,0,.32); animation: npIn .3s ease-out;
+}
+.rpscard b { font-size: 16px; } .rpscard p { margin: 0; font-size: 14px; line-height: 1.4; }
+.rpscard .talk-act { justify-content: center; }
+.rps-hands { display: flex; gap: 10px; justify-content: center; }
+.rps-hands button { font-size: 34px; line-height: 1; width: 78px; padding: 8px 0 6px; border-radius: 16px; border: 0; cursor: pointer; background: #fff; box-shadow: 0 3px 0 #e8a33d, 0 0 0 2px #f08c00 inset; display: grid; gap: 4px; justify-items: center; }
+.rps-hands button small { font: 700 12px var(--body); color: #7a4a10; }
+.rps-hands button:active { transform: translateY(2px); box-shadow: 0 1px 0 #e8a33d, 0 0 0 2px #f08c00 inset; }
+.rps-vs { font-size: 44px; } .rps-vs span { font: 800 16px var(--body); color: #b0692a; vertical-align: middle; margin: 0 8px; }
+.p-online { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2fb344; box-shadow: 0 0 0 2px rgba(47,179,68,.25); margin-right: 5px; vertical-align: 1px; }
 /* a new guestbook note: a small card under the pet's status bar (top/left set from the canvas size in JS) */
 .notepop {
   position: absolute; left: 24px; top: 60px; z-index: 4; width: min(320px, calc(100% - 48px)); box-sizing: border-box;
@@ -456,6 +470,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         </form>
         <button type="button" class="p-btn alt" id="authOffline">Chơi ngoại tuyến (không có hàng xóm)</button>
       </div>
+      <div class="rpscard" id="rpsCard" hidden role="dialog" aria-live="polite"></div>
       <div class="notepop" id="notePop" hidden role="dialog" aria-labelledby="npTitle">
         <div class="np-head"><b id="npTitle">✍️ Lời nhắn mới</b><span id="npCount"></span><button type="button" class="np-x" id="npClose" aria-label="Đóng lời nhắn">✕</button></div>
         <p id="npText"></p>
@@ -1968,11 +1983,11 @@ const ICON_LABEL = {
   's-on': 'Bật đèn', 's-off': 'Tắt đèn', 's-wake': 'Đánh thức', newpet: 'Nuôi bé mới',
   'm-more': 'Thêm: nhiệm vụ, cửa hàng, phiêu lưu...', 'x-quest': 'Nhiệm vụ ngày và tuần', 'x-shop': 'Cửa hàng', 'x-trip': 'Đi phiêu lưu', 'x-train': 'Dạy kỹ năng',
   'x-album': 'Album ảnh', 'x-share': 'Thẻ khoe thú', 'x-visit': 'Thăm nhà bạn bè', 'x-recall': 'Gọi bé về sớm',
-  'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà',
+  'x-closet': 'Tủ đồ: đồ đã có, đeo và bày', 'x-hood': 'Hàng xóm: địa chỉ nhà, ghé thăm, quà', 'x-rand': 'Ghé một nhà bất kỳ', 'h-gift': 'Tặng quà', 'h-steal': 'Lẻn vào lấy đồ', 'h-note': 'Để lại lời nhắn', 'h-home': 'Về nhà', 'h-rps': 'Oẳn tù tì với người đang ở đây',
 };
 // the extras menu uses emoji pictures
 const EMO_ICON = { 'm-more': '✨', 'x-quest': '📋', 'x-shop': '🛍️', 'x-trip': '🎒', 'x-train': '🎓', 'x-album': '📷', 'x-share': '🖼️', 'x-visit': '🏡', 'x-recall': '📣',
-  'x-closet': '👗', 'x-hood': '🏘️', 'x-rand': '🎲', 't-joke': '😂', 't-riddle': '🤔', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠' };
+  'x-closet': '👗', 'x-hood': '🏘️', 'x-rand': '🎲', 't-joke': '😂', 't-riddle': '🤔', 'h-gift': '🎁', 'h-steal': '🦝', 'h-note': '✍️', 'h-home': '🏠', 'h-rps': '✊' };
 const CUP_X = [400, 620, 840], CUP_Y = 560;
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'], SUITS = ['♠', '♥', '♦', '♣'];
 const newCard = () => ({ v: 1 + Math.floor(Math.random() * 13), s: Math.floor(Math.random() * 4) });
@@ -2323,6 +2338,8 @@ function act(a) {
   idle = null; bubble = null;
   if (talk && !['fortune', 'news', 'fact', 'joke', 'riddle', 'talk'].includes(a)) closeTalk();
   if (a === 'x-rand') { randomVisit(); return; }
+  // challenge someone who is here right now (the house owner first, when visiting)
+  if (a === 'h-rps') { const opp = house && Live.others[house.username] ? house.username : Object.keys(Live.others)[0]; if (opp) Live.rpsInvite(opp); else say('Không còn ai ở đây để chơi cùng.', 3000); return; }
   if (a.startsWith('h-')) {
     if (!house) return;
     if (a === 'h-home') leaveHouse();
@@ -2392,10 +2409,10 @@ function startOver() {
 /* ---------- controls ---------- */
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
-  main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep'], ['more', 'm-more']],
+  main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['more', 'm-more']]),
   more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], Net.online ? ['x-rand', 'x-rand'] : ['x-trip', 'x-trip'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
   trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
-  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note'], ['x-rand', 'x-rand'], ['h-home', 'h-home']],
+  house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['x-rand', 'x-rand'], ['h-home', 'h-home']]),
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
@@ -2409,7 +2426,7 @@ function syncMode(force) {
   if (panelKind && !['more', 'trip', 'house'].includes(m)) closePanel();
   $('setup').hidden = m !== 'setup';
   $('pad').hidden = m === 'setup' || m === 'egg';
-  const ready = questReady() || Net.gifts > 0, key = (Net.online ? 'o' : '') + m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '') + (ready ? 'q' : '') + (eventNow() || '');
+  const ready = questReady() || Net.gifts > 0, key = (Net.online ? 'o' + Live.count() : '') + m + (state && state.lightOff ? '1' : '0') + (game ? game.type + game.phase : '') + (ready ? 'q' : '') + (eventNow() || '');
   if (!force && key === syncMode.last) return;
   syncMode.last = key;
   $('pad').parentElement.classList.toggle('wide', m === 'food' || m === 'more');
@@ -3502,7 +3519,7 @@ async function visitHouse(code) {
   try {
     const h = await Net.rpc('visit_house', { code: await houseCodeFor(code) });
     if (h.mine) { say('Đây là nhà của bạn mà!', 3000); return; }
-    house = { ...h, t0: now(), mood: '', moodUntil: 0 }; quest('trip');
+    house = { ...h, t0: now(), mood: '', moodUntil: 0 }; houseMe.x = houseMe.tx = 440; houseMe.next = now() + 3000; quest('trip');
     closePanel(); moreMenu = false; idle = null; bubble = null; closeTalk();
     say(h.pet ? `Bạn đang ở nhà @${h.username}. ${h.pet.alive ? `${h.pet.name} ra chào bạn!` : 'Bé thú nhà này đã rời đi.'}` : `Nhà @${h.username} chưa có thú.`, 5000);
     Sound.play('ping'); syncMode(true);
@@ -3631,16 +3648,156 @@ async function claimGifts() {
   } catch (e) { say(errText(e), 4000); }
   save(); renderSide(); syncMode(true);
 }
+/* ---------- live play: players online at the same moment (Supabase Realtime presence + broadcast, no tables) ----------
+   lobby       everyone online, with where they are: the "who's online" list in the neighbours panel
+   house-CODE  whoever is in that house right now (the owner at home and any visitors): each sees the others' pets
+               walking about live, and two of them can play rock-paper-scissors */
+const RPS_COIN = 5, RPS_DAILY = 5, RPS_ICON = { r: '✊', p: '✋', s: '✌️' }, RPS_NAME = { r: 'Búa', p: 'Bao', s: 'Kéo' };
+const Live = {
+  lobby: null, room: null, roomCode: '', others: {}, online: {}, lastSent: 0, lastX: null, lastTrack: 0, rps: null,
+  info() { const s = state || {}; return { u: Net.username, code: Net.code, name: s.name || '', sp: s.species || '', idx: s.stageIdx || 0, wear: meta.wear || {}, variant: s.variant || '', x: Math.round(this.myX()), at: house ? house.username : '' }; },
+  myX() { return house ? houseMe.x : pet.x; },
+  start() {
+    if (!Net.online || !Net.sb || this.lobby) return;
+    try {
+      this.lobby = Net.sb.channel('thu-ao-lobby', { config: { presence: { key: Net.username } } });
+      this.lobby.on('presence', { event: 'sync' }, () => { this.online = this.flat(this.lobby.presenceState()); if (panelKind === 'hood') renderPanel(); syncMode(true); })
+        .subscribe(st => { if (st === 'SUBSCRIBED') this.lobby.track(this.info()); });
+    } catch (e) { this.lobby = null; return; }
+    this.tick(now());
+  },
+  flat(ps) { const o = {}; for (const [k, arr] of Object.entries(ps || {})) if (k !== Net.username && arr && arr[0]) o[k] = arr[arr.length - 1]; return o; },
+  joinRoom(code) {
+    if (this.roomCode === code) return;
+    this.leaveRoom(); this.roomCode = code;
+    const ch = Net.sb.channel('house-' + code, { config: { presence: { key: Net.username }, broadcast: { self: false } } });
+    ch.on('presence', { event: 'sync' }, () => this.syncOthers())
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => this.joined(key, (newPresences || [])[0]))
+      .on('presence', { event: 'leave' }, ({ key }) => this.left(key))
+      .on('broadcast', { event: 'pos' }, ({ payload }) => { const o = this.others[payload.u]; if (o) o.tx = payload.x; })
+      .on('broadcast', { event: 'rps' }, ({ payload }) => this.rpsMsg(payload))
+      .subscribe(st => { if (st === 'SUBSCRIBED') { ch.track(this.info()); this.lastTrack = now(); } });
+    this.room = ch;
+  },
+  leaveRoom() { if (this.room) { try { Net.sb.removeChannel(this.room); } catch (e) {} } this.room = null; this.roomCode = ''; this.others = {}; this.rpsEnd(); },
+  syncOthers() {
+    const ps = this.flat(this.room ? this.room.presenceState() : {});
+    for (const k of Object.keys(this.others)) if (!ps[k]) delete this.others[k];
+    for (const [k, p] of Object.entries(ps)) { const o = this.others[k]; this.others[k] = { ...p, x: o ? o.x : (p.x < 640 ? -160 : LW + 160), tx: o && o.tx != null ? o.tx : p.x }; }
+    syncMode(true);
+  },
+  joined(key, p) {
+    if (key === Net.username || !p) return;
+    const home = this.roomCode === Net.code, owner = house && key === house.username;
+    queueBanner(home ? { title: `@${key} đang ghé chơi!`, sub: `${p.name || 'Bé'} nhà @${key} vừa sang nhà bạn`, color: '#12b886', dur: 4500 }
+      : owner ? { title: `@${key} đang ở nhà`, sub: 'Chủ nhà đang online, hai bé gặp nhau rồi!', color: '#12b886', dur: 4000 }
+      : { title: `@${key} cũng đang ở đây`, sub: 'Một người khách nữa vừa đến', color: '#4c6ef5', dur: 3500 });
+    Sound.play('ping'); if (state && state.hatched && !house) { setFace('laugh', 2000); setEmote('heart', 2000); }
+  },
+  left(key) { if (key === Net.username) return; delete this.others[key]; if (this.rps && this.rps.opp === key) { say(`@${key} đã rời đi, ván oẳn tù tì bị hủy.`, 3500); this.rpsEnd(); } else if (now() > sayUntil) say(`@${key} đã rời đi.`, 2500); syncMode(true); },
+  count() { return Object.keys(this.others).length; },
+  // called every 100 ms: follow the player between rooms, keep the presence fresh, send my pet's position when it moves
+  tick(T) {
+    if (!this.lobby) return;
+    const where = house ? house.code : Net.code;
+    if (this.roomCode !== where) { this.joinRoom(where); try { this.lobby.track(this.info()); } catch (e) {} }
+    if (this.room && T - this.lastTrack > 20000) { this.lastTrack = T; try { this.room.track(this.info()); this.lobby.track(this.info()); } catch (e) {} }
+    if (this.room && this.count() && T - this.lastSent > 330) {
+      const x = Math.round(this.myX());
+      if (x !== this.lastX || T - this.lastSent > 4000) { this.lastSent = T; this.lastX = x; this.room.send({ type: 'broadcast', event: 'pos', payload: { u: Net.username, x } }); }
+    }
+    if (this.rps && this.rps.deadline && T > this.rps.deadline) this.rpsTimeout();
+  },
+  send(payload) { if (this.room) this.room.send({ type: 'broadcast', event: 'rps', payload: { ...payload, from: Net.username } }); },
+  /* rock-paper-scissors: invite → accept → both lock a choice → both reveal → result (each side works it out) */
+  rpsInvite(to) {
+    if (!to || this.rps) return;
+    this.rps = { id: Math.random().toString(36).slice(2, 8), opp: to, stage: 'wait', deadline: now() + 15000 };
+    this.send({ t: 'invite', id: this.rps.id, to }); rpsRender();
+  },
+  rpsMsg(m) {
+    if (m.to && m.to !== Net.username) return;
+    const r = this.rps;
+    if (m.t === 'invite') { if (r) { this.send({ t: 'busy', id: m.id, to: m.from }); return; } this.rps = { id: m.id, opp: m.from, stage: 'asked', deadline: now() + 15000 }; Sound.play('ping'); rpsRender(); return; }
+    if (!r || m.id !== r.id || m.from !== r.opp) return;
+    if (m.t === 'busy' || m.t === 'no') { say(m.t === 'busy' ? `@${r.opp} đang bận một ván khác.` : `@${r.opp} chưa muốn chơi lúc này.`, 3500); this.rpsEnd(); return; }
+    if (m.t === 'yes' && r.stage === 'wait') { r.stage = 'pick'; r.deadline = now() + 10000; rpsRender(); return; }
+    if (m.t === 'lock') { r.oppLocked = true; this.rpsMaybeReveal(); rpsRender(); return; }
+    if (m.t === 'reveal') { r.oppPick = m.pick; this.rpsMaybeResult(); return; }
+  },
+  rpsAnswer(yes) { const r = this.rps; if (!r || r.stage !== 'asked') return; this.send({ t: yes ? 'yes' : 'no', id: r.id, to: r.opp }); if (!yes) { this.rpsEnd(); return; } r.stage = 'pick'; r.deadline = now() + 10000; rpsRender(); },
+  rpsPick(k) { const r = this.rps; if (!r || r.stage !== 'pick' || r.pick) return; r.pick = k; this.send({ t: 'lock', id: r.id, to: r.opp }); Sound.play('click'); this.rpsMaybeReveal(); rpsRender(); },
+  // reveal only once both have locked a choice, so neither can wait and react
+  rpsMaybeReveal() { const r = this.rps; if (r && r.pick && r.oppLocked && !r.revealed) { r.revealed = true; this.send({ t: 'reveal', id: r.id, to: r.opp, pick: r.pick }); this.rpsMaybeResult(); } },
+  rpsMaybeResult() {
+    const r = this.rps; if (!r || !r.pick || !r.oppPick || r.stage === 'done') return;
+    const beats = { r: 's', p: 'r', s: 'p' }, res = r.pick === r.oppPick ? 0 : beats[r.pick] === r.oppPick ? 1 : -1;
+    r.stage = 'done'; r.res = res; r.deadline = now() + 6000;
+    if (res > 0) {
+      const d = dayKey(); if (!meta.rpsWins || meta.rpsWins.day !== d) meta.rpsWins = { day: d, n: 0 };
+      r.paid = meta.rpsWins.n < RPS_DAILY; if (r.paid) { meta.rpsWins.n++; giveCoins(RPS_COIN); }
+      saveMeta(); quest('win'); Sound.play('win'); if (state && state.hatched) { setFace('laugh', 2500); setEmote('heart', 2500); }
+    } else if (res < 0) { Sound.play('lose'); if (state && state.hatched) setFace('sad', 2000); } else Sound.play('boing');
+    rpsRender(); renderSide();
+  },
+  rpsTimeout() {
+    const r = this.rps; if (!r) return;
+    if (r.stage === 'pick' && !r.pick) { this.rpsPick(pick(['r', 'p', 's'])); r.deadline = now() + 6000; return; }   // too slow: a random hand
+    if (r.stage === 'done') { this.rpsEnd(); return; }
+    if (r.stage === 'wait') say(`@${r.opp} không trả lời.`, 3000);
+    this.rpsEnd();
+  },
+  rpsEnd() { this.rps = null; rpsRender(); },
+};
+// my pet while visiting: it wanders about their house (and the hosts see it move)
+const houseMe = { x: 440, tx: 440, next: 0 };
+function moveHouseMe(dt) {
+  const T = now(); if (T > houseMe.next) { houseMe.tx = 260 + Math.random() * 760; houseMe.next = T + 4000 + Math.random() * 4000; }
+  const d = houseMe.tx - houseMe.x; if (Math.abs(d) > 2) houseMe.x += Math.sign(d) * Math.min(Math.abs(d), 90 * dt);
+  return d;
+}
+// another player's pet, walking smoothly to where they report it
+function drawLivePet(o, t, dt, label) {
+  const sp = spById(o.sp); if (!sp) return;
+  const d = (o.tx != null ? o.tx : o.x) - o.x, walking = Math.abs(d) > 3;
+  if (walking) o.x += Math.sign(d) * Math.min(Math.abs(d), 150 * dt);
+  if (walking) o.dir = Math.sign(d);
+  const b = drawCreatureAt(sp, o.idx, o.x, sp.stages[Math.min(o.idx, sp.stages.length - 1)].R * 0.85, t + o.x * 0.01, 'happy', o.dir || -1, o.wear, o.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0);
+  pillLabel(label, o.x, b.cy - b.ry - b.R * 0.7);
+}
+function drawLiveGuests(t, dt) { for (const [u, o] of Object.entries(Live.others)) if (!house || u !== house.username) drawLivePet(o, t, dt, `🟢 @${u}`); }
+// the rock-paper-scissors card
+function rpsRender() {
+  const el = $('rpsCard'), r = Live.rps; if (!el) return;
+  if (!r) { el.hidden = true; return; }
+  const left = Math.max(0, Math.ceil((r.deadline - now()) / 1000)), opp = `@${esc(r.opp)}`;
+  let h = '';
+  if (r.stage === 'wait') h = `<b>✊ Oẳn tù tì</b><p>Đang chờ ${opp} nhận lời... (${left}s)</p><div class="talk-act"><button type="button" class="alt" data-rps="cancel">Hủy</button></div>`;
+  else if (r.stage === 'asked') h = `<b>✊ ${opp} thách bạn oẳn tù tì!</b><p>Thắng được ${RPS_COIN} xu (tối đa ${RPS_DAILY} ván thắng có thưởng mỗi ngày).</p><div class="talk-act"><button type="button" class="alt" data-rps="no">Để sau</button><button type="button" data-rps="yes">Chơi luôn</button></div>`;
+  else if (r.stage === 'pick') h = `<b>✊ Ra gì đây? (${left}s)</b><p>${r.pick ? `Bạn ra ${RPS_ICON[r.pick]} · ${r.oppLocked ? 'đang mở bài...' : `chờ ${opp} chọn...`}` : `${r.oppLocked ? `${opp} đã chọn xong!` : `${opp} đang chọn...`}`}</p>` +
+    (r.pick ? '' : `<div class="rps-hands">${['r', 'p', 's'].map(k => `<button type="button" data-rps="pick:${k}" aria-label="${RPS_NAME[k]}">${RPS_ICON[k]}<small>${RPS_NAME[k]}</small></button>`).join('')}</div>`);
+  else if (r.stage === 'done') h = `<b>${r.res > 0 ? '🎉 Bạn thắng!' : r.res < 0 ? '😵 Bạn thua rồi!' : '🤝 Hòa!'}</b><p class="rps-vs">${RPS_ICON[r.pick]} <span>vs</span> ${RPS_ICON[r.oppPick]}</p><p>${r.res > 0 ? (r.paid ? `+${RPS_COIN} xu!` : 'Hôm nay đã hết lượt thắng có thưởng.') : `Bạn ra ${RPS_NAME[r.pick]}, ${opp} ra ${RPS_NAME[r.oppPick]}.`}</p><div class="talk-act"><button type="button" class="alt" data-rps="close">Đóng</button><button type="button" data-rps="again">Chơi lại</button></div>`;
+  el.innerHTML = h; el.hidden = false;
+}
+$('rpsCard').addEventListener('click', e => {
+  const b = e.target.closest('[data-rps]'); if (!b) return;
+  const [c, k] = b.dataset.rps.split(':'), r = Live.rps;
+  if (c === 'yes' || c === 'no') Live.rpsAnswer(c === 'yes');
+  if (c === 'pick') Live.rpsPick(k);
+  if (c === 'cancel' || c === 'close') { if (r && r.stage === 'wait') Live.send({ t: 'no', id: r.id, to: r.opp }); Live.rpsEnd(); }
+  if (c === 'again' && r) { const opp = r.opp; Live.rpsEnd(); if (Live.others[opp]) Live.rpsInvite(opp); else say(`@${opp} đã rời đi.`, 3000); }
+});
+setInterval(() => { if (Live.rps && Live.rps.stage !== 'done' && Live.rps.stage !== 'asked') rpsRender(); }, 1000);
 // their home: their habitat, their decorations, their pet (and mine, visiting)
-function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant) {
-  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
+function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0) {
+  const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = walkHop || Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob;
   ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(30,20,10,.2)');
   ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
   drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = wear || {}; drawWear(x, cy, ry, Rr, t); meta.wear = mine; ctx.restore();
   return { cy, ry, R: Rr };
 }
-function drawHouse(t) {
+function drawHouse(t, dt = 0.016) {
   const h = house, p = h.pet, sp = p ? spById(p.species) : null;
   const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod); BACKDROPS[theme].live(t, tod);
@@ -3651,16 +3808,27 @@ function drawHouse(t) {
   drawDecorFX(t, h.decor || [], id => DECOR_X[id]);
   drawDepthHaze(theme, tod); h.theme = theme; h.tod = tod;
   fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
+  // the owner's pet: walking live where the owner's game has it when they are online, otherwise standing at home
+  const ownerLive = Live.others[h.username];
   if (p && p.alive) {
-    const md = h.moodUntil > now() ? h.mood : 'happy', b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
-    if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 820, b.cy - b.ry, b.R, t);
-    pillLabel(p.name, 820, b.cy - b.ry - b.R * 0.7);
+    const md = h.moodUntil > now() ? h.mood : 'happy';
+    if (ownerLive) { ownerLive.sp = ownerLive.sp || p.species; drawLivePet(ownerLive, t, dt, `🟢 ${p.name}`); }
+    else {
+      const b = drawCreatureAt(sp, p.stageIdx, 820, 0, t, md, -1, h.wear, p.variant);
+      if (h.moodUntil > now()) drawEmote(h.mood === 'angry' ? 'vein' : 'heart', 820, b.cy - b.ry, b.R, t);
+      pillLabel(p.name, 820, b.cy - b.ry - b.R * 0.7);
+    }
   } else {
     ctx.font = '700 30px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.9)';
     ctx.fillText(p ? 'Bé thú nhà này đã rời đi' : 'Nhà này chưa có thú', 820, GROUND - 120);
   }
-  if (state && state.hatched && state.alive && !state.trip) { const b = drawCreatureAt(curSp(), state.stageIdx, 440, curDef().R * 0.85, t + 1, 'happy', 1, meta.wear, state.variant); pillLabel(`${state.name} (khách)`, 440, b.cy - b.ry - b.R * 0.7); }
-  scaled(640, 44, () => pillLabelRaw(`🏠 Nhà của @${h.username}`, 640, 44));
+  drawLiveGuests(t, dt);   // other visitors who are here right now
+  if (state && state.hatched && state.alive && !state.trip) {
+    const d = moveHouseMe(dt), walking = Math.abs(d) > 3;
+    const b = drawCreatureAt(curSp(), state.stageIdx, houseMe.x, curDef().R * 0.85, t + 1, 'happy', walking ? Math.sign(d) : 1, meta.wear, state.variant, walking ? Math.abs(Math.sin(t * 9)) * 12 : 0);
+    pillLabel(`${state.name} (khách)`, houseMe.x, b.cy - b.ry - b.R * 0.7);
+  }
+  scaled(640, 44, () => pillLabelRaw(ownerLive ? `🏠 Nhà của @${h.username} · 🟢 đang ở nhà` : `🏠 Nhà của @${h.username}`, 640, 44));
 }
 
 /* the extras card */
@@ -3713,8 +3881,15 @@ function renderPanel() {
       <p class="muted">Địa chỉ nhà chính là tên đăng nhập. Gửi địa chỉ hoặc link cho bạn bè để họ ghé thăm, tặng quà, để lại lời nhắn. Cẩn thận: người có bé thú lớn tuổi hơn và hiếm hơn bé nhà bạn có thể lẻn vào lấy đồ!</p>
       ${Net.gifts ? `<div class="p-row"><span>🎁 <b>${Net.gifts} món quà</b> đang chờ bạn</span><button class="p-btn" data-p="claim">Nhận quà</button></div>` : ''}
       <div class="p-row"><input class="p-input" id="hoodCode" placeholder="Nhập địa chỉ nhà, vd: minh1234" maxlength="40" autocapitalize="none" spellcheck="false"><button class="p-btn" data-p="go">Ghé thăm</button></div>
+      ${(() => {
+        // who is online right now (live), and where they are
+        const on = Object.values(Live.online);
+        return `<div class="p-sec"><span class="p-online"></span>Đang online (${on.length})</div>` + (on.length
+          ? `<div class="p-list">${on.slice(0, 12).map(x => { const sp = SPECIES.find(s => s.id === x.sp); return `<div class="p-row"><span><span class="p-online"></span><b>@${esc(x.u)}</b> · ${esc(x.name || '')}<small>${sp ? `${sp.stages[Math.min(x.idx || 0, sp.stages.length - 1)].name} · ` : ''}${x.at ? (x.at === Net.username ? 'đang ở nhà bạn' : `đang thăm @${esc(x.at)}`) : 'đang ở nhà'}</small></span>${x.at === Net.username ? '' : `<button class="p-btn" data-p="go:${esc(x.code)}">Ghé</button>`}</div>`; }).join('')}</div>`
+          : `<p class="muted">${Live.lobby ? 'Chưa có ai khác đang online. Rủ bạn bè vào chơi cùng nhé!' : 'Đang kết nối...'}</p>`);
+      })()}
       <div class="p-sec">Hàng xóm vừa chơi</div>
-      <div class="p-list">${nb.length ? nb.map(x => { const sp = SPECIES.find(s => s.id === x.species); return `<div class="p-row"><span><b>@${esc(x.username)}</b> · ${esc(x.pet || '')}<small>${sp ? `${sp.stages[Math.min(x.stage, sp.stages.length - 1)].name} · ${RARITY[sp.rarity].label}` : ''} · ${ago(x.last_seen)}</small></span><button class="p-btn alt" data-p="go:${x.code}">Ghé</button></div>`; }).join('') : '<p class="muted">Đang tải...</p>'}</div>
+      <div class="p-list">${nb.length ? nb.map(x => { const sp = SPECIES.find(s => s.id === x.species); return `<div class="p-row"><span>${Live.online[x.username] ? '<span class="p-online"></span>' : ''}<b>@${esc(x.username)}</b> · ${esc(x.pet || '')}<small>${sp ? `${sp.stages[Math.min(x.stage, sp.stages.length - 1)].name} · ${RARITY[sp.rarity].label}` : ''} · ${ago(x.last_seen)}</small></span><button class="p-btn alt" data-p="go:${x.code}">Ghé</button></div>`; }).join('') : '<p class="muted">Đang tải...</p>'}</div>
       ${(ib.visits || []).length ? `<div class="p-sec">Ai vừa ghé nhà bạn</div><p>${ib.visits.map(v => `<a href="#" data-p="go:${v.code}">@${esc(v.username)}</a> (${ago(v.at)})`).join(', ')}</p>` : ''}
       ${(() => {
         // theft history: what was taken from this house, and what this player took from others
@@ -6772,7 +6947,7 @@ function render(ts) {
   resize(); moveCamera(dt); worldSpace(); bandDone = false;
   uiK =Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
-  if (house) { drawHouse(t); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
+  if (house) { drawHouse(t, dt); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
   if (state && state.hatched) { drawScene(t); drawEventDecor(t); drawDecor(t, dt); } else drawRoom(t);
   fillBand();   // the sky band (phones) is stretched from the bare scene, so texts, the pet and particles above it are not smeared
@@ -6781,6 +6956,7 @@ function render(ts) {
   else {
     drawPoops(t);
     if (visitor) drawVisitor(t, dt);
+    drawLiveGuests(t, dt);   // players visiting my house right now
     const body = drawPet(t, dt);
     if (anim && anim.type === 'eat') drawFood(anim.food, body);
     if (anim && anim.type === 'unbox') drawUnbox(body, animP(), anim.item, t);
@@ -6872,6 +7048,7 @@ function start(snap) {
   window.addEventListener('pagehide', () => { save(); Net.push(); });
   if (Net.online) {
     setInterval(() => Net.poll(), 45000); setTimeout(() => Net.poll(), 3000);
+    Live.start(); setInterval(() => Live.tick(now()), 100);   // live presence: who's online, who's in the same house
     say(`Chào @${Net.username}! Địa chỉ nhà của bạn là @${Net.username}.`, 5000);
     const tag = $('addrTag'); tag.textContent = '@' + Net.username; tag.hidden = false;
     tag.addEventListener('click', () => { if (state && state.hatched && state.alive && !game && !house) { moreMenu = true; openPanel('hood'); syncMode(true); } });
@@ -6888,7 +7065,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261030165403';
+  const BUILD = '20261103103544';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
