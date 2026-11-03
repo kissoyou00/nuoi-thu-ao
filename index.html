@@ -361,6 +361,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outli
 .swatches input:checked + span.dot { border-color: var(--shell-ink); box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
 .swatches input:focus-visible + span.dot { outline: 3px solid var(--shell-ink); outline-offset: 2px; }
 
+/* iPad and iPhone Safari zoom the page in when a text box under 16px gets the keyboard (and the zoom lock then kept the
+   player from zooming back out), so on touch screens every text box uses at least 16px */
+@media (pointer: coarse) { input, textarea, select, .p-input, .notepop.tight .np-reply .p-input { font-size: 16px; } }
+/* tablets: the screen is big, so the picture buttons are too */
+@media (pointer: coarse) and (min-width: 601px) and (min-height: 521px) {
+  .pad { gap: 10px; }
+  .pad button.icon, .pad button.food, .device .pad button.icon, .device .pad button.food { width: 74px; height: 74px; padding: 5px; border-radius: 18px; }
+}
 /* ---------- care sheet ---------- */
 .side { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: start; }
 @media (max-width: 780px) { .side { grid-template-columns: minmax(0, 1fr); } }
@@ -432,6 +440,22 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
 .card b { font-size: 14px; line-height: 1.25; }
 .card small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .card.cur { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.card { cursor: pointer; transition: transform .08s; }
+.card:hover { transform: translateY(-2px); }
+/* all forms of one species, over the page */
+.dexpop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(10,14,20,.55); }
+.dexpop-box { position: relative; width: min(760px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; background: var(--panel); color: var(--ink); border-radius: 20px; padding: 18px 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.dexpop-box .panel-x { position: absolute; top: 12px; right: 12px; }
+.dexpop-box h3 { margin: 0 44px 4px 0; font-family: var(--display); font-size: 22px; }
+.dexpop-box p { margin: 0 0 14px; font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dex-forms { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
+.dex-forms .form { margin: 0; width: 132px; display: grid; gap: 3px; justify-items: center; text-align: center; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 8px 6px 10px; box-sizing: border-box; }
+.dex-forms .form canvas { width: 100%; max-width: 112px; aspect-ratio: 1; height: auto; }
+.dex-forms .form b { font-size: 14px; line-height: 1.25; }
+.dex-forms .form small { font-size: 12px; color: var(--muted); }
+.dex-forms .form.unknown b { color: var(--muted); }
+.dex-arrow { font-style: normal; font-size: 28px; color: var(--muted); }
+@media (max-width: 600px) { .dex-forms .form { width: calc(50% - 22px); } .dex-arrow { font-size: 20px; } }
 @media (prefers-reduced-motion: reduce) { .lamp.on { animation: none; } * { transition: none !important; } }
 </style>
 </head>
@@ -566,6 +590,14 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
     </div>
     <div class="dex-grid" id="dexGrid"></div>
   </section>
+  <div class="dexpop" id="dexPop" hidden>
+    <div class="dexpop-box" role="dialog" aria-modal="true" aria-labelledby="dexPopTitle">
+      <button type="button" class="panel-x" aria-label="Đóng">✕</button>
+      <h3 id="dexPopTitle"></h3>
+      <p id="dexPopInfo"></p>
+      <div class="dex-forms" id="dexForms"></div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -1230,9 +1262,19 @@ $('musBtn').addEventListener('click', () => { Sound.ensure(); Sound.toggleMusic(
 /* the layout is fixed: no zooming in any browser (the viewport tag covers most phones; these catch the rest).
    pinch on phones (iOS Safari ignores user-scalable=no; double-tap zoom is stopped by touch-action in the page CSS),
    Ctrl/⌘ + scroll, trackpad pinch and Ctrl/⌘ +/−/0 on computers */
-['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+// once the page has been zoomed in anyway (an iPad zooming on a text box), pinching is let through so it can be zoomed back out
+const zoomedIn = () => !!window.visualViewport && visualViewport.scale > 1.02;
+['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => { if (!zoomedIn()) e.preventDefault(); }, { passive: false }));
+// and when the keyboard closes the zoom is put back: briefly setting the viewport to its plain size resets it
+document.addEventListener('focusout', e => {
+  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  setTimeout(() => {
+    const m = document.querySelector('meta[name=viewport]'); if (!m || !zoomedIn()) return;
+    const c = m.content; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; setTimeout(() => { m.content = c; }, 80);
+  }, 120);
+});
 // the blocking touchmove listener is only attached while two fingers are down, so ordinary scrolling stays smooth
-const pinchGuard = e => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); };
+const pinchGuard = e => { if (!zoomedIn() && (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1))) e.preventDefault(); };
 document.addEventListener('touchstart', e => { if (e.touches.length > 1) document.addEventListener('touchmove', pinchGuard, { passive: false }); }, { passive: true });
 ['touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, e => { if (e.touches.length < 2) document.removeEventListener('touchmove', pinchGuard); }, { passive: true }));
 document.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
@@ -2551,7 +2593,7 @@ function renderSide() {
 }
 function renderDex() {
   const grid = $('dexGrid');
-  if (!grid.children.length) grid.innerHTML = SPECIES.map(sp => `<figure class="card" id="dex-${sp.id}"><canvas width="240" height="240"></canvas><b></b><span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span><small></small></figure>`).join('');
+  if (!grid.children.length) grid.innerHTML = SPECIES.map(sp => `<figure class="card" id="dex-${sp.id}" data-sp="${sp.id}" role="button" tabindex="0" aria-label="Xem các dạng"><canvas width="240" height="240"></canvas><b></b><span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span><small></small></figure>`).join('');
   let found = 0, total = 0;
   SPECIES.forEach(sp => {
     const m = dex[sp.id] ?? -1, card = $('dex-' + sp.id);
@@ -2566,7 +2608,26 @@ function renderDex() {
     card.classList.toggle('cur', !!(state && state.hatched && state.species === sp.id));
   });
   $('dexCount').textContent = `${found}/${total}`;
+  if (!$('dexPop').hidden) showForms($('dexPop').dataset.sp);   // keep an open card up to date (a new form just found)
 }
+// tapping a card opens all forms of that species, in evolution order: the forms found so far drawn in colour with their
+// names, the ones not found yet as a grey shape with a question mark
+function showForms(id) {
+  const sp = spById(id), m = dex[id] ?? -1, pop = $('dexPop'), row = $('dexForms');
+  pop.dataset.sp = id; pop.hidden = false;
+  $('dexPopTitle').textContent = m < 0 ? 'Loài chưa gặp' : sp.stages[m].name;
+  $('dexPopInfo').innerHTML = `<span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span> Hệ ${esc(sp.type)} · đã có ${m + 1}/${sp.stages.length} dạng`;
+  row.innerHTML = sp.stages.map((st, i) => `${i ? '<i class="dex-arrow" aria-hidden="true">›</i>' : ''}<figure class="form${i <= m ? '' : ' unknown'}"><canvas width="200" height="200"></canvas><b>${i <= m ? esc(st.name) : '???'}</b><small>Dạng ${i + 1}</small></figure>`).join('');
+  row.querySelectorAll('canvas').forEach((cv2, i) => {
+    thumb(cv2, sp, i, i > m);
+    if (i > m) { const c = cv2.getContext('2d'); c.font = '800 96px "Baloo 2", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = 'rgba(255,255,255,.92)'; c.fillText('?', 100, 112); }
+  });
+}
+const closeForms = () => { $('dexPop').hidden = true; };
+$('dexGrid').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) showForms(c.dataset.sp); });
+$('dexGrid').addEventListener('keydown', e => { const c = e.target.closest('.card'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showForms(c.dataset.sp); } });
+$('dexPop').addEventListener('click', e => { if (e.target === $('dexPop') || e.target.closest('.panel-x')) closeForms(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('dexPop').hidden) closeForms(); });
 
 /* ---------- extras: personality, quests, streak, events, shop, adventures, album, skills, share card, visits ---------- */
 // things that outlive one pet (streak, quests, bought items, album) are kept apart from the pet's own save
@@ -4098,7 +4159,7 @@ setInterval(() => { if (Live.rps && Live.rps.stage !== 'done' && Live.rps.stage 
 // their home: their habitat, their decorations, their pet (and mine, visiting)
 function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0, yaw = 0) {
   const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = walkHop || Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob - legLift(sp, def, Rr);
-  ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(30,20,10,.2)');
+  ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(12,8,4,.32)');
   ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
   drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob, mo: { step: t * 9, stride: walkHop ? 1 : 0, yaw } });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = wear || {}; drawWear(x, cy, ry, Rr, t); meta.wear = mine; ctx.restore();
@@ -4360,16 +4421,16 @@ function vivid(c, sat = 1.25, lift = 0.06) {
   VIVID.set(c, v); return v;
 }
 // the same for a whole painted canvas, once (with the browser's filter, or pixel by pixel where canvases can't be filtered)
-function vividCanvas(cnv, sat = 1.3, bright = 1.06) {
+function vividCanvas(cnv, sat = 1.3, bright = 1.02, contrast = 1.32) {
   const c = cnv.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
   if ('filter' in CanvasRenderingContext2D.prototype) {
     const tmp = document.createElement('canvas'); tmp.width = cnv.width; tmp.height = cnv.height; tmp.getContext('2d').drawImage(cnv, 0, 0);
-    c.clearRect(0, 0, cnv.width, cnv.height); c.filter = `saturate(${sat}) brightness(${bright})`; c.drawImage(tmp, 0, 0); c.filter = 'none';
+    c.clearRect(0, 0, cnv.width, cnv.height); c.filter = `saturate(${sat}) contrast(${contrast}) brightness(${bright})`; c.drawImage(tmp, 0, 0); c.filter = 'none';
   } else {
     const img = c.getImageData(0, 0, cnv.width, cnv.height), p = img.data;
     for (let i = 0; i < p.length; i += 4) {
       const gy = p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11;
-      p[i] = (gy + (p[i] - gy) * sat) * bright; p[i + 1] = (gy + (p[i + 1] - gy) * sat) * bright; p[i + 2] = (gy + (p[i + 2] - gy) * sat) * bright;
+      for (let k = 0; k < 3; k++) p[i + k] = ((gy + (p[i + k] - gy) * sat - 128) * contrast + 128) * bright;
     }
     c.putImageData(img, 0, 0);
   }
@@ -4468,7 +4529,7 @@ const SHADE3D_CACHE = new Map();   // colour stops per body colour, so the colou
 function shade3D(cx, cy, rx, ry, col, R) {
   const m = Math.max(rx, ry), oval = () => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); };
   let st = SHADE3D_CACHE.get(col);
-  if (!st) { st = [rgba(shade(col, -0.35), 0.26), rgba(shade(col, -0.5), 0.5), rgba(shade(col, -0.6), 0.6)]; SHADE3D_CACHE.set(col, st); }
+  if (!st) { st = [rgba(shade(col, -0.4), 0.32), rgba(shade(col, -0.6), 0.6), rgba(shade(col, -0.7), 0.72)]; SHADE3D_CACHE.set(col, st); }
   // one gradient: broad sheen near the light, clear in the middle, form shadow towards the far edge
   let g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.45, 0, cx - rx * 0.08, cy - ry * 0.05, m * 1.18);
   g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(0.24, 'rgba(255,255,255,.14)'); g.addColorStop(0.42, 'rgba(0,0,0,0)');
@@ -4893,7 +4954,7 @@ function drawCreature(o) {
   if (STYLE_3D && !floating) {
     // soft contact shadow where the toy touches the ground
     const sg = ctx.createRadialGradient(x, gy - 4 - hop * 0.2, 0, x, gy - 4 - hop * 0.2, R * 0.95);
-    sg.addColorStop(0, `rgba(30,18,10,${0.35 * Math.max(0.3, 1 - hop / 120)})`); sg.addColorStop(1, 'rgba(30,18,10,0)');
+    sg.addColorStop(0, `rgba(14,8,4,${0.5 * Math.max(0.3, 1 - hop / 120)})`); sg.addColorStop(1, 'rgba(14,8,4,0)');
     ctx.save(); ctx.translate(x, gy - 4); ctx.scale(1, 0.3); ctx.translate(-x, -(gy - 4)); ctx.fillStyle = sg; ctx.fillRect(x - R, gy - 4 - R, R * 2, R * 2); ctx.restore();
   }
   if (def.feet && !floating) for (const sd of [-1, 1]) {
@@ -6158,7 +6219,7 @@ function patchPath(grow = 0) {
 const inPatch = (x, y) => ((x - PATCH.x) / PATCH.rx) ** 2 + ((y - PATCH.y) / PATCH.ry) ** 2 < 1.08;
 
 // scenery seen from above at a slant, lit from the upper left like the pets; (x, y) is where it touches the ground
-const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(25,35,15,${a})`);
+const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(12,18,6,${Math.min(0.6, a * 1.55)})`);
 function tdBall(x, y, r, light, dark) {
   const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
   g.addColorStop(0, light); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
@@ -6363,7 +6424,9 @@ function bakeGround(theme, tod, w) {
       props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
     }
     props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
-    vividCanvas(out);   // brighter, fresher colours (before the sea tint and the dusk or night tint)
+    { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.5)'); sh.addColorStop(0.6, 'rgba(8,14,4,.18)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
+      const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.5)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
+    vividCanvas(out);   // brighter, fresher colours with more contrast (before the sea tint and the dusk or night tint)
     if (L.tint) { ctx.fillStyle = L.tint; ctx.fillRect(0, top, LW, H); }
     if (OUTDOOR.includes(theme) && tod !== 'day') { ctx.fillStyle = tod === 'night' ? 'rgba(10,18,60,.5)' : 'rgba(110,45,70,.2)'; ctx.fillRect(0, top, LW, H); }
     if (theme === 'haunted' || theme === 'crystal' || theme === 'space') { ctx.fillStyle = 'rgba(10,8,30,.12)'; ctx.fillRect(0, top, LW, H); }
@@ -6571,7 +6634,7 @@ function drawLightWash(theme, tod) {
   ctx.save();
   if (theme === 'ocean') { ctx.fillStyle = vgrad(top, LH, 'rgba(160,240,255,.06)', 'rgba(0,40,80,.12)'); ctx.fillRect(0, top, LW, LH - top); }
   else if (tod === 'night') { ctx.fillStyle = 'rgba(60,80,170,.09)'; ctx.fillRect(0, top, LW, LH - top); }
-  else { const g = ctx.createRadialGradient(230, 110, 0, 230, 110, 1300); g.addColorStop(0, tod === 'dusk' ? 'rgba(255,170,110,.16)' : 'rgba(255,236,190,.12)'); g.addColorStop(1, 'rgba(255,236,190,0)'); ctx.fillStyle = g; ctx.fillRect(0, top, LW, LH - top); }
+  else { const g = ctx.createRadialGradient(230, 110, 0, 230, 110, 1300); g.addColorStop(0, tod === 'dusk' ? 'rgba(255,170,110,.12)' : 'rgba(255,236,190,.05)'); g.addColorStop(1, 'rgba(255,236,190,0)'); ctx.fillStyle = g; ctx.fillRect(0, top, LW, LH - top); }
   ctx.restore();
 }
 const BOKEH_COL = { ocean: '#bff4ff', volcano: '#ffb070', crystal: '#e0c8ff', haunted: '#c8b8ff', space: '#cfe0ff', fairy: '#ffd1e8' };
@@ -6581,7 +6644,7 @@ function drawBokeh(t, theme, tod, kind) {
   ctx.save();
   for (let i = 0; i < 5; i++) {
     const fx = (rnd(i + 2100) + t * 0.006 * (i % 2 ? 1 : -1) + 1) % 1, x = camX + fx * viewW, y = -padTop + (0.2 + rnd(i + 2101) * 0.65) * (LH + padTop) + Math.sin(t * 0.3 + i) * 20;
-    const r = (30 + rnd(i + 2102) * 36) / Math.max(1, zoom * 0.7), a = Math.max(0, 0.05 + 0.04 * Math.sin(t * 0.7 + i * 2)) * (tod === 'night' ? 1.4 : 1);
+    const r = (30 + rnd(i + 2102) * 36) / Math.max(1, zoom * 0.7), a = Math.max(0, 0.025 + 0.02 * Math.sin(t * 0.7 + i * 2)) * (tod === 'night' ? 1.6 : 1);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgba(col, a)); g.addColorStop(0.65, rgba(col, a * 0.85)); g.addColorStop(1, rgba(col, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
   }
@@ -7438,7 +7501,7 @@ function drawPet(t, dt) {
   const breath = s.asleep ? Math.sin(t * 1.6) * 0.045 : Math.sin(t * 4) * 0.025;
   const Rg = R * grow, rx = Rg * (1 - breath * 0.6), ry = Rg * 0.9 * (1 + breath), cy = GROUND - ry - hop - legLift(sp, def, Rg);
   const shk = Math.max(0.3, 1 - hop / 500);
-  ell(x, GROUND + 4, Rg * 0.85 * shk * (2 - sy) * shrink, Rg * 0.16 * shk * shrink, `rgba(30,20,10,${0.2 * shk * fade})`);
+  ell(x, GROUND + 4, Rg * 0.85 * shk * (2 - sy) * shrink, Rg * 0.16 * shk * shrink, `rgba(12,8,4,${0.32 * shk * fade})`);
   const wag = ['happy', 'love', 'laugh', 'joy', 'wink'].includes(md) ? 2.4 : md === 'sad' || md === 'cry' || md === 'tired' ? 0.4 : 1;
   // the limbs, ears and eyes: a walk cycle at the gait's pace, ears on a spring that lags behind every bounce and turn,
   // arms up for jumps, dances and cheers, one arm waving hello
@@ -7696,11 +7759,12 @@ let lastTs = performance.now();
 // on-screen labels are drawn in 1280px space; on small screens they are enlarged so they stay readable
 // (in the zoomed phone view the world is already enlarged, so labels drawn there are scaled by uiK / zoom to keep the same size on screen)
 let uiK = 1, noteT = 0;
+const COARSE = matchMedia('(pointer: coarse)').matches;   // a touch screen (phone or tablet)
 const scaled = (ax, ay, fn) => { const f = uiK / spaceZ; ctx.save(); ctx.translate(ax, ay); ctx.scale(f, f); ctx.translate(-ax, -ay); fn(); ctx.restore(); };
 function render(ts) {
   const dt = Math.min(0.05, (ts - lastTs) / 1000); lastTs = ts; const t = ts / 1000;
   resize(); moveCamera(dt); worldSpace(); bandDone = false;
-  uiK =Math.min(2.2, Math.max(1, 820 / Math.max(1, cv.clientWidth)));
+  uiK = Math.min(2.2, Math.max(1, (COARSE ? 1100 : 820) / Math.max(1, cv.clientWidth)));
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
   if (house) { drawHouse(t, dt); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
@@ -7814,7 +7878,7 @@ Net.boot().catch(() => {}).then(() => window.claude?.hot?.ready ? window.claude.
 
 <script>
 (() => {
-  const BUILD = '20261103155608';
+  const BUILD = '20261103163109';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
