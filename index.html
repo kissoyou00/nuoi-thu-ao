@@ -479,6 +479,16 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
 .dex-arrow { font-style: normal; font-size: 28px; color: var(--muted); }
 @media (max-width: 600px) { .dex-forms .form { width: calc(50% - 22px); } .dex-arrow { font-size: 20px; } }
 @media (prefers-reduced-motion: reduce) { .lamp.on { animation: none; } * { transition: none !important; } }
+/* fish book (bộ sưu tập cá) */
+.fish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.fish-card { display: grid; gap: 2px; justify-items: center; text-align: center; background: #eef7fc; border: 1px solid #cfe6f3; border-radius: 16px; padding: 8px 6px 10px; }
+.fish-card canvas { width: 100%; max-width: 112px; aspect-ratio: 4 / 3; height: auto; }
+.fish-card b { font-size: 14px; line-height: 1.25; }
+.fish-card small { font-size: 12px; color: #6b7c88; }
+.fish-card .stars { color: #f08c00; font-weight: 700; }
+.fish-card .stars.r3 { color: #9c36b5; } .fish-card .stars.r4 { color: #e8590c; }
+.fish-card.unknown { background: #f3f1ee; border-color: #e3ddd5; }
+.fish-card.unknown b { color: #9a8f86; }
 </style>
 </head>
 <body>
@@ -1698,6 +1708,7 @@ cv.addEventListener('pointerdown', e => {
     const slot = CUP_X.findIndex(cx => Math.abs(p.x - cx) < 80);
     if (slot >= 0 && p.y > CUP_Y - 160 && p.y < CUP_Y + 30) { act('gm-cup' + slot); return; }
   }
+  if (game && game.type === 'fish' && game.phase === 'ask') { act('gm-fishgo'); return; }   // anywhere on the picture casts / reels in
   if (bubble && bubble.rect) {
     const [bx, by, bw, bh] = bubble.rect;
     if (p.x >= bx && p.x <= bx + bw && p.y >= by && p.y <= by + bh) { bubble = null; return; }
@@ -2113,6 +2124,7 @@ function startGame(type) {
   game = { type, results: [], phase: 'ask', at: now(), d: {} };
   if (type === 'cards') game.d.cur = newCard();
   if (type === 'cups') beginCupRound();
+  if (GAMES[type].start) GAMES[type].start(game);
   Sound.play('ping'); say(GAMES[type].hint(s.name), 1e9);
 }
 function beginCupRound() {
@@ -2125,7 +2137,9 @@ function beginCupRound() {
 }
 function gameInput(id) {
   const g = game; if (!g || g.phase !== 'ask') return;
-  const d = g.d; g.at = now();
+  const d = g.d;
+  if (GAMES[g.type].input) { GAMES[g.type].input(id); return; }
+  g.at = now();
   switch (g.type) {
     case 'dir': d.dir = Math.random() < 0.5 ? -1 : 1; record((id === 'left' ? -1 : 1) === d.dir); break;
     case 'dice': d.p = 1 + Math.floor(Math.random() * 6); d.q = 1 + Math.floor(Math.random() * 6); g.phase = 'anim'; Sound.play('roll'); say('Xúc xắc đang lăn...', 1e9); break;
@@ -2151,6 +2165,7 @@ function record(r) {
 function gameTick(T) {
   if (!game) return;
   const g = game, G = GAMES[g.type], d = g.d, e = T - g.at;
+  if (G.tick && G.tick(T)) return;
   if (g.type === 'cups') {
     if (g.phase === 'show' && e > 1400) { g.phase = 'shuffle'; g.at = T; d.done = 0; say('Đảo ly nè... nhìn cho kỹ!', 1e9); }
     if (g.phase === 'shuffle') {
@@ -2177,9 +2192,9 @@ function endGame(quit) {
   game = null;
   if (quit && !rounds) { say('Đã thoát trò chơi.'); return; }
   s.energy = clamp(s.energy - 8); s.hunger = clamp(s.hunger - 5); s.weight = Math.max(3, s.weight - 1);
-  const coins = wins * G.coin; s.coins += coins;
+  const coins = G.coins ? G.coins(g) : wins * G.coin; s.coins += coins;
   if (!quit) quest('game');
-  const score = g.type === 'cards' ? `đúng liền ${wins} lá` : `thắng ${wins}/${rounds}`, gj = trait('gameJoy') || 1;
+  const score = G.score ? G.score(g) : g.type === 'cards' ? `đúng liền ${wins} lá` : `thắng ${wins}/${rounds}`, gj = trait('gameJoy') || 1;
   if (wins >= G.need) { s.happy = clamp(s.happy + 25 * gj); startAnim('heart', 1600); Sound.play('win'); setFace('laugh', 2200); setEmote('note', 2500); say(`${G.name}: ${score}! ${s.name} vui lắm. +${coins} xu.`, 5000); }
   else { s.happy = clamp(s.happy + 8 * gj); say(`${G.name}: ${score}. ${s.name} vẫn vui vì được chơi. +${coins} xu.`, 5000); }
   log(`Chơi ${G.name.toLowerCase()}: ${score}, +${coins} xu.`);
@@ -2287,6 +2302,7 @@ function drawGame(t) {
   }
   ctx.restore();
   const last = g.results[g.results.length - 1], verdict = () => bigText(last === true ? 'Bạn thắng!' : last === false ? 'Thua rồi!' : 'Hòa!', last === true ? '#2f9e57' : last === false ? '#d6463a' : '#495057');
+  if (G.draw) G.draw(t);
   if (g.type === 'dir') {
     if (g.phase === 'ask') {
       const pulse = 1 + Math.sin(t * 6) * 0.08;
@@ -2444,6 +2460,267 @@ function drawGameIcon(id, t = 0) {
   }
 }
 
+/* ---------- fishing at the pond: a minigame with a fish book ----------
+   Cast, wait for the float to go right under, then tap to reel in. 5 casts per game.
+   20 kinds of fish (common to legendary); some only bite at night or in the rain. Caught fish go in meta.fish {id: count}. */
+const FISH = [
+  { id: 'ro', name: 'Cá rô', r: 1, col: '#8f9a5b', fin: '#5f6b33', when: '' },
+  { id: 'chep', name: 'Cá chép', r: 1, col: '#f08c3a', fin: '#c8551a', when: '', pat: 'scale' },
+  { id: 'diec', name: 'Cá diếc', r: 1, col: '#c3cbd3', fin: '#8d99a6', when: '' },
+  { id: 'tram', name: 'Cá trắm', r: 1, col: '#6f9a6a', fin: '#3f6b3c', when: '', long: 1.2 },
+  { id: 'bong', name: 'Cá bống', r: 1, col: '#c49a62', fin: '#8a6436', when: '', pat: 'spots' },
+  { id: 'vang', name: 'Cá vàng', r: 2, col: '#ffb703', fin: '#fb8500', when: '', tail: 1.5 },
+  { id: 'baymau', name: 'Cá bảy màu', r: 2, col: '#8ecae6', fin: '#ff4d6d', when: 'day', tail: 1.7, pat: 'rainbowtail' },
+  { id: 'hong', name: 'Cá hồng', r: 2, col: '#ff7aa2', fin: '#d6336c', when: 'day' },
+  { id: 'kiem', name: 'Cá kiếm', r: 2, col: '#e63946', fin: '#9d0208', when: '', pat: 'sword' },
+  { id: 'nheo', name: 'Cá nheo', r: 2, col: '#6c6483', fin: '#433d57', when: 'rain', pat: 'whisker', long: 1.25 },
+  { id: 'koi', name: 'Cá koi', r: 3, col: '#fff8f0', fin: '#e63946', when: '', pat: 'koi' },
+  { id: 'thantien', name: 'Cá thần tiên', r: 3, col: '#ffd166', fin: '#222222', when: 'day', pat: 'stripe', tall: 1.5 },
+  { id: 'domdom', name: 'Cá đom đóm', r: 3, col: '#b8f2e6', fin: '#2ec4b6', when: 'night', pat: 'glow' },
+  { id: 'trang', name: 'Cá mặt trăng', r: 3, col: '#f1f1e6', fin: '#c9c39a', when: 'night', tall: 1.6, pat: 'moon' },
+  { id: 'cauvong', name: 'Cá cầu vồng', r: 3, col: '#a0c4ff', fin: '#ff70a6', when: 'rain', pat: 'rainbow' },
+  { id: 'xiem', name: 'Cá xiêm', r: 3, col: '#3a86ff', fin: '#8338ec', when: '', tail: 2 },
+  { id: 'rongvang', name: 'Cá rồng vàng', r: 4, col: '#ffc300', fin: '#ff8800', when: '', pat: 'scale', long: 1.35, shine: 1 },
+  { id: 'saobang', name: 'Cá sao băng', r: 4, col: '#7b2cbf', fin: '#e0aaff', when: 'night', pat: 'stars', shine: 1 },
+  { id: 'samset', name: 'Cá sấm sét', r: 4, col: '#3d405b', fin: '#ffe66d', when: 'rain', pat: 'bolt', shine: 1 },
+  { id: 'ngoctrai', name: 'Cá ngọc trai', r: 4, col: '#e0fbfc', fin: '#9bf6ff', when: 'day', pat: 'pearl', shine: 1 },
+];
+const FISH_JUNK = [{ id: 'ung', name: 'Chiếc ủng cũ' }, { id: 'lon', name: 'Vỏ lon' }, { id: 'canh', name: 'Cành cây khô' }];
+const FISH_RARITY = [null, { w: 55, coin: 1, label: 'Thường', bite: 1300 }, { w: 30, coin: 2, label: 'Khá hiếm', bite: 1150 },
+  { w: 12, coin: 4, label: 'Hiếm', bite: 1000 }, { w: 3, coin: 8, label: 'Huyền thoại', bite: 850 }];
+const FISH_WHEN = { day: '☀️ Ban ngày', night: '🌙 Ban đêm', rain: '🌧️ Trời mưa', '': 'Lúc nào cũng có' };
+const POND = { x: 860, y: 630, rx: 400, ry: 84 }, FLOAT_X = 840;
+
+GAMES.fish = { name: 'Câu cá', rounds: 5, need: 3, coin: 0, petX: 300, hint: n => `${n} ra hồ câu cá! Bấm 🎣 để thả câu.`, next: 'Bấm 🎣 để thả câu tiếp nào!' };
+GAME_BUTTONS.fish = ['fishgo'];
+Object.assign(ICON_LABEL, { 'g-fish': 'Câu cá', fishgo: 'Thả câu / Kéo cần', 'x-fish': 'Bộ sưu tập cá' });
+Object.assign(EMO_ICON, { 'g-fish': '🎣', fishgo: '🎣', 'x-fish': '🐟' });
+
+const fishBook = () => meta.fish || (meta.fish = {});
+const fishCount = () => FISH.filter(f => fishBook()[f.id]).length;
+const fishNow = () => ({ night: todNow() === 'night', rain: isWet() });
+const fishOk = (f, c = fishNow()) => !f.when || (f.when === 'night' ? c.night : f.when === 'rain' ? c.rain : !c.night);
+function rollFish() {
+  if (Math.random() < 0.08) return { junk: pick(FISH_JUNK) };
+  const c = fishNow(), pool = FISH.filter(f => fishOk(f, c));
+  // a little help towards the book: kinds not caught yet weigh a bit more
+  const w = pool.map(f => FISH_RARITY[f.r].w * (fishBook()[f.id] ? 1 : 1.4)), sum = w.reduce((a, b) => a + b, 0);
+  let x = Math.random() * sum;
+  for (let i = 0; i < pool.length; i++) { x -= w[i]; if (x <= 0) return { fish: pool[i] }; }
+  return { fish: pool[0] };
+}
+
+GAMES.fish.start = g => { g.d = { st: 'ready', coins: 0, news: 0, got: [] }; };
+GAMES.fish.input = () => {
+  const g = game, d = g.d, T = now();
+  if (d.st === 'ready') {
+    const roll = rollFish(), wait = 1700 + Math.random() * 3300;
+    Object.assign(d, { st: 'wait', castAt: T, biteAt: T + 650 + wait, catch: roll, nib: [] });
+    // a few small nibbles before the real bite (tapping on one is too early)
+    for (let k = 0, n = Math.floor(Math.random() * 3); k < n; k++) d.nib.push(T + 900 + Math.random() * (wait - 500));
+    Sound.play('click'); say('Chờ phao chìm hẳn xuống rồi mới bấm kéo nhé!', 1e9);
+  } else if (d.st === 'wait') fishResult('early');
+  else if (d.st === 'bite') fishResult('catch');
+  syncMode(true);
+};
+GAMES.fish.tick = T => {
+  const g = game, d = g.d;
+  if (g.phase === 'ask' && d.st === 'wait' && T >= d.biteAt) { d.st = 'bite'; d.biteDur = d.catch.fish ? FISH_RARITY[d.catch.fish.r].bite : 1300; d.biteEnd = T + d.biteDur; Sound.play('ping'); Sound.play('boing', 0.8); say('Cá cắn câu! Bấm kéo ngay!', 1e9); }
+  if (g.phase === 'ask' && d.st === 'bite' && T > d.biteEnd) { fishResult('miss'); syncMode(true); }
+  if (d.st === 'wait') for (let k = 0; k < d.nib.length; k++) if (d.nib[k] && T >= d.nib[k]) { d.nib[k] = 0; d.nibAt = T; Sound.play('chirp'); }
+  if (g.phase === 'reveal' && T - g.at > 2400) {
+    if (g.results.length >= GAMES.fish.rounds) endGame(false);
+    else { g.phase = 'ask'; g.at = T; d.st = 'ready'; d.out = null; say(GAMES.fish.next, 1e9); }
+    syncMode(true);
+  }
+  return true;
+};
+function fishResult(kind) {
+  const g = game, d = g.d, s = state, T = now();
+  d.st = 'done'; g.phase = 'reveal'; g.at = T; d.out = { kind, ...d.catch };
+  if (kind === 'early') { g.results.push(false); Sound.play('lose'); say('Sớm quá, cá giật mình bơi mất rồi!', 1e9); return; }
+  if (kind === 'miss') { g.results.push(false); Sound.play('lose'); say('Chậm mất rồi, cá ăn mồi xong chạy mất!', 1e9); return; }
+  if (d.catch.junk) { g.results.push(null); d.coins += 1; Sound.play('bonk'); say(`Ơ... câu được ${d.catch.junk.name.toLowerCase()}! +1 xu`, 1e9); return; }
+  const f = d.catch.fish, book = fishBook(), isNew = !book[f.id], R = FISH_RARITY[f.r], earn = R.coin + (isNew ? 3 : 0);
+  book[f.id] = (book[f.id] || 0) + 1; saveMeta();
+  g.results.push(true); d.coins += earn; d.got.push(f.id); if (isNew) d.news++; d.out.isNew = isNew;
+  Sound.play(f.r >= 3 ? 'magic' : 'happy'); quest('win');
+  for (let i = 0; i < (f.r >= 3 ? 10 : 4); i++) spawn(f.r >= 3 ? 'spark' : 'heart', pet.x + (Math.random() - 0.5) * 80, petTop(), { max: 1.4, color: '#ffd84d' });
+  say(isNew ? `Loài mới: ${f.name}! Đã ghi vào bộ sưu tập. +${earn} xu` : `${s.name} câu được ${f.name}! +${earn} xu`, 1e9);
+  if (isNew && fishCount() === FISH.length) queueBanner({ title: 'Đủ bộ sưu tập cá!', sub: `Đã câu được cả ${FISH.length} loài. Quá giỏi!`, color: '#1971c2', dur: 4500 });
+}
+GAMES.fish.coins = g => g.d.coins;
+GAMES.fish.score = g => `câu được ${g.results.filter(r => r === true).length}/${g.results.length} con` + (g.d.news ? `, ${g.d.news} loài mới` : '');
+
+/* ---------- drawing ---------- */
+function drawFish(f, x, y, s, t = 0, dir = 1, wig = 0) {
+  const L = 60 * (f.long || 1), H = 30 * (f.tall || 1), tl = f.tail || 1;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s * dir, s); ctx.rotate(Math.sin(wig) * 0.12);
+  if (f.pat === 'glow' || f.shine) { ctx.save(); ctx.shadowColor = f.pat === 'glow' ? '#7fffd4' : '#fff3a0'; ctx.shadowBlur = 30 + Math.sin(t * 4) * 10; ell(0, 0, L * 0.6, H * 0.6, 'rgba(255,255,255,.01)'); ctx.restore(); }
+  // tail
+  const tw = Math.sin(t * 8 + wig) * 0.15;
+  ctx.save(); ctx.translate(-L * 0.92, 0); ctx.rotate(tw);
+  ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-26 * tl, -22 * tl); ctx.quadraticCurveTo(-14 * tl, 0, -26 * tl, 22 * tl); ctx.closePath();
+  if (f.pat === 'rainbowtail' || f.pat === 'rainbow') { const g = ctx.createLinearGradient(0, -22 * tl, 0, 22 * tl); ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93'].forEach((c, i) => g.addColorStop(i / 4, c)); ctx.fillStyle = g; }
+  else ctx.fillStyle = f.fin;
+  ctx.fill(); ctx.restore();
+  // top and bottom fins
+  ctx.fillStyle = f.fin;
+  ctx.beginPath(); ctx.moveTo(-L * 0.4, -H * 0.8); ctx.quadraticCurveTo(-L * 0.05, -H * 1.55, L * 0.25, -H * 0.85); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-L * 0.25, H * 0.8); ctx.quadraticCurveTo(-L * 0.05, H * 1.3, L * 0.12, H * 0.85); ctx.closePath(); ctx.fill();
+  if (f.pat === 'sword') { ctx.beginPath(); ctx.moveTo(L * 0.9, -4); ctx.lineTo(L * 1.75, 0); ctx.lineTo(L * 0.9, 4); ctx.closePath(); ctx.fill(); }
+  // body
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, L, H, 0, 0, TAU); ctx.closePath();
+  let fill = f.col;
+  if (f.pat === 'rainbow') { fill = ctx.createLinearGradient(-L, 0, L, 0); ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93'].forEach((c, i) => fill.addColorStop(i / 4, c)); }
+  ctx.fillStyle = fill; ctx.fill(); ctx.clip();
+  const sh = ctx.createLinearGradient(0, -H, 0, H); sh.addColorStop(0, 'rgba(255,255,255,.35)'); sh.addColorStop(0.55, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.22)');
+  ctx.fillStyle = sh; ctx.fillRect(-L, -H, L * 2, H * 2);
+  ctx.fillStyle = f.fin;
+  if (f.pat === 'stripe') for (const k of [-0.45, 0.05, 0.5]) ctx.fillRect(L * k - 5, -H, 10, H * 2);
+  if (f.pat === 'spots') for (const [a, b] of [[-0.4, -0.3], [0, 0.2], [0.3, -0.35], [-0.15, 0.45]]) ell(L * a, H * b, 6, 5, f.fin);
+  if (f.pat === 'koi') { ell(-L * 0.25, -H * 0.3, L * 0.35, H * 0.55, '#e63946'); ell(L * 0.45, -H * 0.5, L * 0.2, H * 0.4, '#e63946'); ell(L * 0.05, H * 0.45, L * 0.12, H * 0.25, '#ff922b'); }
+  if (f.pat === 'scale') { ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 2; for (let i = -3; i <= 2; i++) for (let j = -1; j <= 1; j++) { ctx.beginPath(); ctx.arc(L * 0.2 * i + (j & 1) * 6, H * 0.45 * j, 8, -1.2, 1.2); ctx.stroke(); } }
+  if (f.pat === 'moon') ell(L * 0.1, 0, H * 0.55, H * 0.55, 'rgba(255,240,160,.8)');
+  if (f.pat === 'stars') { ctx.fillStyle = '#fff3b0'; for (const [a, b, r] of [[-0.5, -0.2, 5], [0, 0.3, 6], [0.35, -0.3, 4], [-0.2, -0.5, 3]]) { starPath(L * a, H * b, r); ctx.fill(); } }
+  if (f.pat === 'bolt') { ctx.fillStyle = '#ffe66d'; ctx.beginPath(); ctx.moveTo(-L * 0.1, -H); ctx.lineTo(L * 0.25, -H * 0.1); ctx.lineTo(0, -H * 0.05); ctx.lineTo(L * 0.2, H); ctx.lineTo(-L * 0.25, 0); ctx.lineTo(0, -H * 0.05); ctx.closePath(); ctx.fill(); }
+  if (f.pat === 'pearl') for (const [a, b] of [[-0.4, 0], [-0.05, 0.25], [0.3, -0.2]]) { ell(L * a, H * b, 7, 7, '#ffffff'); ell(L * a - 2, H * b - 2, 2.5, 2.5, '#9bf6ff'); }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,30,30,.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, L, H, 0, 0, TAU); ctx.stroke();
+  // gill, eye, mouth
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(L * 0.42, 0, H * 0.6, -1, 1); ctx.stroke();
+  ell(L * 0.66, -H * 0.18, 7, 7, '#ffffff'); ell(L * 0.69, -H * 0.18, 4, 4, '#1b1b1b'); ell(L * 0.71, -H * 0.24, 1.5, 1.5, '#ffffff');
+  if (f.pat === 'whisker') { ctx.strokeStyle = f.fin; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(L * 0.92, H * 0.15); ctx.quadraticCurveTo(L * 1.3, H * 0.15 + k * 10, L * 1.35, H * 0.5 + k * 14); ctx.stroke(); } }
+  ctx.restore();
+}
+function drawJunk(j, x, y, s) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  if (j.id === 'ung') { rr(-20, -46, 34, 56, 8, '#5a6b3a'); rr(-20, 0, 62, 22, 10, '#4a5a2e'); rr(-24, 18, 70, 8, 4, '#2f3a1d'); }
+  else if (j.id === 'lon') { rr(-20, -34, 40, 68, 8, '#d00000'); rr(-20, -10, 40, 18, 2, '#ffffff'); ell(0, -34, 20, 6, '#c0c0c0'); }
+  else { ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-50, 20); ctx.lineTo(50, -10); ctx.moveTo(0, 5); ctx.lineTo(20, -30); ctx.stroke(); }
+  ctx.restore();
+}
+function drawPond(t) {
+  const { x, y, rx, ry } = POND;
+  ctx.save();
+  ell(x, y + 6, rx + 26, ry + 18, '#8a6a43'); ell(x, y + 2, rx + 14, ry + 10, '#6f8f45');
+  const g = ctx.createRadialGradient(x, y - ry * 0.4, 20, x, y, rx);
+  g.addColorStop(0, '#7fd3f0'); g.addColorStop(0.6, '#3a9fd0'); g.addColorStop(1, '#1f6e9e');
+  ell(x, y, rx, ry, g);
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.clip();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3;
+  for (let i = 0; i < 6; i++) { const wx = x - rx + ((i * 170 + t * 30) % (rx * 2)), wy = y - ry * 0.5 + (i % 3) * ry * 0.4; ctx.beginPath(); ctx.moveTo(wx - 30, wy); ctx.quadraticCurveTo(wx, wy - 6, wx + 30, wy); ctx.stroke(); }
+  // fish shadows swimming around
+  for (let i = 0; i < 3; i++) { const a = t * (0.25 + i * 0.07) + i * 2.1, fx = x + Math.cos(a) * rx * 0.7, fy = y + Math.sin(a * 1.3) * ry * 0.45; ell(fx, fy, 26, 9, 'rgba(10,40,70,.28)', Math.cos(a) > 0 ? 0.1 : -0.1); }
+  ctx.restore();
+  // lily pads and reeds
+  [[x + rx * 0.62, y - ry * 0.35, 30], [x + rx * 0.45, y + ry * 0.4, 24], [x - rx * 0.1, y + ry * 0.55, 20]].forEach(([a, b, r], i) => {
+    ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.ellipse(a, b, r, r * 0.42, 0, 0.25, TAU - 0.25); ctx.lineTo(a, b); ctx.closePath(); ctx.fill();
+    if (i === 0) { ell(a + 4, b - 6, 9, 6, '#ff8fab'); ell(a + 4, b - 9, 5, 4, '#ffd6e0'); }
+  });
+  ctx.strokeStyle = '#5b8c32'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  for (let i = 0; i < 6; i++) { const rx0 = x + rx * 0.82 + i * 14, sw = Math.sin(t * 1.5 + i) * 5; ctx.beginPath(); ctx.moveTo(rx0, y + 10); ctx.quadraticCurveTo(rx0 + sw, y - 50, rx0 + sw * 2, y - 90 - (i % 2) * 20); ctx.stroke(); if (i % 2) rr(rx0 + sw * 2 - 5, y - 120 - (i % 2) * 20, 10, 30, 5, '#8b5a2b'); }
+}
+function ripple(x, y, e, n = 2, big = 1) {
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 3;
+  for (let k = 0; k < n; k++) { const p = ((e / 900) + k / n) % 1; ctx.globalAlpha = 1 - p; ctx.beginPath(); ctx.ellipse(x, y, (14 + p * 60) * big, (5 + p * 18) * big, 0, 0, TAU); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+}
+// the bite window: a bar that runs down, green to yellow to red, with moving stripes; it shakes near the end
+function fishBar(p, e, t) {
+  const y = gameLift() ? 300 : 200, W = gameLift() ? 400 : 560, H = 46, pop = e < 0.15 ? 0.6 + easeOut(e / 0.15) * 0.4 : 1;
+  const col = p > 0.6 ? '#40c057' : p > 0.3 ? '#fab005' : '#fa5252', sh = p < 0.3 ? Math.sin(t * 60) * 5 : 0;
+  ctx.save(); ctx.translate(camX + viewW / 2 - 640, 0);
+  scaled(640, y, () => {
+    ctx.translate(640 + sh, y); ctx.scale(pop, pop);
+    ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+    rr(-W / 2 - 8, -H / 2 - 8, W + 16, H + 16, (H + 16) / 2, '#ffffff'); ctx.shadowColor = 'transparent';
+    rr(-W / 2, -H / 2, W, H, H / 2, 'rgba(30,40,60,.75)');
+    const w = Math.max(H, W * p);
+    ctx.save(); ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-W / 2, -H / 2, w, H, H / 2); else ctx.rect(-W / 2, -H / 2, w, H); ctx.clip();
+    ctx.fillStyle = col; ctx.fillRect(-W / 2, -H / 2, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,.22)'; const off = (t * 160) % 40;
+    for (let x = -W / 2 - 40 + off; x < W / 2; x += 40) { ctx.beginPath(); ctx.moveTo(x, H / 2); ctx.lineTo(x + 20, H / 2); ctx.lineTo(x + 40, -H / 2); ctx.lineTo(x + 20, -H / 2); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-W / 2, -H / 2 + 5, W, H * 0.22);
+    ctx.restore();
+    // a glowing tip where the bar is running down
+    const tx = -W / 2 + w - H / 2, gr = 10 + Math.sin(t * 20) * 3;
+    ctx.save(); ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 18; ell(tx, 0, gr, gr, 'rgba(255,255,255,.9)'); ctx.restore();
+    ctx.font = '38px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🎣', -W / 2 - 36, 2);
+  });
+  ctx.restore();
+}
+// prompts sit in the picture just above the pond (the sky band on tall phones is not for changing text)
+function fishText(txt, color) { const y = gameLift() ? 300 : 200; ctx.save(); ctx.translate(camX + viewW / 2 - 640, 0); scaled(640, y, () => bigTextRaw(txt, color, y)); ctx.restore(); }
+GAMES.fish.draw = t => {
+  const g = game, d = g.d, T = now(), R = petR();
+  drawPond(t);
+  // rod held by the pet, line down to the float
+  const hx = pet.x + R * 0.7, hy = GROUND - R * 0.5, bite = d.st === 'bite', pull = g.phase === 'reveal' && d.out && d.out.kind === 'catch';
+  const bend = bite ? 40 + Math.sin(t * 30) * 10 : pull ? 20 : 0;
+  const tx = hx + 230, ty = hy - 210 + bend;
+  let fx = FLOAT_X, fy = POND.y - 8, inWater = true;
+  if (d.st === 'ready' || (g.phase === 'reveal' && d.out && d.out.kind !== 'early' && d.out.kind !== 'miss')) { fx = tx + 6; fy = ty + 90 + Math.sin(t * 3) * 4; inWater = false; }
+  else if (d.st === 'wait' && T - d.castAt < 650) { const p = (T - d.castAt) / 650; fx = tx + (FLOAT_X - tx) * p; fy = ty + (POND.y - 8 - ty) * p - Math.sin(p * Math.PI) * 120; inWater = p >= 1; }
+  else if (d.st === 'wait') { fy += Math.sin(t * 2.4) * 3; if (d.nibAt && T - d.nibAt < 400) fy += Math.sin((T - d.nibAt) / 400 * Math.PI) * 9; }
+  else if (bite) fy += 16 + Math.sin(t * 25) * 5;
+  ctx.strokeStyle = '#6b4226'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(hx - 40, hy + 30); ctx.quadraticCurveTo(hx + 120, hy - 120 + bend * 0.5, tx, ty); ctx.stroke();
+  ctx.strokeStyle = '#a0522d'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(hx + 60, hy - 60 + bend * 0.25); ctx.quadraticCurveTo(hx + 150, hy - 150 + bend * 0.6, tx, ty); ctx.stroke();
+  ell(hx - 4, hy - 4, 12, 12, '#3d2b1f');
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.quadraticCurveTo((tx + fx) / 2, Math.max(ty, fy) - 10, fx, fy - 10); ctx.stroke();
+  if (inWater && d.st === 'wait') ripple(fx, fy + 6, T - d.castAt, 2, 0.7);
+  if (bite) ripple(fx, fy - 4, T * 2, 3, 1.4);
+  // the float: red top, white bottom (half under water when it bites)
+  ctx.save(); ctx.translate(fx, fy - 10);
+  ell(0, 4, 11, 13, '#ffffff'); ell(0, -6, 11, 11, '#e63946'); rr(-2, -24, 4, 12, 2, '#333');
+  ctx.restore();
+  if (inWater) { ctx.save(); ctx.globalAlpha = 0.55; ell(fx, fy + 4, 16, 5, '#2a8bbf'); ctx.restore(); }
+  if (bite) { const k = 1 + Math.sin(t * 18) * 0.12; ctx.save(); ctx.translate(fx, fy - 70); ctx.scale(k, k); ctx.font = '900 70px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 10; ctx.strokeStyle = '#ffffff'; ctx.strokeText('!', 0, 0); ctx.fillStyle = '#e8590c'; ctx.fillText('!', 0, 0); ctx.restore(); fishBar(Math.max(0, (d.biteEnd - T) / d.biteDur), (T - (d.biteEnd - d.biteDur)) / 1000, t); }
+  if (d.st === 'ready' && g.phase === 'ask') { const k = Math.sin(t * 5) * 0.5 + 0.5; ctx.globalAlpha = 0.6 + k * 0.4; fishText('Bấm để thả câu', '#1971c2'); ctx.globalAlpha = 1; }
+  // what came up
+  if (g.phase === 'reveal' && d.out) {
+    const o = d.out, e = (T - g.at) / 1000;
+    if (o.kind === 'early') fishText('Sớm quá!', '#d6463a');
+    else if (o.kind === 'miss') fishText('Cá chạy mất rồi!', '#d6463a');
+    else {
+      const ph = gameLift() > 0, ty2 = ph ? 230 : 300, p = Math.min(1, e / 0.5), cx = fx + (640 - fx) * easeOut(p), cy = fy + (ty2 - fy) * easeOut(p) - Math.sin(p * Math.PI) * 80;
+      ctx.save();
+      if (o.fish) {
+        if (o.fish.r >= 3) glow(cx, cy, 130, o.fish.r === 4 ? '#ffd43b' : '#b197fc', 0.5);
+        drawFish(o.fish, cx, cy, (1.25 + (o.fish.r - 1) * 0.12) * (ph ? 1.4 : 1), t, 1, t * 8);
+        if (p >= 1) {
+          pillLabel(`${o.fish.name} · ${'★'.repeat(o.fish.r)}`, 640, ty2 + 100);
+          if (o.isNew) { const k = 1 + Math.sin(t * 8) * 0.06; ctx.save(); ctx.translate(780, ty2 - 70); ctx.rotate(0.2); ctx.scale(k, k); rr(-58, -22, 116, 44, 22, '#f03e3e'); ctx.font = '900 26px "Baloo 2", sans-serif'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MỚI!', 0, 2); ctx.restore(); }
+        }
+      } else if (o.junk) { drawJunk(o.junk, cx, cy, 1.2); if (p >= 1) pillLabel(o.junk.name, 640, ty2 + 100); }
+      ctx.restore();
+    }
+  }
+  // fish book progress and what time it is at the pond
+  const c = fishNow(), note = c.rain ? '🌧️ Mưa: có cá hiếm' : c.night ? '🌙 Đêm: có cá hiếm' : '☀️ Ban ngày';
+  ctx.save(); ctx.translate(camX + viewW / 2 - 640, -gameLift());
+  pillLabel(`Bộ sưu tập ${fishCount()}/${FISH.length} · ${note}`, 640, 112);
+  ctx.restore();
+};
+
+/* ---------- fish book panel ---------- */
+function fishBookHtml() {
+  const book = fishBook(), n = fishCount();
+  return `<p class="muted">Đã câu được <b>${n}/${FISH.length}</b> loài. Ra hồ bằng nút 🎮 Chơi rồi chọn 🎣 Câu cá. Có loài chỉ cắn câu vào ban đêm hoặc lúc trời mưa.</p><div class="fish-grid">` +
+    FISH.map(f => { const k = book[f.id] || 0;
+      return `<div class="fish-card${k ? '' : ' unknown'}"><canvas width="128" height="96" data-fish="${f.id}"${k ? '' : ' data-locked="1"'}></canvas><b>${k ? esc(f.name) : '???'}</b><small class="stars r${f.r}">${'★'.repeat(f.r)} ${FISH_RARITY[f.r].label}</small><small>${k ? `Đã câu ${k} con` : FISH_WHEN[f.when]}</small></div>`; }).join('') + '</div>';
+}
+function drawFishCanvases() {
+  $('panelBody').querySelectorAll('canvas[data-fish]').forEach(cnv => {
+    const c = cnv.getContext('2d'), prev = ctx, f = FISH.find(x => x.id === cnv.dataset.fish); ctx = c;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 128, 96);
+    const span = 60 * (f.long || 1) * 1.9 + 26 * (f.tail || 1) + (f.pat === 'sword' ? 50 : 0) + (f.pat === 'whisker' ? 25 : 0), k = Math.min(0.8, 100 / span, 64 / (60 * (f.tall || 1) * 1.6));
+    drawFish(f, 64 + (26 * (f.tail || 1) - (f.pat === 'sword' ? 50 : 0)) * k * 0.5, 50, k, 0, 1, 0);
+    if (cnv.dataset.locked) { c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = '#c9bfb5'; c.fillRect(0, 0, 128, 96); c.globalCompositeOperation = 'source-over'; }
+    ctx = prev;
+  });
+}
 /* ---------- actions ---------- */
 function act(a) {
   const s = state; if (!s) return;
@@ -2526,7 +2803,7 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['more', 'm-more']]),
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-rand', 'x-rand'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-rand', 'x-rand'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-fish', 'x-fish'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
   trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
   house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note']].concat(houseGarden(house) ? [['h-garden', 'h-garden']] : []).concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['x-rand', 'x-rand'], ['h-home', 'h-home']]),
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
@@ -4552,7 +4829,7 @@ function drawItemCanvases() {
 }
 function renderPanel() {
   const s = state, body = $('panelBody'); if (!panelKind || !s) return;
-  const title = { quest: '📋 Nhiệm vụ', shop: '🛍️ Cửa hàng', closet: '👗 Tủ đồ', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
+  const title = { quest: '📋 Nhiệm vụ', shop: '🛍️ Cửa hàng', closet: '👗 Tủ đồ', trip: '🎒 Đi phiêu lưu', train: '🎓 Dạy kỹ năng', album: '📷 Album', fish: '🐟 Bộ sưu tập cá', share: '🖼️ Thẻ khoe thú', visit: '🏡 Thăm nhà bạn bè',
     hood: '🏘️ Hàng xóm', gift: '🎁 Tặng quà', note: '✍️ Sổ lưu bút' }[panelKind];
   $('panelTitle').textContent = title;
   let h = '';
@@ -4673,7 +4950,8 @@ function renderPanel() {
       <div class="p-row"><input class="p-input" id="visitIn" placeholder="Dán link hoặc mã"><button class="p-btn" data-p="invite">Mời sang</button></div>
       <p class="muted">Mỗi bạn đến chơi lần đầu trong ngày: bé vui hơn và được 5 xu.</p>`;
   }
-  body.innerHTML = h; drawItemCanvases();
+  if (panelKind === 'fish') h = fishBookHtml();
+  body.innerHTML = h; drawItemCanvases(); drawFishCanvases();
 }
 $('panelBody').addEventListener('click', async e => {
   const b = e.target.closest('[data-p]'); if (!b || !state) return;
@@ -7758,7 +8036,7 @@ function drawPet(t, dt) {
     hop = Math.sin(Math.min(1, e / 0.5) * Math.PI) * 70; sy = hop > 5 ? 1.08 : 0.9;
   }
   if (game && game.type !== 'dir' && !pet.walking) {
-    look = -0.8; lookY = 0.3;
+    look = game.type === 'fish' ? 0.8 : -0.8; lookY = 0.3;
     if (game.phase === 'reveal') { const e = (T - game.at) / 1000; hop = game.results[game.results.length - 1] === true ? Math.abs(Math.sin(e * 9)) * 40 * Math.max(0, 1 - e / 1.2) : 0; }
   }
   if (anim && anim.type === 'heart') { hop = Math.abs(Math.sin((T - anim.start) / 1000 * Math.PI * 3)) * 40; sy = hop < 6 ? 0.88 : 1.06; }
@@ -8230,7 +8508,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261105095940';
+  const BUILD = '20261105124744';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
