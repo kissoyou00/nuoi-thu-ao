@@ -2758,7 +2758,7 @@ function checkDay() {
   const coin = Math.min(5 + st.n * 2, 25) + (st.n % 7 === 0 ? 30 : 0);
   giveCoins(coin);
   let sub = `Quà điểm danh +${coin} xu`;
-  if (st.n % 7 === 0) { const free = SHOP.filter(i => !meta.owned.includes(i.id)); if (free.length) { const it = pick(free); meta.owned.push(it.id); gotItem(it.id, 'bonus'); sub += ` và ${it.name.toLowerCase()}`; } }
+  if (st.n % 7 === 0) { const free = SHOP.filter(i => !meta.owned.includes(i.id) && !i.ev); if (free.length) { const it = pick(free); meta.owned.push(it.id); gotItem(it.id, 'bonus'); sub += ` và ${it.name.toLowerCase()}`; } }
   queueBanner({ title: st.n > 1 ? `Chuỗi ${st.n} ngày!` : 'Chào ngày mới!', sub, color: '#f08c00', dur: 4500 });
   const ev = eventNow();
   if (ev && !meta.gifts[ev + d]) { meta.gifts[ev + d] = 1; giveCoins(10); queueBanner({ title: EVENTS[ev].name, sub: `Nhận ${EVENTS[ev].gift} +10 xu · có món ăn đặc biệt hôm nay`, color: EVENTS[ev].color, dur: 5000 }); }
@@ -2853,6 +2853,7 @@ const shopItem = id => SHOP.find(i => i.id === id);
 // one accessory, drawn around (0,0) for a pet of size R=100: hats sit on the head top, glasses on the eye line, neckwear under the face
 function drawAccessory(id, t = 0) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (TEACHER_ART[id]) { TEACHER_ART[id](t); return; }   // the 20/11 set (15a-teacher.js)
   switch (id) {
     case 'nonla':
       ell(0, 4, 82, 13, '#c9a24e');
@@ -3020,9 +3021,12 @@ function drawWear(x, cy, ry, R, t) {
   const at = (id, ax, ay) => { if (!id) return; ctx.save(); ctx.translate(ax, ay); ctx.scale(k, k); drawAccessoryFX(id, t); ctx.restore(); };
   if (!faceAt.back) { at(w.neck, faceAt.x, faceAt.y + R * 0.42); at(w.eyes, faceAt.x, faceAt.y - R * 0.08); }
   at(w.head, (x + faceAt.x) / 2, cy - ry * 0.93);
+  // the greeting card's popup floats above the head (and any hat), out of the way of a chat bubble
+  if (w.wish && !talk && !(bubble && bubble.start)) drawWishPopup((x + faceAt.x) / 2, cy - ry - R * (w.head ? 0.95 : 0.4), t, w.wish);
 }
 // o: live state while the pet plays (ball spin and bounce, plant sway and flower, someone peeking out of the house)
 function drawDecorItem(id, x, y, t, name = state ? state.name : '', o = {}) {
+  if (TEACHER_DECOR[id]) { TEACHER_DECOR[id](x, y, t); return; }   // the 20/11 decorations (15b-teacher-set.js)
   switch (id) {
     case 'house':
       ell(x, y + 4, 90, 12, 'rgba(30,20,10,.22)');
@@ -3126,6 +3130,433 @@ function drawDecorItem(id, x, y, t, name = state ? state.name : '', o = {}) {
     }
   }
 }
+/* ---------- 20/11, Vietnamese Teachers' Day: a set to wear, from a gift box sold in November ----------
+   A white áo dài (worn on the body), a graduation cap, a bouquet held in a paw, and a greeting card that shows wishes in a
+   little popup above the pet's head. Only the 20/11 gift box gives them (not the other boxes, fruit or streak presents). */
+SHOP.push(
+  { id: 'aodai', name: 'Áo dài trắng', slot: 'body', tier: 5, ev: 'teacher' },
+  { id: 'gradcap', name: 'Mũ tốt nghiệp', slot: 'head', tier: 5, ev: 'teacher' },
+  { id: 'bouquet', name: 'Bó hoa tri ân', slot: 'hand', tier: 5, ev: 'teacher' },
+  { id: 'wishcard', name: 'Thiệp chúc 20/11', slot: 'wish', tier: 5, ev: 'teacher' },
+);
+BOXES.push({ tier: 5, name: 'Hộp quà 20/11', cost: 15, col: '#1c7ed6', lid: '#4dabf7', rib: '#ff6b81', ev: 'teacher' });
+// the 20/11 event runs from 5 to 20 November (to the end of the 20th): the box is in the shop and a notice scrolls along
+// the top of the screen; whatever was opened stays in the wardrobe for good
+const teacherEvent = (d = new Date()) => d.getMonth() === 10 && d.getDate() >= 5 && d.getDate() <= 20;
+const boxInSeason = B => !B.ev || (B.ev === 'teacher' && teacherEvent());
+// the scrolling notice: a ribbon under the status strip with the event's message running right to left
+function drawEventTicker(t) {
+  if (!teacherEvent()) return;
+  const d = new Date(), left = 20 - d.getDate(), f = uiK, y = 14 + 38 * f, h = 24 * f;
+  const msg = `🎁 Sự kiện Ngày Nhà giáo Việt Nam 20/11  ·  Mở Hộp quà 20/11 ở ✨ → 🛍️ Cửa hàng để sưu tầm 15 món đồ tri ân thầy cô  ·  Diễn ra từ 05/11 đến hết 20/11  ·  ${left ? `Còn ${left} ngày nữa` : 'Hôm nay là ngày cuối!'}  💐`;
+  ctx.save();
+  const g = ctx.createLinearGradient(0, 0, LW, 0); g.addColorStop(0, 'rgba(194,37,92,0)'); g.addColorStop(0.08, 'rgba(194,37,92,.82)'); g.addColorStop(0.92, 'rgba(194,37,92,.82)'); g.addColorStop(1, 'rgba(194,37,92,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, y, LW, h);
+  ctx.beginPath(); ctx.rect(0, y, LW, h); ctx.clip();
+  ctx.font = `700 ${Math.round(13 * f)}px "Be Vietnam Pro", sans-serif`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillStyle = '#ffffff';
+  const w = ctx.measureText(msg).width + 120 * f, x = LW - ((t * 90 * f) % (w + LW));
+  ctx.fillText(msg, x, y + h / 2 + 1); ctx.fillText(msg, x + w + LW, y + h / 2 + 1);
+  ctx.restore();
+}
+const WISHES = ['💐 Chúc mừng ngày Nhà giáo Việt Nam 20/11!', '💐 Em kính chúc thầy cô luôn mạnh khỏe!', '❤ Tri ân thầy cô!', '💐 Cảm ơn thầy cô đã dạy dỗ em!', '🌸 Chúc thầy cô luôn vui và hạnh phúc!'];
+
+const flower5 = (x, y, r, col) => { for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; ell(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.75, r * 0.75, col); } ell(x, y, r * 0.55, r * 0.55, '#fff3bf'); };
+function rose(x, y, r, col) {
+  ell(x, y, r, r, col);
+  ctx.strokeStyle = shade(col, -0.3); ctx.lineWidth = Math.max(1.5, r * 0.14); ctx.beginPath();
+  for (let a = 0; a < 3.2 * Math.PI; a += 0.3) { const rr2 = r * 0.12 + a * r * 0.07; ctx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
+  ctx.stroke(); ell(x - r * 0.35, y - r * 0.4, r * 0.25, r * 0.16, 'rgba(255,255,255,.45)', -0.5);
+}
+// each item drawn around (0,0) in accessory units (a pet of size 100): pictures in the shop, the wardrobe and the unboxing,
+// and the cap on the pet's head (the áo dài and the bouquet are worn through drawOutfit and drawHeld below)
+const TEACHER_ART = {
+  gradcap(t) {
+    rr(-36, -20, 72, 26, 8, '#25262b'); rr(-36, -20, 72, 7, 4, '#3a3b42');
+    ctx.fillStyle = '#2c2e33'; ctx.beginPath(); ctx.moveTo(-74, -26); ctx.lineTo(0, -48); ctx.lineTo(74, -26); ctx.lineTo(0, -6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#45474e'; ctx.beginPath(); ctx.moveTo(-74, -26); ctx.lineTo(0, -48); ctx.lineTo(0, -41); ctx.lineTo(-62, -26); ctx.closePath(); ctx.fill();
+    ell(0, -27, 6, 4, '#ffd43b');
+    ctx.strokeStyle = '#fcc419'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, -27); ctx.quadraticCurveTo(40, -30, 56, -18); ctx.lineTo(58, 14); ctx.stroke();
+    ctx.fillStyle = '#fab005'; ctx.beginPath(); ctx.moveTo(52, 12); ctx.lineTo(64, 12); ctx.lineTo(67, 34); ctx.lineTo(49, 34); ctx.closePath(); ctx.fill();
+  },
+  aodai() {
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#a5d8ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-24, -60); ctx.lineTo(24, -60); ctx.lineTo(62, -30); ctx.lineTo(50, -14); ctx.lineTo(30, -32); ctx.lineTo(30, 8); ctx.lineTo(42, 92); ctx.lineTo(-42, 92); ctx.lineTo(-30, 8); ctx.lineTo(-30, -32); ctx.lineTo(-50, -14); ctx.lineTo(-62, -30); ctx.closePath(); ctx.fill(); ctx.stroke();
+    rr(-14, -70, 28, 13, 5, '#ffffff'); ctx.strokeRect(-14, -70, 28, 13);
+    ctx.strokeStyle = '#4dabf7'; ctx.beginPath(); ctx.moveTo(0, -57); ctx.quadraticCurveTo(18, -50, 28, -34); ctx.stroke();
+    [[10, -53], [19, -46], [26, -38]].forEach(([a, b]) => ell(a, b, 2.6, 2.6, '#4dabf7'));
+    [[-16, 30], [14, 52], [-8, 74], [16, 6]].forEach(([a, b], i) => flower5(a, b, 4.5, i % 2 ? '#74c0fc' : '#91a7ff'));
+    ctx.strokeStyle = '#74c0fc'; ctx.beginPath(); ctx.moveTo(-42, 88); ctx.lineTo(42, 88); ctx.stroke();
+  },
+  bouquet() {
+    ell(-26, -46, 10, 22, '#2f9e44', -0.6); ell(26, -48, 10, 22, '#37b24d', 0.6); ell(0, -74, 8, 18, '#40c057');
+    rose(-16, -56, 14, '#e03131'); rose(15, -60, 14, '#f06595'); rose(0, -80, 13, '#fcc419'); rose(-2, -48, 11, '#ff8787');
+    [[-30, -66], [30, -70], [-8, -96], [12, -92], [-34, -40], [34, -42]].forEach(([a, b]) => ell(a, b, 3.2, 3.2, '#ffffff'));
+    ctx.fillStyle = '#e9c46a'; ctx.beginPath(); ctx.moveTo(-36, -48); ctx.lineTo(36, -48); ctx.lineTo(7, 30); ctx.lineTo(-7, 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d4a84b'; ctx.beginPath(); ctx.moveTo(-36, -48); ctx.lineTo(-10, -48); ctx.lineTo(-2, 30); ctx.lineTo(-7, 30); ctx.closePath(); ctx.fill();
+    rr(-14, -8, 28, 11, 4, '#ff6b81'); tri(-2, -3, -22, -16, -20, 8, '#ff8fa3'); tri(2, -3, 22, -16, 20, 8, '#ff8fa3');
+  },
+  wishcard() {
+    rr(-52, -38, 104, 76, 12, '#ffffff'); ctx.strokeStyle = '#f783ac'; ctx.lineWidth = 4; ctx.strokeRect(-46, -32, 92, 64);
+    heartPath(-24, -6, 30); ctx.fillStyle = '#ff6b81'; ctx.fill();
+    ctx.fillStyle = '#c2255c'; ctx.font = '800 26px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('20/11', 16, 2);
+    flower5(36, -22, 5, '#ffa8a8');
+  },
+};
+ACC_MOTION.gradcap = t => pivot(0, 0, () => ctx.rotate(Math.sin(t * 2) * 0.03));
+ACC_FX.gradcap = t => twinkle(0, -28, 7, t, 0.4);
+
+// the áo dài on the body (drawn by drawCreature right after the body, before the arms): white silk with little blue
+// flowers clipped to the body, a mandarin collar, the opening across to the right side, and the long panels that hang
+// below the body and swing as the pet walks
+function drawOutfit(id, x, by, brx, bry, R, t, yS, back, floorY, panels) {
+  if (OUTFITS[id]) { OUTFITS[id](x, by, brx, bry, R, t, yS, back); return; }   // other clothes (15b-teacher-set.js)
+  if (id !== 'aodai') return;
+  ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx * 1.02, bry * 1.02, 0, 0, TAU); ctx.clip();
+  const g = ctx.createLinearGradient(x - brx, by - bry, x + brx, by + bry); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#d6ecff');
+  ctx.fillStyle = g; ctx.fillRect(x - brx * 1.1, by - bry * 1.1, brx * 2.2, bry * 2.2);
+  [[-0.45, 0.2], [0.35, 0.45], [-0.1, 0.72], [0.55, -0.15]].forEach(([a, b], i) => flower5(x + (a + yS * 0.2) * brx, by + b * bry, R * 0.045, i % 2 ? '#74c0fc' : '#91a7ff'));
+  if (!back) {
+    ctx.strokeStyle = '#4dabf7'; ctx.lineWidth = R * 0.025; ctx.beginPath(); ctx.moveTo(x + yS * brx * 0.3, by - bry * 0.95); ctx.quadraticCurveTo(x + brx * 0.45, by - bry * 0.78, x + brx * 0.82, by - bry * 0.3); ctx.stroke();
+    [0.3, 0.55, 0.8].forEach(k => ell(x + brx * (0.12 + k * 0.62), by - bry * (0.95 - k * 0.62), R * 0.022, R * 0.022, '#4dabf7'));
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.ellipse(x, by, brx * 1.02, bry * 1.02, 0, 0, TAU); soft3D(x, by, brx, bry);
+  rr(x - brx * 0.3 + yS * brx * 0.2, by - bry * 1.06, brx * 0.6, bry * 0.2, bry * 0.08, '#ffffff');
+  ctx.strokeStyle = '#a5d8ff'; ctx.lineWidth = R * 0.015; ctx.strokeRect(x - brx * 0.3 + yS * brx * 0.2, by - bry * 1.06, brx * 0.6, bry * 0.2);
+  if (!panels) return;
+  const sway = Math.sin(t * 3) * R * 0.02 + POSE.stride * Math.sin(POSE.step) * R * 0.07;
+  const top = by + bry * 0.55, bottom = Math.max(top + R * 0.08, floorY - R * 0.14);
+  const pg = ctx.createLinearGradient(0, top, 0, bottom); pg.addColorStop(0, '#ffffff'); pg.addColorStop(1, '#d0ebff');
+  ctx.beginPath(); ctx.moveTo(x - brx * 0.42, top); ctx.lineTo(x + brx * 0.42, top); ctx.lineTo(x + brx * 0.52 + sway, bottom);
+  ctx.quadraticCurveTo(x + sway, bottom + R * 0.05, x - brx * 0.52 + sway, bottom); ctx.closePath();
+  ctx.fillStyle = pg; ctx.fill(); ctx.strokeStyle = '#a5d8ff'; ctx.lineWidth = R * 0.015; ctx.stroke();
+  ctx.strokeStyle = '#74c0fc'; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.moveTo(x - brx * 0.5 + sway, bottom - R * 0.03); ctx.quadraticCurveTo(x + sway, bottom + R * 0.02, x + brx * 0.5 + sway, bottom - R * 0.03); ctx.stroke();
+}
+// something held in a paw (the bouquet), kept nearly upright however the arm swings
+function drawHeld(id, px, py, R, t, unrot = 0) {
+  const it = shopItem(id); if (!TEACHER_ART[id] || !it || it.slot !== 'hand') return;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(unrot); const k = R / 100 * 0.85; ctx.scale(k, k);
+  if (STYLE_3D) { const T = ctx.getTransform(); ctx.drawImage(accSprite(id, Math.hypot(T.a, T.b)), -ACC_U, -ACC_U, ACC_U * 2, ACC_U * 2); }
+  else TEACHER_ART[id](t);
+  ctx.restore();
+}
+// the greeting card: a popup above the pet's head with a new wish every few seconds. It is kept the same size on screen
+// however far back the pet stands or how the view is zoomed, so it can always be read.
+function drawWishPopup(x, y, t, id = 'wishcard') {
+  if (ctx.canvas !== cv) return;   // not on the share card or the postcards
+  const T = ctx.getTransform(), s = Math.hypot(T.a, T.b) || 1, dev = cv.clientWidth ? cv.width / cv.clientWidth : 1, u = dev * (COARSE ? 1.15 : 1) / s;
+  const lines = WISH_LINES[id] || WISHES, i = Math.floor(t / 6) % lines.length, ph = (t % 6) / 6, a = Math.min(1, ph / 0.06, (1 - ph) / 0.06), pop = 1 + 0.18 * Math.max(0, 1 - ph / 0.05);
+  ctx.save(); ctx.translate(x, y); ctx.scale(u * pop, u * pop); ctx.globalAlpha *= Math.max(0, a);
+  ctx.font = '700 13px "Be Vietnam Pro", sans-serif'; const txt = lines[i], w = ctx.measureText(txt).width + 22;
+  rr(-w / 2, -30, w, 26, 13, '#ffffff'); tri(-6, -5, 6, -5, 0, 4, '#ffffff');
+  ctx.strokeStyle = '#f783ac'; ctx.lineWidth = 1.6; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2, -30, w, 26, 13); ctx.stroke();
+  ctx.fillStyle = '#c2255c'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, -17);
+  ctx.restore();
+}
+/* ---------- the rest of the 20/11 set: 15 items in the 20/11 gift box ----------
+   school and thank-you things to wear, hold and put in the yard, alongside the áo dài, cap, bouquet and card (15a) */
+SHOP.push(
+  { id: 'flowercrown', name: 'Vòng hoa cài đầu', slot: 'head', tier: 5, ev: 'teacher' },
+  { id: 'teacherglasses', name: 'Kính cô giáo', slot: 'eyes', tier: 5, ev: 'teacher' },
+  { id: 'redscarf', name: 'Khăn quàng đỏ', slot: 'neck', tier: 5, ev: 'teacher' },
+  { id: 'uniform', name: 'Áo đồng phục', slot: 'body', tier: 5, ev: 'teacher' },
+  { id: 'pencil', name: 'Bút chì', slot: 'hand', tier: 5, ev: 'teacher' },
+  { id: 'book', name: 'Quyển sách', slot: 'hand', tier: 5, ev: 'teacher' },
+  { id: 'giftbox', name: 'Hộp quà tặng cô', slot: 'hand', tier: 5, ev: 'teacher' },
+  { id: 'poemcard', name: 'Thiệp thơ tri ân', slot: 'wish', tier: 5, ev: 'teacher' },
+  { id: 'blackboard', name: 'Bảng đen 20-11', slot: 'decor', tier: 5, ev: 'teacher' },
+  { id: 'flowervase', name: 'Lẵng hoa tri ân', slot: 'decor', tier: 5, ev: 'teacher' },
+  { id: 'globe', name: 'Quả địa cầu', slot: 'decor', tier: 5, ev: 'teacher' },
+);
+// what each card says in its popup above the pet's head
+const WISH_LINES = {
+  wishcard: WISHES,
+  poemcard: ['🌸 Cô giáo như mẹ hiền', '📖 Một chữ cũng là thầy', '🌊 Ơn thầy như biển rộng', '💐 Mến tặng thầy cô yêu quý', '✏️ Nhớ ơn thầy cô dạy dỗ'],
+};
+
+Object.assign(TEACHER_ART, {
+  flowercrown() {
+    ctx.strokeStyle = '#2f9e44'; ctx.lineWidth = 7; ctx.beginPath(); ctx.ellipse(0, -2, 64, 16, 0, Math.PI * 1.02, Math.PI * 1.98); ctx.stroke();
+    for (let i = 0; i < 7; i++) { const a = Math.PI * (1.08 + i * 0.14), x = Math.cos(a) * 64, y = -2 + Math.sin(a) * 16; ell(x - 6, y + 4, 8, 4, '#40c057', -0.5); flower5(x, y - 2, 6.5, ['#ff8fab', '#ffd43b', '#ffffff', '#b197fc'][i % 4]); }
+  },
+  teacherglasses() {
+    ctx.strokeStyle = '#7a4a2a'; ctx.lineWidth = 4.5; ctx.fillStyle = 'rgba(210,235,255,.28)';
+    for (const sd of [-1, 1]) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(sd * 34 - 22, -14, 44, 28, 9); else ctx.rect(sd * 34 - 22, -14, 44, 28); ctx.fill(); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(-12, -4); ctx.quadraticCurveTo(0, -12, 12, -4); ctx.stroke();
+    ctx.strokeStyle = '#e9c46a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-56, 4); ctx.quadraticCurveTo(-62, 40, -40, 56); ctx.moveTo(56, 4); ctx.quadraticCurveTo(62, 40, 40, 56); ctx.stroke();
+  },
+  redscarf() {
+    rr(-50, -12, 100, 20, 10, '#e03131'); rr(-50, -12, 100, 6, 4, '#ff6b6b');
+    tri(-6, 2, -30, 50, -4, 44, '#c92a2a'); tri(6, 2, 22, 54, 2, 46, '#e03131');
+    ell(0, 0, 11, 10, '#c92a2a'); ell(-3, -3, 4, 3, 'rgba(255,255,255,.35)');
+  },
+  uniform() {
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#ced4da'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-24, -56); ctx.lineTo(24, -56); ctx.lineTo(62, -30); ctx.lineTo(50, -12); ctx.lineTo(32, -26); ctx.lineTo(32, 40); ctx.lineTo(-32, 40); ctx.lineTo(-32, -26); ctx.lineTo(-50, -12); ctx.lineTo(-62, -30); ctx.closePath(); ctx.fill(); ctx.stroke();
+    rr(-32, 36, 64, 46, 8, '#1c3d7a'); ctx.fillStyle = '#132c5a'; ctx.fillRect(-2, 50, 4, 32);
+    tri(-24, -56, 0, -56, -10, -38, '#f1f3f5'); tri(24, -56, 0, -56, 10, -38, '#f1f3f5');
+    for (let i = 0; i < 4; i++) ell(0, -36 + i * 18, 3, 3, '#adb5bd');
+    rr(12, -18, 14, 14, 3, '#e7f5ff'); ell(19, -12, 4, 4, '#1c7ed6');
+  },
+  pencil() {
+    ctx.save(); ctx.rotate(-0.35);
+    rr(-9, -86, 18, 82, 3, '#fcc419'); rr(-9, -86, 6, 82, 2, '#ffe066');
+    rr(-10, -98, 20, 14, 3, '#adb5bd'); rr(-9, -112, 18, 16, 6, '#ff8fab');
+    tri(-9, -4, 9, -4, 0, 18, '#f5d6a1'); tri(-3, 10, 3, 10, 0, 18, '#343a40');
+    ctx.restore();
+  },
+  book() {
+    ctx.fillStyle = '#c92a2a'; ctx.beginPath(); ctx.moveTo(-58, -10); ctx.lineTo(0, -2); ctx.lineTo(58, -10); ctx.lineTo(58, -64); ctx.lineTo(0, -56); ctx.lineTo(-58, -64); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.moveTo(-52, -16); ctx.lineTo(-2, -8); ctx.lineTo(-2, -60); ctx.lineTo(-52, -68); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(52, -16); ctx.lineTo(2, -8); ctx.lineTo(2, -60); ctx.lineTo(52, -68); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#a5d8ff'; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-46, -56 + i * 10); ctx.lineTo(-8, -50 + i * 10); ctx.moveTo(8, -50 + i * 10); ctx.lineTo(46, -56 + i * 10); ctx.stroke(); }
+    heartPath(28, -40, 12); ctx.fillStyle = '#ff6b81'; ctx.fill();
+  },
+  giftbox() {
+    rr(-34, -58, 68, 54, 6, '#7950f2'); rr(-38, -68, 76, 16, 5, '#9775fa');
+    rr(-6, -68, 12, 64, 2, '#ffd43b'); tri(0, -68, -24, -88, -18, -64, '#ffd43b'); tri(0, -68, 24, -88, 18, -64, '#ffd43b'); ell(0, -68, 6, 5, '#fab005');
+    flower5(-18, -30, 4.5, '#e5dbff'); flower5(20, -22, 4.5, '#e5dbff');
+  },
+  poemcard() {
+    rr(-46, -40, 92, 80, 10, '#fff9db'); ctx.strokeStyle = '#e8590c'; ctx.lineWidth = 3; ctx.strokeRect(-40, -34, 80, 68);
+    ctx.strokeStyle = '#c4a26b'; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-28, -18 + i * 12); ctx.lineTo(i % 2 ? 18 : 28, -18 + i * 12); ctx.stroke(); }
+    flower5(26, -24, 6, '#ff8fab'); ell(-30, 28, 7, 4, '#40c057', -0.5);
+    ctx.fillStyle = '#e8590c'; ctx.font = '800 14px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Tri ân', 0, -27);
+  },
+});
+
+// clothes worn on the body: the school uniform, a white shirt with a collar over navy shorts
+const OUTFITS = {
+  uniform(x, by, brx, bry, R, t, yS, back) {
+    ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx * 1.02, bry * 1.02, 0, 0, TAU); ctx.clip();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x - brx * 1.1, by - bry * 1.1, brx * 2.2, bry * 2.2);
+    ctx.fillStyle = '#1c3d7a'; ctx.fillRect(x - brx * 1.1, by + bry * 0.42, brx * 2.2, bry);
+    if (!back) {
+      for (let i = 0; i < 3; i++) ell(x + yS * brx * 0.3, by - bry * 0.55 + i * bry * 0.32, R * 0.022, R * 0.022, '#adb5bd');
+      rr(x + brx * 0.25 + yS * brx * 0.2, by - bry * 0.35, brx * 0.28, bry * 0.25, 3, '#e7f5ff'); ell(x + brx * 0.39 + yS * brx * 0.2, by - bry * 0.23, R * 0.025, R * 0.025, '#1c7ed6');
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(x, by, brx * 1.02, bry * 1.02, 0, 0, TAU); soft3D(x, by, brx, bry);
+    if (!back) for (const sd of [-1, 1]) tri(x + yS * brx * 0.3, by - bry * 0.9, x + sd * brx * 0.42 + yS * brx * 0.3, by - bry * 1.02, x + sd * brx * 0.2 + yS * brx * 0.3, by - bry * 0.55, '#f1f3f5');
+  },
+};
+
+// decorations, drawn standing on the ground at (x, y)
+const TEACHER_DECOR = {
+  // a chalkboard on an easel with "20-11" and a flower in chalk
+  blackboard(x, y, t) {
+    ell(x, y + 3, 70, 10, 'rgba(30,20,10,.22)');
+    ctx.strokeStyle = '#8a5a3b'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - 46, y); ctx.lineTo(x - 30, y - 150); ctx.moveTo(x + 46, y); ctx.lineTo(x + 30, y - 150); ctx.moveTo(x, y - 6); ctx.lineTo(x + 8, y - 120); ctx.stroke();
+    rr(x - 74, y - 160, 148, 104, 8, '#8a5a3b'); rr(x - 66, y - 152, 132, 88, 5, '#2b5f3f');
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = '800 34px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('20-11', x - 10, y - 118);
+    ctx.font = '700 13px "Be Vietnam Pro", sans-serif'; ctx.fillText('Tri ân thầy cô', x - 6, y - 84);
+    ctx.strokeStyle = 'rgba(255,240,180,.85)'; ctx.lineWidth = 2; for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; ctx.beginPath(); ctx.arc(x + 46 + Math.cos(a) * 7, y - 120 + Math.sin(a) * 7, 5, 0, TAU); ctx.stroke(); }
+    rr(x - 40, y - 62, 80, 6, 2, '#6b4426'); rr(x - 26, y - 66, 16, 5, 2, '#ffffff');
+  },
+  // a woven basket of flowers with a "Tri ân" ribbon
+  flowervase(x, y, t) {
+    ell(x, y + 3, 44, 8, 'rgba(30,20,10,.22)');
+    const sw = Math.sin(t * 1.5) * 1.5;
+    [[-26, -70, '#2f9e44'], [24, -72, '#37b24d'], [0, -92, '#40c057']].forEach(([dx, dy, c]) => ell(x + dx + sw, y + dy, 9, 20, c, dx * 0.02));
+    [[-18, -70, '#e03131'], [16, -74, '#f06595'], [0, -92, '#fcc419'], [-30, -54, '#ff8787'], [30, -56, '#ffffff'], [2, -62, '#b197fc']].forEach(([dx, dy, c]) => rose(x + dx + sw, y + dy, 11, c));
+    ctx.fillStyle = '#c69c6d'; ctx.beginPath(); ctx.moveTo(x - 38, y - 48); ctx.lineTo(x + 38, y - 48); ctx.lineTo(x + 26, y); ctx.lineTo(x - 26, y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(110,70,30,.45)'; ctx.lineWidth = 2; for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x - 38 + i * 3, y - 48 + i * 12); ctx.lineTo(x + 38 - i * 3, y - 48 + i * 12); ctx.stroke(); }
+    rr(x - 30, y - 34, 60, 15, 4, '#ff6b81'); ctx.fillStyle = '#fff'; ctx.font = '800 11px "Be Vietnam Pro", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Tri ân', x, y - 26);
+  },
+  // a globe on a stand, slowly turning
+  globe(x, y, t) {
+    ell(x, y + 3, 36, 7, 'rgba(30,20,10,.22)');
+    rr(x - 26, y - 10, 52, 10, 4, '#8a5a3b'); rr(x - 4, y - 40, 8, 32, 3, '#8a5a3b');
+    const cy = y - 78;
+    const g = ctx.createRadialGradient(x - 12, cy - 14, 4, x, cy, 36); g.addColorStop(0, '#a5d8ff'); g.addColorStop(1, '#1c7ed6');
+    ell(x, cy, 34, 34, g);
+    ctx.save(); ctx.beginPath(); ctx.arc(x, cy, 34, 0, TAU); ctx.clip();
+    const s = (t * 10) % 90;
+    for (let k = -1; k <= 1; k++) { const ox = x - 45 + s + k * 90; ell(ox, cy - 8, 16, 11, '#51cf66', 0.3); ell(ox + 26, cy + 12, 11, 15, '#40c057', -0.2); ell(ox + 48, cy - 16, 9, 6, '#69db7c'); }
+    ctx.restore();
+    ell(x - 12, cy - 14, 9, 6, 'rgba(255,255,255,.45)', -0.5);
+    ctx.strokeStyle = '#c4a26b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, cy, 40, Math.PI * 0.55, Math.PI * 1.75); ctx.stroke();
+  },
+};
+// where each decoration stands in the yard (the ball moves, this is just where it starts)
+const DECOR_X = { house: 140, lamp: 290, bed: 420, plant: 530, balloon: 610, rug: 660, ball: 700, teddy: 780, blocks: 880, duck: 990, aquarium: 1100, blackboard: 760, flowervase: 470, globe: 1130 };
+// and how far back (its depth in the top-down yard): the tall things at the back, the small toys in front
+const DECOR_D = { house: 440, lamp: 452, bed: 470, plant: 446, balloon: 458, rug: 560, ball: 585, teddy: 612, blocks: 630, duck: 600, aquarium: 462, blackboard: 438, flowervase: 632, globe: 628 };
+// live state of the decorations the pet plays with
+const toy = { ballX: DECOR_X.ball, ballV: 0, ballA: 0, ballY: 0, ballVy: 0, plantWiggle: 0, plantBloom: 0, inFrom: 0, inTo: 0, duckSquish: 0, built: 6, hugUntil: 0, fishUntil: 0, tugUntil: 0 };
+function drawDecor(t, dt = 0) {
+  const T = now(), d = meta.decor || [];
+  if (d.includes('ball')) {
+    // a kicked ball rolls, bounces a little, slows down, and bounces off the edges of the yard
+    toy.ballX += toy.ballV * dt; toy.ballV *= Math.pow(0.42, dt); if (Math.abs(toy.ballV) < 6) toy.ballV = 0;
+    if (toy.ballX < 120) { toy.ballX = 120; toy.ballV = Math.abs(toy.ballV) * 0.6; } if (toy.ballX > 1160) { toy.ballX = 1160; toy.ballV = -Math.abs(toy.ballV) * 0.6; }
+    toy.ballA += toy.ballV * dt / 26;
+    toy.ballVy -= 900 * dt; toy.ballY = Math.max(0, toy.ballY + toy.ballVy * dt); if (toy.ballY === 0 && toy.ballVy < 0) toy.ballVy = Math.abs(toy.ballVy) > 120 ? -toy.ballVy * 0.45 : 0;
+  }
+  // each decoration is drawn at its depth, sorted in with the pet and the poops; the rug lies flat, so it goes down first
+  const st = { ballRolling: Math.abs(toy.ballV) > 20, ballY: toy.ballY, hug: T < toy.hugUntil, built: toy.built, inside: T > toy.inFrom && T < toy.inTo };
+  return d.filter(id => DECOR_X[id] != null).map(id => {
+    const o = {};
+    if (id === 'ball') { o.angle = toy.ballA; o.hop = toy.ballY + (toy.ballV ? 0 : Math.abs(Math.sin(t * 1.5)) * 4); }
+    if (id === 'plant') { const w = Math.max(0, (toy.plantWiggle - T) / 1600); o.sway = Math.sin(t * 14) * 0.2 * w; o.bloom = T < toy.plantBloom; }
+    if (id === 'house') o.inside = T > toy.inFrom && T < toy.inTo;
+    if (id === 'duck') o.squish = Math.max(0, 1 - (T - toy.duckSquish) / 220) * (T >= toy.duckSquish ? 1 : 0);
+    if (id === 'blocks') o.built = toy.built;
+    if (id === 'teddy') o.hug = T < toy.hugUntil ? 0.6 + Math.sin(t * 10) * 0.4 : 0;
+    if (id === 'aquarium') o.excited = T < toy.fishUntil;
+    if (id === 'balloon') o.tug = T < toy.tugUntil ? 1 : 0;
+    const x = id === 'ball' ? toy.ballX : DECOR_X[id];
+    return { d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(x, DECOR_D[id], () => { drawDecorItem(id, x, GROUND + 10, t, undefined, o); drawDecorFX(t, [id], () => x, st); }) };
+  });
+}
+/* each kind of decoration has its own little life: smoke from the house chimney and a warm doorway at night, a cone of
+   lamplight with moths and dust motes, a butterfly by day and fireflies by night round the plant, glints on the balloons,
+   the ball and the blocks, hearts from the teddy, squeaky notes from the duck, sparkles on the rug, shimmering water and a
+   night glow in the aquarium, and little stars over the bed after dark. Used at home and in friends' houses. */
+function drawDecorFX(t, list, xOf, st = {}) {
+  const has = id => list.includes(id) && DECOR_X[id] != null, y = GROUND + 10, night = todNow() !== 'day';
+  ctx.save();
+  if (has('house')) {
+    const x = xOf('house'), cx = x + 42;
+    rr(cx - 9, y - 152, 18, 36, 3, '#8b4a2b'); rr(cx - 12, y - 156, 24, 8, 3, '#6e3a20');
+    for (let i = 0; i < 5; i++) { const ph = (t * 0.25 + i / 5) % 1; ctx.globalAlpha = (1 - ph) * 0.55; ell(cx + Math.sin(ph * 5 + i) * 10 + ph * 24, y - 160 - ph * 90, 9 + ph * 16, 8 + ph * 13, '#e9ecef'); }
+    ctx.globalAlpha = 1;
+    if (night || st.inside) glow(x, y - 30, 70, '#ffc870', night ? 0.4 : 0.22);
+  }
+  if (has('lamp')) {
+    const x = xOf('lamp'), ly = y - 236;
+    if (night) {
+      ctx.fillStyle = vgrad(ly, y, 'rgba(255,220,130,.28)', 'rgba(255,220,130,.04)'); ctx.beginPath(); ctx.moveTo(x - 14, ly + 14); ctx.lineTo(x + 14, ly + 14); ctx.lineTo(x + 95, y + 6); ctx.lineTo(x - 95, y + 6); ctx.closePath(); ctx.fill();
+      ell(x, y + 6, 100, 16, 'rgba(255,224,140,.25)');
+      for (let i = 0; i < 3; i++) { const a = t * (2.2 + i * 0.5) + i * 2; ell(x + Math.cos(a) * (28 + i * 10), ly + 6 + Math.sin(a * 1.7) * 18, 5, 3, 'rgba(255,248,220,.9)', Math.sin(t * 30 + i)); }
+      for (let i = 0; i < 10; i++) { const ph = (t * 0.08 + rnd(i + 60)) % 1, k = ph * 0.9; ell(x + (rnd(i + 61) - 0.5) * 2 * (14 + k * 80), ly + 20 + k * (y - ly - 20), 1.6, 1.6, `rgba(255,240,200,${0.7 * Math.sin(ph * Math.PI)})`); }
+    } else glow(x, ly, 40, '#fffbe6', 0.25);
+  }
+  if (has('plant')) {
+    const x = xOf('plant');
+    if (night) for (let i = 0; i < 4; i++) { const a = t * 0.6 + i * 1.7, fx = x + Math.cos(a) * (40 + i * 8), fy = y - 90 + Math.sin(a * 1.3 + i) * 30, b = Math.max(0, Math.sin(t * 2.5 + i * 2)); glow(fx, fy, 14, '#d8ff6a', b * 0.8); ell(fx, fy, 2, 2, `rgba(240,255,170,${0.4 + b * 0.6})`); }
+    else {
+      const a = t * 0.9, bx = x + Math.cos(a) * 48, by = y - 115 + Math.sin(a * 2) * 18, f = Math.abs(Math.sin(t * 14));
+      ctx.save(); ctx.translate(bx, by); for (const sd of [-1, 1]) { ell(sd * 7 * f, -3, 8 * f + 1, 6, '#ff922b', sd * 0.4); ell(sd * 5 * f, 4, 5 * f + 1, 4, '#ffd43b', -sd * 0.4); } ell(0, 0, 1.6, 6, '#3b2a20'); ctx.restore();
+      twinkle(x - 14, y - 96, 6, t, 0); twinkle(x + 18, y - 80, 5, t, 2.5);
+    }
+  }
+  if (has('balloon')) { const x = xOf('balloon'); [[-30, -210], [8, -236], [36, -200]].forEach(([dx, dy], i) => twinkle(x + dx + Math.sin(t * 1.3 + i * 1.7) * 8 - 9, y + dy - 12, 7, t * 0.8, i * 2.1)); }
+  if (has('ball')) {
+    const x = xOf('ball');
+    if (st.ballRolling && (st.ballY || 0) < 4) for (let i = 0; i < 3; i++) { const ph = (t * 3 + i / 3) % 1; ctx.globalAlpha = (1 - ph) * 0.5; ell(x - Math.sign(toy.ballV || 1) * (20 + ph * 30), y - 4 - ph * 10, 6 + ph * 6, 4 + ph * 4, '#d8c8b0'); }
+    ctx.globalAlpha = 1; twinkle(x - 10, y - 40 - (st.ballY || 0), 6, t, 1.3);
+  }
+  if (has('teddy')) {
+    const x = xOf('teddy'), n = st.hug ? 4 : 1;
+    for (let i = 0; i < n; i++) { const ph = (t * (st.hug ? 0.8 : 0.25) + i / n) % 1; if (!st.hug && ph > 0.5) continue; const p = st.hug ? ph : ph * 2; ctx.globalAlpha = 1 - p; heartPath(x + 18 + Math.sin(p * 6 + i) * 8, y - 110 - p * 60, 8 + i % 2 * 3); ctx.fillStyle = '#ff6b9e'; ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  if (has('blocks')) { const x = xOf('blocks'), top = (st.built != null ? st.built : 6) >= 6; twinkle(x + (top ? 0 : -34), y - (top ? 100 : 32) - 4, 9, t, 0); twinkle(x + 34, y - 34, 6, t, 2.4); }
+  if (has('duck')) {
+    const x = xOf('duck'), c = t % 5;
+    if (c < 1.2) { const p = c / 1.2; ctx.globalAlpha = 1 - p; ctx.font = '800 22px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f08c00'; ctx.fillText('♪', x + 44 + p * 14, y - 60 - p * 40); ctx.fillText('♫', x + 60 + p * 10, y - 46 - p * 52); ctx.globalAlpha = 1; }
+  }
+  if (has('rug')) { const x = xOf('rug'); for (let i = 0; i < 4; i++) twinkle(x + (rnd(i + 80) - 0.5) * 200, y + 6 + (rnd(i + 81) - 0.5) * 30, 6, t * 0.7, i * 1.6); }
+  if (has('aquarium')) {
+    const x = xOf('aquarium'), tx = x - 66, ty = y - 150, tw = 132, th = 98;
+    ctx.save(); ctx.beginPath(); ctx.rect(tx, ty, tw, th); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 3;
+    for (let j = 0; j < 3; j++) { ctx.beginPath(); for (let k = 0; k <= 12; k++) { const xx = tx + k * tw / 12, yy = ty + 22 + j * 22 + Math.sin(k * 1.1 + t * 2 + j * 2) * 4; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+    if (night) { ctx.fillStyle = 'rgba(120,220,255,.18)'; ctx.fillRect(tx, ty, tw, th); }
+    ctx.restore();
+    if (night) glow(x, ty + th / 2, 120, '#7fd8ff', 0.3);
+    const ph = (t * 0.7) % 1; if (ph < 0.3) { ctx.strokeStyle = `rgba(255,255,255,${1 - ph / 0.3})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx + 100, ty - 4 - ph * 30, 3 + ph * 8, 0, TAU); ctx.stroke(); }
+  }
+  if (has('bed')) {
+    const x = xOf('bed');
+    if (night) for (let i = 0; i < 3; i++) twinkle(x - 40 + i * 40, y - 70 - Math.sin(t + i) * 8, 7, t, i * 2);
+    else twinkle(x + 30, y - 26, 6, t * 0.6, 0.5);
+  }
+  ctx.restore();
+}
+// pets walk over to a decoration and play with it now and then
+const PLAY_WITH = { ball: 'kick', house: 'house', lamp: 'lamp', plant: 'plant', duck: 'squeak', blocks: 'build', teddy: 'hug', aquarium: 'watch', balloon: 'reach' };
+const PLAY_ITEM = Object.fromEntries(Object.entries(PLAY_WITH).map(([k, v]) => [v, k]));
+const ballSpot = R => toy.ballX + (pet.x < toy.ballX ? -1 : 1) * (R + 24);
+function planPlay(T) {
+  const opts = (meta.decor || []).filter(d => PLAY_WITH[d]);
+  if (Object.values(meta.wear || {}).some(Boolean)) opts.push('admire');
+  if (!opts.length) return false;
+  const d = pick(opts), R = petR();
+  if (d === 'admire') { beginPlay('admire', T); return true; }
+  const ix = DECOR_X[d], spot = d === 'ball' ? ballSpot(R) : d === 'house' ? ix + 60 + R : ix + (pet.x < ix ? -1 : 1) * (R + 40);
+  pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.td = DECOR_D[d] + 4; pet.nextMove = T + 9000; pet.nextIdle = T;
+  return true;
+}
+function beginPlay(type, T) {
+  const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'pick' ? GARDEN.x : type === 'admire' ? pet.x + pet.dir : DECOR_X[PLAY_ITEM[type]];
+  const dir = target >= pet.x ? 1 : -1; pet.dir = dir;
+  idle = { type, start: T, dur: IDLE_DUR[type], dir };
+  if (type !== 'admire' && type !== 'pick') quest('toy');
+  if (type === 'pick') say(`${s.name} nhón chân, nhảy lên hái trái...`, 2500);
+  pet.tx = pet.x; pet.td = pet.d; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
+  const quiet = () => now() > sayUntil, w = Object.values(meta.wear || {}).filter(Boolean)[0];
+  if (type === 'house') { toy.inFrom = T + IDLE_DUR.house * 0.22; toy.inTo = T + IDLE_DUR.house * 0.78; if (quiet()) say(`${n} chui vào nhà nghỉ một chút...`, 3000); }
+  if (type === 'lamp' && quiet()) say(todNow() === 'day' ? `${n} tựa vào cột đèn, ngắm trời mây.` : `${n} ngồi dưới ánh đèn, ngắm lũ thiêu thân bay quanh.`, 3000);
+  if (type === 'plant' && quiet()) say(`${n} cúi xuống ngửi chậu cây.`, 2500);
+  if (type === 'admire') { setFace('wink', 1500); setEmote('heart', 1500); const it = shopItem(w); if (quiet() && it) say(`${n} ngắm nghía ${it.name.toLowerCase()}, trông bảnh ghê!`, 3000); }
+  if (type === 'kick' && quiet() && Math.random() < 0.5) say(`${n} sút bóng! Bóng lăn ơi là xa.`, 2500);
+  if (type === 'squeak' && quiet()) say(`${n} bóp con vịt cao su, chít chít!`, 2500);
+  if (type === 'build') { toy.built = 0; if (quiet()) say(`${n} xếp từng khối gỗ thành tháp...`, 3000); }
+  if (type === 'hug') { toy.hugUntil = T + IDLE_DUR.hug * 0.8; setFace('love', 2500); if (quiet()) say(`${n} ôm chặt gấu bông.`, 2500); }
+  if (type === 'watch') { toy.fishUntil = T + IDLE_DUR.watch; if (quiet()) say(`${n} dán mắt vào bể cá, lũ cá bơi tung tăng.`, 3000); }
+  if (type === 'reach') { toy.tugUntil = T + IDLE_DUR.reach; if (quiet()) say(`${n} nhảy lên với chùm bóng bay!`, 2500); }
+}
+
+/* new item unboxing: a gift box drops, pops open, the item rises out and flies to the pet */
+const unboxQ = [];
+const gotItem = (id, how) => { if (shopItem(id)) unboxQ.push({ id, how }); };
+function drawItemIcon(id, x, y, s, t) {
+  const it = shopItem(id); if (!it) return;
+  ctx.save(); ctx.translate(x, y);
+  if (it.slot === 'decor') { const [fk, off] = DECOR_FIT[id] || [0.6, 40], k = s * fk * 0.75; ctx.scale(k, k); ctx.translate(0, off); drawDecorItem(id, 0, 0, t); }
+  else { ctx.scale(s * 0.75, s * 0.75); drawAccessory(id, t); }
+  ctx.restore();
+}
+function drawUnbox(b, p, id, t) {
+  const a = anim, sd = pet.x < 640 ? 1 : -1, bx = pet.x + sd * (b.R + 85), gy = GROUND + 8, it = shopItem(id);
+  const land = Math.min(1, p / 0.14), by = gy - (1 - land * land) * 420, sq = p > 0.14 && p < 0.22 ? Math.sin((p - 0.14) / 0.08 * Math.PI) * 0.12 : 0;
+  if (p >= 0.14 && !a.landed) { a.landed = 1; Sound.play('boing', 0.6); for (let i = 0; i < 6; i++) spawn('dust', bx + (i - 2.5) * 16, gy, { vx: (i - 2.5) * 40, vy: -40, max: 0.6, size: 0.7 }); }
+  if (p >= 0.42 && !a.opened) { a.opened = 1; Sound.play('magic'); setTimeout(() => Sound.play('win'), 250); }
+  if (p >= 0.52 && !a.said && it) { a.said = 1; say(`${state.name} nhận được ${it.name.toLowerCase()}${a.tier ? ` (hộp ${TIER_NAME[a.tier]})` : ''}! Vào 👗 Tủ đồ để ${it.slot === 'decor' ? 'bày ra' : 'đeo'} nhé.`, 4500); }
+  const fade = p > 0.86 ? Math.max(0, 1 - (p - 0.86) / 0.14) : 1;
+  ctx.save(); ctx.globalAlpha = fade;
+  ell(bx, gy + 2, 48 * (0.6 + land * 0.4), 9, 'rgba(30,20,10,.22)');
+  ctx.save(); ctx.translate(bx, by); ctx.scale(1 + sq, 1 - sq);
+  // a secret box keeps its tier's colours; other presents come in a pink gift box
+  const BX = BOXES[(a.tier || 0) - 1] || { col: '#e64980', lid: '#f06595', rib: '#ffd43b' };
+  drawBox(a.tier || 0, 0, 0, 1, p >= 0.42);
+  ctx.restore();
+  if (p >= 0.42) {
+    // the lid flies off spinning
+    const q = p - 0.42; ctx.save(); ctx.translate(bx + sd * q * 500, by - 88 - q * 700 + q * q * 2200); ctx.rotate(sd * q * 12);
+    rr(-48, -10, 96, 20, 6, BX.lid); rr(-8, -10, 16, 20, 3, BX.rib); ctx.restore();
+    // the item rises out of the box with a burst of light, then flies to the pet
+    const rise = easeOut(Math.min(1, q / 0.24)), fly = p > 0.74 ? easeOut(Math.min(1, (p - 0.74) / 0.16)) : 0;
+    const ix0 = bx, iy0 = by - 80 - rise * 120, ix = ix0 + (b.x - ix0) * fly, iy = iy0 + (b.cy - b.ry - iy0) * fly, s = (0.5 + rise * 0.6) * (1 - fly * 0.6);
+    if (fly < 0.6) {
+      ctx.save(); ctx.translate(ix0, iy0); ctx.rotate(t * 0.8); ctx.globalAlpha = fade * (1 - fly) * 0.55;
+      for (let i = 0; i < 10; i++) { ctx.rotate(TAU / 10); ctx.fillStyle = i % 2 ? '#fff3bf' : '#ffd8a8'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-16, -150); ctx.lineTo(16, -150); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); glow(ix0, iy0, 120, '#ffe680', 0.5 * (1 - fly));
+    }
+    drawItemIcon(id, ix, iy, s, t);
+    if (Math.random() < 0.3) spawn('spark', ix + (Math.random() - 0.5) * 60, iy + (Math.random() - 0.5) * 40, { vx: 0, vy: -50, max: 0.6, size: 0.5, color: '#ffe066' });
+  }
+  ctx.restore();
+}
+function buyItem(id) {
+  const it = shopItem(id), s = state; if (!it || meta.owned.includes(id)) return;
+  if (s.coins < it.cost) { say(`Chưa đủ xu mua ${it.name.toLowerCase()}. Chơi trò chơi hoặc làm nhiệm vụ để kiếm thêm nhé.`); return; }
+  s.coins -= it.cost; meta.owned.push(id); Sound.play('win'); useItem(id, true); log(`Mua ${it.name.toLowerCase()} (-${it.cost} xu).`); saveMeta();
+  // close the shop so the unboxing can be seen
+  gotItem(id, 'buy'); closePanel();
+}
 /* ---------- garden: a fruit tree that grows in real time ----------
    A plot at the back of the yard. Plant a seed, water it, and the tree grows while the soil is wet (each watering keeps it
    wet for 3 hours; rain waters it too). 12 hours of wet soil and it is grown, with 3 fruits; after that a new fruit ripens
@@ -3203,7 +3634,7 @@ function gardenAct() {
 function harvest() {
   const st = gardenState(); if (!st || st.fruits <= 0) return;
   const g = st.g; g.picked = Math.max(g.picked, st.made - FRUIT_MAX) + 1;
-  const W = { 1: 5, 2: 3, 3: 1.4, 4: 0.5 }, pool = SHOP.filter(i => !meta.owned.includes(i.id));
+  const W = { 1: 5, 2: 3, 3: 1.4, 4: 0.5 }, pool = SHOP.filter(i => !meta.owned.includes(i.id) && !i.ev);
   for (let i = 0; i < 8; i++) spawn('spark', GARDEN.x + (Math.random() - 0.5) * 120, GROUND - 120 - Math.random() * 80, { vx: 0, vy: -50, max: 0.8, size: 0.6, color: '#fff3bf', at: { ax: GARDEN.x, d: GARDEN.d } });
   Sound.play('magic');
   if (!pool.length) { giveCoins(10); say(`Trái cây ngọt quá! Bạn đã có đủ mọi món đồ, nên được 10 xu.`, 4000); saveMeta(); save(); return; }
@@ -3389,184 +3820,6 @@ function drawGardenBar(g) {
     if (st.fed) outlined('🌿', xg + 22, by, '14px serif');
   });
 }
-// where each decoration stands in the yard (the ball moves, this is just where it starts)
-const DECOR_X = { house: 140, lamp: 290, bed: 420, plant: 530, balloon: 610, rug: 660, ball: 700, teddy: 780, blocks: 880, duck: 990, aquarium: 1100 };
-// and how far back (its depth in the top-down yard): the tall things at the back, the small toys in front
-const DECOR_D = { house: 440, lamp: 452, bed: 470, plant: 446, balloon: 458, rug: 560, ball: 585, teddy: 612, blocks: 630, duck: 600, aquarium: 462 };
-// live state of the decorations the pet plays with
-const toy = { ballX: DECOR_X.ball, ballV: 0, ballA: 0, ballY: 0, ballVy: 0, plantWiggle: 0, plantBloom: 0, inFrom: 0, inTo: 0, duckSquish: 0, built: 6, hugUntil: 0, fishUntil: 0, tugUntil: 0 };
-function drawDecor(t, dt = 0) {
-  const T = now(), d = meta.decor || [];
-  if (d.includes('ball')) {
-    // a kicked ball rolls, bounces a little, slows down, and bounces off the edges of the yard
-    toy.ballX += toy.ballV * dt; toy.ballV *= Math.pow(0.42, dt); if (Math.abs(toy.ballV) < 6) toy.ballV = 0;
-    if (toy.ballX < 120) { toy.ballX = 120; toy.ballV = Math.abs(toy.ballV) * 0.6; } if (toy.ballX > 1160) { toy.ballX = 1160; toy.ballV = -Math.abs(toy.ballV) * 0.6; }
-    toy.ballA += toy.ballV * dt / 26;
-    toy.ballVy -= 900 * dt; toy.ballY = Math.max(0, toy.ballY + toy.ballVy * dt); if (toy.ballY === 0 && toy.ballVy < 0) toy.ballVy = Math.abs(toy.ballVy) > 120 ? -toy.ballVy * 0.45 : 0;
-  }
-  // each decoration is drawn at its depth, sorted in with the pet and the poops; the rug lies flat, so it goes down first
-  const st = { ballRolling: Math.abs(toy.ballV) > 20, ballY: toy.ballY, hug: T < toy.hugUntil, built: toy.built, inside: T > toy.inFrom && T < toy.inTo };
-  return d.filter(id => DECOR_X[id] != null).map(id => {
-    const o = {};
-    if (id === 'ball') { o.angle = toy.ballA; o.hop = toy.ballY + (toy.ballV ? 0 : Math.abs(Math.sin(t * 1.5)) * 4); }
-    if (id === 'plant') { const w = Math.max(0, (toy.plantWiggle - T) / 1600); o.sway = Math.sin(t * 14) * 0.2 * w; o.bloom = T < toy.plantBloom; }
-    if (id === 'house') o.inside = T > toy.inFrom && T < toy.inTo;
-    if (id === 'duck') o.squish = Math.max(0, 1 - (T - toy.duckSquish) / 220) * (T >= toy.duckSquish ? 1 : 0);
-    if (id === 'blocks') o.built = toy.built;
-    if (id === 'teddy') o.hug = T < toy.hugUntil ? 0.6 + Math.sin(t * 10) * 0.4 : 0;
-    if (id === 'aquarium') o.excited = T < toy.fishUntil;
-    if (id === 'balloon') o.tug = T < toy.tugUntil ? 1 : 0;
-    const x = id === 'ball' ? toy.ballX : DECOR_X[id];
-    return { d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(x, DECOR_D[id], () => { drawDecorItem(id, x, GROUND + 10, t, undefined, o); drawDecorFX(t, [id], () => x, st); }) };
-  });
-}
-/* each kind of decoration has its own little life: smoke from the house chimney and a warm doorway at night, a cone of
-   lamplight with moths and dust motes, a butterfly by day and fireflies by night round the plant, glints on the balloons,
-   the ball and the blocks, hearts from the teddy, squeaky notes from the duck, sparkles on the rug, shimmering water and a
-   night glow in the aquarium, and little stars over the bed after dark. Used at home and in friends' houses. */
-function drawDecorFX(t, list, xOf, st = {}) {
-  const has = id => list.includes(id) && DECOR_X[id] != null, y = GROUND + 10, night = todNow() !== 'day';
-  ctx.save();
-  if (has('house')) {
-    const x = xOf('house'), cx = x + 42;
-    rr(cx - 9, y - 152, 18, 36, 3, '#8b4a2b'); rr(cx - 12, y - 156, 24, 8, 3, '#6e3a20');
-    for (let i = 0; i < 5; i++) { const ph = (t * 0.25 + i / 5) % 1; ctx.globalAlpha = (1 - ph) * 0.55; ell(cx + Math.sin(ph * 5 + i) * 10 + ph * 24, y - 160 - ph * 90, 9 + ph * 16, 8 + ph * 13, '#e9ecef'); }
-    ctx.globalAlpha = 1;
-    if (night || st.inside) glow(x, y - 30, 70, '#ffc870', night ? 0.4 : 0.22);
-  }
-  if (has('lamp')) {
-    const x = xOf('lamp'), ly = y - 236;
-    if (night) {
-      ctx.fillStyle = vgrad(ly, y, 'rgba(255,220,130,.28)', 'rgba(255,220,130,.04)'); ctx.beginPath(); ctx.moveTo(x - 14, ly + 14); ctx.lineTo(x + 14, ly + 14); ctx.lineTo(x + 95, y + 6); ctx.lineTo(x - 95, y + 6); ctx.closePath(); ctx.fill();
-      ell(x, y + 6, 100, 16, 'rgba(255,224,140,.25)');
-      for (let i = 0; i < 3; i++) { const a = t * (2.2 + i * 0.5) + i * 2; ell(x + Math.cos(a) * (28 + i * 10), ly + 6 + Math.sin(a * 1.7) * 18, 5, 3, 'rgba(255,248,220,.9)', Math.sin(t * 30 + i)); }
-      for (let i = 0; i < 10; i++) { const ph = (t * 0.08 + rnd(i + 60)) % 1, k = ph * 0.9; ell(x + (rnd(i + 61) - 0.5) * 2 * (14 + k * 80), ly + 20 + k * (y - ly - 20), 1.6, 1.6, `rgba(255,240,200,${0.7 * Math.sin(ph * Math.PI)})`); }
-    } else glow(x, ly, 40, '#fffbe6', 0.25);
-  }
-  if (has('plant')) {
-    const x = xOf('plant');
-    if (night) for (let i = 0; i < 4; i++) { const a = t * 0.6 + i * 1.7, fx = x + Math.cos(a) * (40 + i * 8), fy = y - 90 + Math.sin(a * 1.3 + i) * 30, b = Math.max(0, Math.sin(t * 2.5 + i * 2)); glow(fx, fy, 14, '#d8ff6a', b * 0.8); ell(fx, fy, 2, 2, `rgba(240,255,170,${0.4 + b * 0.6})`); }
-    else {
-      const a = t * 0.9, bx = x + Math.cos(a) * 48, by = y - 115 + Math.sin(a * 2) * 18, f = Math.abs(Math.sin(t * 14));
-      ctx.save(); ctx.translate(bx, by); for (const sd of [-1, 1]) { ell(sd * 7 * f, -3, 8 * f + 1, 6, '#ff922b', sd * 0.4); ell(sd * 5 * f, 4, 5 * f + 1, 4, '#ffd43b', -sd * 0.4); } ell(0, 0, 1.6, 6, '#3b2a20'); ctx.restore();
-      twinkle(x - 14, y - 96, 6, t, 0); twinkle(x + 18, y - 80, 5, t, 2.5);
-    }
-  }
-  if (has('balloon')) { const x = xOf('balloon'); [[-30, -210], [8, -236], [36, -200]].forEach(([dx, dy], i) => twinkle(x + dx + Math.sin(t * 1.3 + i * 1.7) * 8 - 9, y + dy - 12, 7, t * 0.8, i * 2.1)); }
-  if (has('ball')) {
-    const x = xOf('ball');
-    if (st.ballRolling && (st.ballY || 0) < 4) for (let i = 0; i < 3; i++) { const ph = (t * 3 + i / 3) % 1; ctx.globalAlpha = (1 - ph) * 0.5; ell(x - Math.sign(toy.ballV || 1) * (20 + ph * 30), y - 4 - ph * 10, 6 + ph * 6, 4 + ph * 4, '#d8c8b0'); }
-    ctx.globalAlpha = 1; twinkle(x - 10, y - 40 - (st.ballY || 0), 6, t, 1.3);
-  }
-  if (has('teddy')) {
-    const x = xOf('teddy'), n = st.hug ? 4 : 1;
-    for (let i = 0; i < n; i++) { const ph = (t * (st.hug ? 0.8 : 0.25) + i / n) % 1; if (!st.hug && ph > 0.5) continue; const p = st.hug ? ph : ph * 2; ctx.globalAlpha = 1 - p; heartPath(x + 18 + Math.sin(p * 6 + i) * 8, y - 110 - p * 60, 8 + i % 2 * 3); ctx.fillStyle = '#ff6b9e'; ctx.fill(); }
-    ctx.globalAlpha = 1;
-  }
-  if (has('blocks')) { const x = xOf('blocks'), top = (st.built != null ? st.built : 6) >= 6; twinkle(x + (top ? 0 : -34), y - (top ? 100 : 32) - 4, 9, t, 0); twinkle(x + 34, y - 34, 6, t, 2.4); }
-  if (has('duck')) {
-    const x = xOf('duck'), c = t % 5;
-    if (c < 1.2) { const p = c / 1.2; ctx.globalAlpha = 1 - p; ctx.font = '800 22px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f08c00'; ctx.fillText('♪', x + 44 + p * 14, y - 60 - p * 40); ctx.fillText('♫', x + 60 + p * 10, y - 46 - p * 52); ctx.globalAlpha = 1; }
-  }
-  if (has('rug')) { const x = xOf('rug'); for (let i = 0; i < 4; i++) twinkle(x + (rnd(i + 80) - 0.5) * 200, y + 6 + (rnd(i + 81) - 0.5) * 30, 6, t * 0.7, i * 1.6); }
-  if (has('aquarium')) {
-    const x = xOf('aquarium'), tx = x - 66, ty = y - 150, tw = 132, th = 98;
-    ctx.save(); ctx.beginPath(); ctx.rect(tx, ty, tw, th); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 3;
-    for (let j = 0; j < 3; j++) { ctx.beginPath(); for (let k = 0; k <= 12; k++) { const xx = tx + k * tw / 12, yy = ty + 22 + j * 22 + Math.sin(k * 1.1 + t * 2 + j * 2) * 4; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
-    if (night) { ctx.fillStyle = 'rgba(120,220,255,.18)'; ctx.fillRect(tx, ty, tw, th); }
-    ctx.restore();
-    if (night) glow(x, ty + th / 2, 120, '#7fd8ff', 0.3);
-    const ph = (t * 0.7) % 1; if (ph < 0.3) { ctx.strokeStyle = `rgba(255,255,255,${1 - ph / 0.3})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(tx + 100, ty - 4 - ph * 30, 3 + ph * 8, 0, TAU); ctx.stroke(); }
-  }
-  if (has('bed')) {
-    const x = xOf('bed');
-    if (night) for (let i = 0; i < 3; i++) twinkle(x - 40 + i * 40, y - 70 - Math.sin(t + i) * 8, 7, t, i * 2);
-    else twinkle(x + 30, y - 26, 6, t * 0.6, 0.5);
-  }
-  ctx.restore();
-}
-// pets walk over to a decoration and play with it now and then
-const PLAY_WITH = { ball: 'kick', house: 'house', lamp: 'lamp', plant: 'plant', duck: 'squeak', blocks: 'build', teddy: 'hug', aquarium: 'watch', balloon: 'reach' };
-const PLAY_ITEM = Object.fromEntries(Object.entries(PLAY_WITH).map(([k, v]) => [v, k]));
-const ballSpot = R => toy.ballX + (pet.x < toy.ballX ? -1 : 1) * (R + 24);
-function planPlay(T) {
-  const opts = (meta.decor || []).filter(d => PLAY_WITH[d]);
-  if (Object.values(meta.wear || {}).some(Boolean)) opts.push('admire');
-  if (!opts.length) return false;
-  const d = pick(opts), R = petR();
-  if (d === 'admire') { beginPlay('admire', T); return true; }
-  const ix = DECOR_X[d], spot = d === 'ball' ? ballSpot(R) : d === 'house' ? ix + 60 + R : ix + (pet.x < ix ? -1 : 1) * (R + 40);
-  pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.td = DECOR_D[d] + 4; pet.nextMove = T + 9000; pet.nextIdle = T;
-  return true;
-}
-function beginPlay(type, T) {
-  const s = state, n = s.name, target = type === 'kick' ? toy.ballX : type === 'pick' ? GARDEN.x : type === 'admire' ? pet.x + pet.dir : DECOR_X[PLAY_ITEM[type]];
-  const dir = target >= pet.x ? 1 : -1; pet.dir = dir;
-  idle = { type, start: T, dur: IDLE_DUR[type], dir };
-  if (type !== 'admire' && type !== 'pick') quest('toy');
-  if (type === 'pick') say(`${s.name} nhón chân, nhảy lên hái trái...`, 2500);
-  pet.tx = pet.x; pet.td = pet.d; pet.nextIdle = T + 4000 + Math.random() * 4000; pet.nextMove = T + IDLE_DUR[type] + 600;
-  const quiet = () => now() > sayUntil, w = Object.values(meta.wear || {}).filter(Boolean)[0];
-  if (type === 'house') { toy.inFrom = T + IDLE_DUR.house * 0.22; toy.inTo = T + IDLE_DUR.house * 0.78; if (quiet()) say(`${n} chui vào nhà nghỉ một chút...`, 3000); }
-  if (type === 'lamp' && quiet()) say(todNow() === 'day' ? `${n} tựa vào cột đèn, ngắm trời mây.` : `${n} ngồi dưới ánh đèn, ngắm lũ thiêu thân bay quanh.`, 3000);
-  if (type === 'plant' && quiet()) say(`${n} cúi xuống ngửi chậu cây.`, 2500);
-  if (type === 'admire') { setFace('wink', 1500); setEmote('heart', 1500); const it = shopItem(w); if (quiet() && it) say(`${n} ngắm nghía ${it.name.toLowerCase()}, trông bảnh ghê!`, 3000); }
-  if (type === 'kick' && quiet() && Math.random() < 0.5) say(`${n} sút bóng! Bóng lăn ơi là xa.`, 2500);
-  if (type === 'squeak' && quiet()) say(`${n} bóp con vịt cao su, chít chít!`, 2500);
-  if (type === 'build') { toy.built = 0; if (quiet()) say(`${n} xếp từng khối gỗ thành tháp...`, 3000); }
-  if (type === 'hug') { toy.hugUntil = T + IDLE_DUR.hug * 0.8; setFace('love', 2500); if (quiet()) say(`${n} ôm chặt gấu bông.`, 2500); }
-  if (type === 'watch') { toy.fishUntil = T + IDLE_DUR.watch; if (quiet()) say(`${n} dán mắt vào bể cá, lũ cá bơi tung tăng.`, 3000); }
-  if (type === 'reach') { toy.tugUntil = T + IDLE_DUR.reach; if (quiet()) say(`${n} nhảy lên với chùm bóng bay!`, 2500); }
-}
-
-/* new item unboxing: a gift box drops, pops open, the item rises out and flies to the pet */
-const unboxQ = [];
-const gotItem = (id, how) => { if (shopItem(id)) unboxQ.push({ id, how }); };
-function drawItemIcon(id, x, y, s, t) {
-  const it = shopItem(id); if (!it) return;
-  ctx.save(); ctx.translate(x, y);
-  if (it.slot === 'decor') { const [fk, off] = DECOR_FIT[id] || [0.6, 40], k = s * fk * 0.75; ctx.scale(k, k); ctx.translate(0, off); drawDecorItem(id, 0, 0, t); }
-  else { ctx.scale(s * 0.75, s * 0.75); drawAccessory(id, t); }
-  ctx.restore();
-}
-function drawUnbox(b, p, id, t) {
-  const a = anim, sd = pet.x < 640 ? 1 : -1, bx = pet.x + sd * (b.R + 85), gy = GROUND + 8, it = shopItem(id);
-  const land = Math.min(1, p / 0.14), by = gy - (1 - land * land) * 420, sq = p > 0.14 && p < 0.22 ? Math.sin((p - 0.14) / 0.08 * Math.PI) * 0.12 : 0;
-  if (p >= 0.14 && !a.landed) { a.landed = 1; Sound.play('boing', 0.6); for (let i = 0; i < 6; i++) spawn('dust', bx + (i - 2.5) * 16, gy, { vx: (i - 2.5) * 40, vy: -40, max: 0.6, size: 0.7 }); }
-  if (p >= 0.42 && !a.opened) { a.opened = 1; Sound.play('magic'); setTimeout(() => Sound.play('win'), 250); }
-  if (p >= 0.52 && !a.said && it) { a.said = 1; say(`${state.name} nhận được ${it.name.toLowerCase()}${a.tier ? ` (hộp ${TIER_NAME[a.tier]})` : ''}! Vào 👗 Tủ đồ để ${it.slot === 'decor' ? 'bày ra' : 'đeo'} nhé.`, 4500); }
-  const fade = p > 0.86 ? Math.max(0, 1 - (p - 0.86) / 0.14) : 1;
-  ctx.save(); ctx.globalAlpha = fade;
-  ell(bx, gy + 2, 48 * (0.6 + land * 0.4), 9, 'rgba(30,20,10,.22)');
-  ctx.save(); ctx.translate(bx, by); ctx.scale(1 + sq, 1 - sq);
-  // a secret box keeps its tier's colours; other presents come in a pink gift box
-  const BX = BOXES[(a.tier || 0) - 1] || { col: '#e64980', lid: '#f06595', rib: '#ffd43b' };
-  drawBox(a.tier || 0, 0, 0, 1, p >= 0.42);
-  ctx.restore();
-  if (p >= 0.42) {
-    // the lid flies off spinning
-    const q = p - 0.42; ctx.save(); ctx.translate(bx + sd * q * 500, by - 88 - q * 700 + q * q * 2200); ctx.rotate(sd * q * 12);
-    rr(-48, -10, 96, 20, 6, BX.lid); rr(-8, -10, 16, 20, 3, BX.rib); ctx.restore();
-    // the item rises out of the box with a burst of light, then flies to the pet
-    const rise = easeOut(Math.min(1, q / 0.24)), fly = p > 0.74 ? easeOut(Math.min(1, (p - 0.74) / 0.16)) : 0;
-    const ix0 = bx, iy0 = by - 80 - rise * 120, ix = ix0 + (b.x - ix0) * fly, iy = iy0 + (b.cy - b.ry - iy0) * fly, s = (0.5 + rise * 0.6) * (1 - fly * 0.6);
-    if (fly < 0.6) {
-      ctx.save(); ctx.translate(ix0, iy0); ctx.rotate(t * 0.8); ctx.globalAlpha = fade * (1 - fly) * 0.55;
-      for (let i = 0; i < 10; i++) { ctx.rotate(TAU / 10); ctx.fillStyle = i % 2 ? '#fff3bf' : '#ffd8a8'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-16, -150); ctx.lineTo(16, -150); ctx.closePath(); ctx.fill(); }
-      ctx.restore(); glow(ix0, iy0, 120, '#ffe680', 0.5 * (1 - fly));
-    }
-    drawItemIcon(id, ix, iy, s, t);
-    if (Math.random() < 0.3) spawn('spark', ix + (Math.random() - 0.5) * 60, iy + (Math.random() - 0.5) * 40, { vx: 0, vy: -50, max: 0.6, size: 0.5, color: '#ffe066' });
-  }
-  ctx.restore();
-}
-function buyItem(id) {
-  const it = shopItem(id), s = state; if (!it || meta.owned.includes(id)) return;
-  if (s.coins < it.cost) { say(`Chưa đủ xu mua ${it.name.toLowerCase()}. Chơi trò chơi hoặc làm nhiệm vụ để kiếm thêm nhé.`); return; }
-  s.coins -= it.cost; meta.owned.push(id); Sound.play('win'); useItem(id, true); log(`Mua ${it.name.toLowerCase()} (-${it.cost} xu).`); saveMeta();
-  // close the shop so the unboxing can be seen
-  gotItem(id, 'buy'); closePanel();
-}
 // open a secret box: pay its price, get a random item of that tier not owned yet, and watch it being unboxed
 function openBox(tier) {
   const B = BOXES[tier - 1], s = state; if (!B || !s) return;
@@ -3577,7 +3830,7 @@ function openBox(tier) {
   log(`Mở ${B.name.toLowerCase()} (-${B.cost} xu): được ${it.name.toLowerCase()}.`);
   unboxQ.push({ id: it.id, how: 'box', tier }); quest('box'); closePanel(); save();
 }
-const TIER_NAME = ['', 'Gỗ', 'Bạc', 'Vàng', 'Kim cương'];
+const TIER_NAME = ['', 'Gỗ', 'Bạc', 'Vàng', 'Kim cương', '20/11'];
 function useItem(id, on) {
   const it = shopItem(id); if (!it) return;
   if (it.slot === 'decor') { meta.decor = meta.decor.filter(x => x !== id); if (on) meta.decor.push(id); }
@@ -3627,7 +3880,7 @@ function postcard(tr) {
   const sp = curSp(), def = curDef(), R = def.R, k = (H * 0.46) / (R * 2), prev = ctx;
   ctx = g; g.setTransform(k, 0, 0, k, W * 0.5, H * 0.86);
   if (state.variant && VARIANT[state.variant]) g.filter = VARIANT[state.variant].filter;
-  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1 });
+  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1, wear: meta.wear });
   g.filter = 'none'; drawWear(0, -R * 0.9, R * 0.9, R, 0); ctx = prev;
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = 'rgba(255,253,248,.88)'; g.fillRect(0, H - 30, W, 30);
   g.fillStyle = '#2b2220'; g.font = '700 15px "Be Vietnam Pro", sans-serif'; g.textBaseline = 'middle'; g.fillText(`${state.name} ở ${tr.name} · ${new Date().toLocaleDateString('vi-VN')}`, 10, H - 15);
@@ -3689,7 +3942,7 @@ function shareCard() {
   ctx = g; g.setTransform(k, 0, 0, k, W / 2, 850);
   ell(0, 4, R * 0.9, R * 0.16, 'rgba(30,20,10,.18)');
   if (s.variant && VARIANT[s.variant]) g.filter = VARIANT[s.variant].filter;
-  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1 });
+  drawCreature({ x: 0, gy: 0, cy: -R * 0.9, rx: R, ry: R * 0.9, R, sp, def, t: 0.6, md: 'happy', look: 0, dir: 1, wear: meta.wear });
   g.filter = 'none'; drawWear(0, -R * 0.9, R * 0.9, R, 0); ctx = prev; g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = '#ffffff'; g.font = '800 96px "Baloo 2", sans-serif'; g.lineWidth = 14; g.strokeStyle = 'rgba(43,34,32,.55)'; g.strokeText(s.name, W / 2, 950); g.fillText(s.name, W / 2, 950);
   const tag = `${r.label}${s.variant && VARIANT[s.variant] ? ' · ' + VARIANT[s.variant].name : ''}`;
@@ -3748,7 +4001,7 @@ function drawVisitor(t, dt) {
   ell(v.x, GROUND + 4, R * 0.85, R * 0.16, 'rgba(30,20,10,.2)');
   const keep = { ...faceAt };
   ctx.save(); if (v.variant && VARIANT[v.variant]) ctx.filter = VARIANT[v.variant].filter;
-  drawCreature({ x: v.x, cy, rx: R, ry, R, gy: GROUND, sp: v.sp, def, t, md: 'happy', look: dir * 0.7, lookY: 0, wag: 2, dir, sick: false, asleep: false, hop, mo: { step: t * 9, stride: walking ? 1 : 0, yaw: v.yaw } });
+  drawCreature({ x: v.x, cy, rx: R, ry, R, gy: GROUND, sp: v.sp, def, t, md: 'happy', look: dir * 0.7, lookY: 0, wag: 2, dir, sick: false, asleep: false, hop, mo: { step: t * 9, stride: walking ? 1 : 0, yaw: v.yaw }, wear: v.wear || {} });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = v.wear || {}; drawWear(v.x, cy, ry, R, t); meta.wear = mine; ctx.restore();
   faceAt = keep;
   pillLabel(v.name, v.x, cy - ry - R * 0.75);
@@ -3933,14 +4186,14 @@ const NotePop = {
     // just under the status bar drawn on the canvas (14px from the top, 30px tall, enlarged by uiK on small screens)
     const cw = cv.clientWidth, ch = cv.clientHeight, k = cw / LW, tight = cw < 640;
     // nothing changed since the last check (same note, size and mode): skip the relayout
-    const sig = [b.created_at, cw, ch, uiK, this.list.length, $('npReplyBox').hidden].join('|');
+    const sig = [b.created_at, cw, ch, uiK, this.list.length, $('npReplyBox').hidden, teacherEvent()].join('|');
     if (!el.hidden && sig === this.sig) return;
     this.sig = sig;
     $('npCount').textContent = this.list.length > 1 ? `1/${this.list.length}` : '';
     // never cover more than 30% of the game screen: a card at most 55% wide, or on phones a short strip across the
     // whole width; shrunk to fit if it is still too big
     el.classList.toggle('tight', tight); el.classList.toggle('replying', !$('npReplyBox').hidden);
-    el.style.left = `${cv.offsetLeft + (tight ? 6 : 14 * k)}px`; el.style.top = `${cv.offsetTop + (14 + 30 * uiK + 10) * k}px`;
+    el.style.left = `${cv.offsetLeft + (tight ? 6 : 14 * k)}px`; el.style.top = `${cv.offsetTop + (14 + 30 * uiK + 10 + (teacherEvent() ? 30 * uiK : 0)) * k}px`;   // below the event notice when it runs
     el.style.width = `${Math.round(tight ? cw - 12 : Math.min(320, cw * 0.55))}px`;
     el.hidden = false;
     const s = Math.min(1, Math.sqrt(0.29 * cw * ch / Math.max(1, el.offsetWidth * el.offsetHeight)));
@@ -4186,7 +4439,7 @@ function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0, y
   const def = sp.stages[Math.max(0, Math.min(sp.stages.length - 1, idx))], Rr = (R || def.R) * petScale(), bob = walkHop || Math.max(0, Math.sin(t * 2.6) - 0.5) * 24, ry = Rr * 0.9, cy = GROUND - ry - bob - legLift(sp, def, Rr);
   ell(x, GROUND + 4, Rr * 0.85, Rr * 0.16, 'rgba(12,8,4,.32)');
   ctx.save(); if (variant && VARIANT[variant]) ctx.filter = VARIANT[variant].filter;
-  drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob, mo: { step: t * 9, stride: walkHop ? 1 : 0, yaw } });
+  drawCreature({ x, cy, rx: Rr, ry, R: Rr, gy: GROUND, sp, def, t, md, look: dir * 0.5, lookY: 0, wag: md === 'angry' ? 0.4 : 2, dir, sick: false, asleep: false, hop: bob, mo: { step: t * 9, stride: walkHop ? 1 : 0, yaw }, wear: wear || {} });
   ctx.filter = 'none'; const mine = meta.wear; meta.wear = wear || {}; drawWear(x, cy, ry, Rr, t); meta.wear = mine; ctx.restore();
   return { cy, ry, R: Rr };
 }
@@ -4234,11 +4487,14 @@ function closePanel() { panelKind = null; $('panel').hidden = true; if (shareUrl
 $('panelClose').addEventListener('click', () => { closePanel(); syncMode(true); });
 const itemCanvas = (id, locked) => `<canvas width="128" height="128" data-item="${id}"${locked ? ' data-locked="1"' : ''}></canvas>`;
 // how big each decoration is drawn in a 128px picture, and how far down its foot sits
-const DECOR_FIT = { house: [0.62, 70], lamp: [0.4, 120], plant: [0.95, 40], ball: [0.95, 20], duck: [1.05, 30], blocks: [0.9, 45], balloon: [0.4, 120], teddy: [0.85, 52], rug: [0.42, 4], aquarium: [0.7, 70], bed: [0.55, 22] };
+const DECOR_FIT = { blackboard: [0.5, 62], flowervase: [0.72, 50], globe: [0.72, 52], house: [0.62, 70], lamp: [0.4, 120], plant: [0.95, 40], ball: [0.95, 20], duck: [1.05, 30], blocks: [0.9, 45], balloon: [0.4, 120], teddy: [0.85, 52], rug: [0.42, 4], aquarium: [0.7, 70], bed: [0.55, 22] };
 const ACC_X = { bow: 40, flower: 40, monocle: 46 };
+// the 20/11 set's pictures: [scale, y of the anchor] in a 128px picture
+const ACC_FIT = { aodai: [0.58, 58], uniform: [0.62, 60], bouquet: [0.95, 98], pencil: [0.7, 88], book: [0.95, 80], giftbox: [0.95, 86], wishcard: [0.95, 64], poemcard: [0.95, 64] };
 function drawItemPicture(c, id) {
   const it = shopItem(id); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 128, 128);
   if (it.slot === 'decor') { const [k, off] = DECOR_FIT[id] || [0.6, 40]; c.setTransform(k, 0, 0, k, 64, 64 + off * k); drawDecorItem(id, 0, 0, 0); }
+  else if (ACC_FIT[id]) { const [k, y] = ACC_FIT[id]; c.setTransform(k, 0, 0, k, 64, y); drawAccessory(id, 0); }
   else { const k = id === 'cape' ? 0.52 : 0.72; c.setTransform(k, 0, 0, k, ACC_X[id] || 64, it.slot === 'head' ? 88 : it.slot === 'neck' ? (id === 'cape' ? 36 : 48) : 64); drawAccessory(id, 0); }
 }
 // a closed secret box in its tier's colours
@@ -4334,15 +4590,15 @@ function renderPanel() {
     // the shop only sells secret boxes; what you own lives in the wardrobe
     h = `<p class="muted">Bạn có <b>${s.coins} xu</b>. Mỗi hộp bí mật mở ra 1 món ngẫu nhiên mà bạn chưa có. Hộp càng đắt, đồ càng hiếm.</p>
       <div class="p-grid">` +
-      BOXES.map(B => { const all = SHOP.filter(i => i.tier === B.tier), have = all.filter(i => meta.owned.includes(i.id)).length, full = have >= all.length;
+      BOXES.filter(boxInSeason).map(B => { const all = SHOP.filter(i => i.tier === B.tier), have = all.filter(i => meta.owned.includes(i.id)).length, full = have >= all.length;
         return `<div class="p-item"><canvas width="128" height="128" data-box="${B.tier}"></canvas><b>${B.name}</b><small class="muted">Đã có ${have}/${all.length} món</small><button class="p-btn" data-p="box:${B.tier}"${full || s.coins < B.cost ? ' disabled' : ''}>${full ? 'Đủ bộ ✓' : `Mở · ${B.cost} xu`}</button></div>`; }).join('') +
       `</div><div class="p-row"><span>👗 Bạn đã sưu tầm <b>${owned}/${SHOP.length}</b> món<small>Xem, đeo và bày đồ trong Tủ đồ.</small></span><button class="p-btn" data-p="goto:closet">Mở tủ đồ</button></div>`;
   }
   if (panelKind === 'closet') {
     // the wardrobe: what is worn and displayed now, then everything owned, filtered by kind
-    const tabs = [['all', 'Tất cả'], ['head', '🎩 Mũ'], ['eyes', '👓 Kính'], ['neck', '🧣 Cổ'], ['decor', '🧸 Đồ chơi']], tab = renderPanel.ctab || 'all';
+    const tabs = [['all', 'Tất cả'], ['head', '🎩 Mũ'], ['eyes', '👓 Kính'], ['neck', '🧣 Cổ'], ['body', '👘 Áo'], ['hand', '💐 Cầm tay'], ['wish', '💌 Lời chúc'], ['decor', '🧸 Đồ chơi']], tab = renderPanel.ctab || 'all';
     const mine = SHOP.filter(i => meta.owned.includes(i.id)), list = mine.filter(i => tab === 'all' || i.slot === tab).sort((a, b) => b.tier - a.tier);
-    const using = [meta.wear.head, meta.wear.eyes, meta.wear.neck].filter(Boolean).concat(meta.decor || []).map(shopItem).filter(Boolean);
+    const using = [meta.wear.head, meta.wear.eyes, meta.wear.neck, meta.wear.body, meta.wear.hand, meta.wear.wish].filter(Boolean).concat(meta.decor || []).map(shopItem).filter(Boolean);
     const missing = SHOP.filter(i => !meta.owned.includes(i.id) && (tab === 'all' || i.slot === tab)).length;
     const btn = it => { const on = it.slot === 'decor' ? meta.decor.includes(it.id) : meta.wear[it.slot] === it.id; return `<button class="p-btn${on ? ' alt' : ''}" data-p="${on ? 'off' : 'on'}:${it.id}">${on ? 'Cất đi' : it.slot === 'decor' ? 'Bày ra' : 'Đeo'}</button>`; };
     h = `<p class="muted">Đã sưu tầm <b>${mine.length}/${SHOP.length}</b> món. Đồ trong tủ dùng được cho mọi bé thú sau này.</p>
@@ -4826,7 +5082,7 @@ function drawCreature(o) {
   const { x, cy, R, gy, sp, def, t, md, look, dir, sick, asleep, hop = 0 } = o;
   let { rx, ry } = o;
   POSE = o.mo ? { ...POSE0, ...o.mo } : POSE0;
-  const fwd = dir || 1;
+  const fwd = dir || 1, wr = o.wear || {};   // what it wears on its body and holds (the rest is drawn by drawWear)
   // which way it faces (POSE.yaw): 0 towards us, ±π/2 sideways (+ = right), π away from us, showing its back
   const yaw = POSE.yaw || 0, yS = Math.sin(yaw), yC = Math.cos(yaw), back = yC < -0.25, faceSq = 0.62 + 0.38 * Math.max(0, yC);
   const col = vivid(def.col || sp.col), acc = vivid(def.acc || sp.acc), ex = def.extras || [], has = k => ex.includes(k);
@@ -5042,12 +5298,14 @@ function drawCreature(o) {
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - brx * 1.3, by - bry * 1.3, brx * 2.6, bry * 2.6); }
     ctx.restore();
     ctx.strokeStyle = line; ctx.lineWidth = OUT; ctx.beginPath(); ctx.ellipse(x, by, brx, bry, 0, 0, TAU); ctx.stroke();
+    if (wr.body) drawOutfit(wr.body, x, by, brx, bry, R, t, yS, back, gy - hop, !!def.feet && !floating);
     /* arms (behind the body when it shows its back) */
     function armsAt() {
     if (!has('birdwings') && !mk('noarms')) for (const sd of [-1, 1]) {
       // arms swing against the legs while walking, go up for jumps and dances, and one waves hello
       const swingA = POSE.stride * Math.sin(POSE.step + (sd > 0 ? Math.PI : 0)) * 0.85 * fwd, waveA = sd === POSE.wave ? 1.9 + Math.sin(t * 14) * 0.35 : 0;
-      ctx.save(); ctx.translate(x + sd * brx * 0.9, by - bry * 0.25); ctx.rotate(sd * (0.55 + Math.sin(t * 2 + sd) * 0.08 + POSE.arm * 1.7 + waveA) + swingA);
+      const armRot = sd * (0.55 + Math.sin(t * 2 + sd) * 0.08 + POSE.arm * 1.7 + waveA) + swingA;
+      ctx.save(); ctx.translate(x + sd * brx * 0.9, by - bry * 0.25); ctx.rotate(armRot);
       if (hd) {
         // a shaded arm with a lighter paw and little toe lines
         const ag = ctx.createLinearGradient(-R * 0.14, 0, R * 0.14, 0); ag.addColorStop(0, shade(col, sd > 0 ? -0.22 : 0.12)); ag.addColorStop(1, shade(col, sd > 0 ? 0.08 : -0.22));
@@ -5058,6 +5316,7 @@ function drawCreature(o) {
       } else ell(0, R * 0.13, R * 0.14, R * 0.23, shade(col, -0.04));
       if (mk('socks')) ell(0, R * 0.27, R * 0.12, R * 0.09, footCol);
       ctx.strokeStyle = line; ctx.lineWidth = OUT * 0.8; ctx.beginPath(); ctx.ellipse(0, R * 0.13, R * 0.14, R * 0.23, 0, 0, TAU); ctx.stroke();
+      if (wr.hand && sd === 1) drawHeld(wr.hand, 0, R * 0.3, R, t, -armRot * 0.85);   // the bouquet in the right paw
       ctx.restore();
     }
     }
@@ -5128,9 +5387,12 @@ function drawCreature(o) {
     if (sick) { ctx.fillStyle = 'rgba(110,190,90,.3)'; ctx.fillRect(x - rx * 1.4, cy - ry * 1.6, rx * 2.8, ry * 3.2); }
     ctx.restore();
     bodyPath(shape, x, cy, rx, ry); ctx.lineWidth = OUT; ctx.strokeStyle = line; ctx.lineJoin = 'round'; ctx.stroke();
+    if (wr.body) drawOutfit(wr.body, x, cy + ry * 0.4, rx * 0.8, ry * 0.55, R, t, yS, back, gy - hop, false);
   }
   ctx.restore();
 
+  // pets without arms hold it at their side
+  if (wr.hand && (!chibi || has('birdwings') || mk('noarms'))) drawHeld(wr.hand, x + rx * 0.95, cy + ry * 0.3, R, t, 0);
   /* ---- face ---- */
   if (back) { tailAt(); if (!chibi) shellAt(); wingsAt(); }
   // turned sideways the face slides round to the side and narrows; from behind it is hidden
@@ -6193,296 +6455,6 @@ function drawBackdrop(theme, tod) {
   ctx.drawImage(BAKED.img, 0, -SKY_MAX, LW, LH + SKY_MAX);   // top-down ground: it already covers the phone band
   bandDone = true;
 }
-/* ---------- top-down yard: the home (and friends' houses) seen from above at a slant ----------
-   The ground of each habitat is painted once: lawn, sand, snow, sea floor..., a patch to play on in the middle and the
-   habitat's scenery (trees, rocks, crystals, coral...) at the back. Everything standing on the ground has a depth d, the
-   screen y of its feet. The pet, poops and decorations are still drawn in their side-view space standing on GROUND;
-   atDepth() moves that space so GROUND lands on d and shrinks it a little the further back d is. */
-const D_BACK = 430, D_FRONT = 650, D_MID = 545;
-const depthK = d => 0.62 + 0.2 * Math.max(0, Math.min(1, (d - D_BACK) / (D_FRONT - D_BACK)));
-const randomD = () => D_BACK + 10 + Math.random() * (D_FRONT - D_BACK - 20);
-const petD = () => game ? null : pet.d;   // minigames keep the side view they were laid out for, with the full-size pet
-let depthCtx = null;   // the depth being drawn; particles spawned meanwhile belong to it
-function atDepth(x, d, fn) {
-  if (d == null) return fn();
-  const k = depthK(d), prev = depthCtx;
-  ctx.save(); ctx.translate(x, d); ctx.scale(k, k); ctx.translate(-x, -GROUND); depthCtx = { ax: x, d };
-  try { return fn(); } finally { ctx.restore(); depthCtx = prev; }
-}
-// a point of the screen picture -> the side-view space of something standing at (ax, d), and back
-const toDepth = (p, ax, d) => { if (d == null) return p; const k = depthK(d); return { ...p, x: ax + (p.x - ax) / k, y: GROUND + (p.y - d) / k }; };
-const fromDepth = (x, y, ax, d) => { if (d == null) return { x, y, k: 1 }; const k = depthK(d); return { x: ax + (x - ax) * k, y: d + (y - GROUND) * k, k }; };
-// a body returned by drawPet (side-view space) as it shows on screen, for the chat bubble
-const bodyOnScreen = b => { const d = petD(); if (!b || d == null) return b; const p = fromDepth(b.x, b.cy, pet.x, d); return { ...b, x: p.x, cy: p.y, rx: b.rx * p.k, ry: b.ry * p.k, R: b.R * p.k }; };
-const drawByDepth = list => list.sort((a, b) => a.d - b.d).forEach(o => o.draw());
-
-// what each habitat's ground looks like: lawn colours, the play patch, grass tufts, and the scenery at the back
-const GROUND_LOOK = {
-  meadow: { g: ['#7cc257', '#68b04a'], patch: ['#ecce96', '#c99f63'], tuft: ['#4e9636', '#9ad670'], flowers: 1, props: ['tree', 'tree', 'bush', 'rock', 'bush'], pond: 'water', gap: 0.45 },
-  forest: { g: ['#58a04a', '#3f873a'], patch: ['#c9a66d', '#9a7748'], tuft: ['#2f7030', '#7cc35a'], props: ['tree', 'tree', 'pine', 'tree', 'log', 'shroom', 'bush'], gap: 0.15, tree: ['#6cbf55', '#2e6e2e'] },
-  fairy: { g: ['#a7e08f', '#8dd07f'], patch: ['#f8e9c8', '#e2c79a'], tuft: ['#6fb85a', '#c8f0a8'], flowers: 1, props: ['shroom', 'shroom', 'tree', 'bush'], pond: 'water', sparkle: '#fff3a8', gap: 0.4, tree: ['#b9e98f', '#5aa65a'], cap: ['#ff8fb8', '#e8457a'] },
-  canyon: { g: ['#e2a56a', '#cf8a52'], patch: ['#f5d29f', '#dfa86e'], tuft: ['#a8763f', '#d9a35f'], props: ['mesa', 'cactus', 'rock', 'cactus', 'mesa'], speck: '#b06a3a', gap: 0.5, rock: ['#d98a5a', '#9c5432'] },
-  sky: { g: ['#f6f9ff', '#d9e5f7'], patch: ['#fff4d2', '#f1dca6'], props: ['cloud', 'cloud', 'pillar', 'cloud'], sparkle: '#ffffff', gap: 0.35, puffs: 1 },
-  storm: { g: ['#5f8d55', '#4a7444'], patch: ['#a8926d', '#7f6a4a'], tuft: ['#355f30', '#7aa86a'], props: ['tree', 'rock', 'bush', 'rock'], pond: 'puddle', gap: 0.45, tree: ['#5f9a55', '#2c5a2e'] },
-  volcano: { g: ['#4d3f3c', '#382d2c'], patch: ['#857469', '#5f504a'], props: ['rock', 'vent', 'rock', 'rock'], pond: 'lava', cracks: 1, speck: '#2a2020', gap: 0.5, rock: ['#6b5d5a', '#2f2626'] },
-  ocean: { g: ['#e3d3a2', '#cdb882'], patch: ['#f3e7c2', '#dccb98'], props: ['coral', 'weed', 'coral', 'rock', 'weed'], tint: 'rgba(50,150,210,.2)', shells: 1, gap: 0.35 },
-  haunted: { g: ['#4f4e63', '#3c3b50'], patch: ['#7a6d5f', '#5a4f44'], tuft: ['#34334a', '#6c6b86'], props: ['grave', 'deadtree', 'grave', 'pumpkin', 'grave'], gap: 0.4, rock: ['#8a8a9a', '#4e4e5e'] },
-  snow: { g: ['#f4f8fc', '#dae6f2'], patch: ['#dcecf8', '#bad4ea'], props: ['pine', 'pine', 'rock', 'snowman', 'pine'], snowy: 1, pond: 'ice', gap: 0.35, sparkle: '#ffffff' },
-  crystal: { g: ['#4c4170', '#382f58'], patch: ['#73679c', '#544a7c'], props: ['crystal', 'rock', 'crystal', 'crystal'], sparkle: '#b8f3ff', speck: '#2c2548', gap: 0.4, rock: ['#6d6396', '#3a3260'] },
-  space: { g: ['#9092a0', '#757786'], patch: ['#adafbc', '#8f91a0'], props: ['rock', 'crater', 'crystal', 'rock'], craters: 1, speck: '#5f6170', gap: 0.45, rock: ['#a5a7b4', '#5c5e6c'] },
-};
-const PATCH = { x: 640, y: 548, rx: 600, ry: 152 };
-const patchWob = a => 1 + Math.sin(a * 3 + 1) * 0.05 + Math.sin(a * 7 + 2) * 0.03 + Math.sin(a * 13) * 0.015;
-function patchPath(grow = 0) {
-  ctx.beginPath();
-  for (let i = 0; i <= 120; i++) {
-    const a = i / 120 * TAU, r = patchWob(a), x = PATCH.x + Math.cos(a) * (PATCH.rx + grow) * r, y = PATCH.y + Math.sin(a) * (PATCH.ry + grow * 0.5) * r;
-    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-  }
-  ctx.closePath();
-}
-const inPatch = (x, y) => ((x - PATCH.x) / PATCH.rx) ** 2 + ((y - PATCH.y) / PATCH.ry) ** 2 < 1.08;
-
-// scenery seen from above at a slant, lit from the upper left like the pets; (x, y) is where it touches the ground
-const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(12,18,6,${Math.min(0.6, a * 1.55)})`);
-function tdBall(x, y, r, light, dark) {
-  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-  g.addColorStop(0, light); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-}
-const TD_PROP = {
-  tree(x, y, s, L) {
-    const [c1, c2] = L.tree || ['#8fd16a', '#3f8a37'];
-    tdShadow(x + 18 * s, y + 4, 72 * s, 22 * s, 0.25);
-    rr(x - 9 * s, y - 54 * s, 18 * s, 56 * s, 4 * s, '#7a5532'); rr(x + 2 * s, y - 54 * s, 7 * s, 56 * s, 3 * s, '#5d3f22');
-    [[-34, -72, 40], [34, -74, 38], [0, -106, 48], [-14, -80, 42], [18, -90, 40]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
-    ell(x - 18 * s, y - 124 * s, 16 * s, 9 * s, 'rgba(255,255,255,.18)', -0.5);
-    if (L.snowy) [[0, -146, 30], [-36, -104, 20], [34, -106, 18]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.45 * s, '#ffffff'));
-  },
-  pine(x, y, s, L) {
-    tdShadow(x + 14 * s, y + 3, 50 * s, 16 * s, 0.25);
-    rr(x - 7 * s, y - 30 * s, 14 * s, 32 * s, 3 * s, '#6b4a2b');
-    [[0, 62, 26], [-28, 50, 22], [-54, 38, 18], [-76, 24, 14]].forEach(([dy, w, h], i) => {
-      const by = y - 22 * s + dy * s * 0.9 - i * 6 * s;
-      tri(x - w * s, by, x + w * s, by, x, by - (h + 34) * s, '#2f6f3f'); tri(x - w * s, by, x, by, x, by - (h + 34) * s, '#3f8a4f');
-      if (L.snowy) { tri(x - w * 0.55 * s, by - (h + 34) * s * 0.45, x + w * 0.55 * s, by - (h + 34) * s * 0.45, x, by - (h + 34) * s, '#ffffff'); }
-    });
-  },
-  bush(x, y, s, L) {
-    const [c1, c2] = L.tree || ['#86c95f', '#3d8034'];
-    tdShadow(x + 6 * s, y + 2, 36 * s, 10 * s);
-    [[-16, -14, 18], [16, -14, 18], [0, -24, 22]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
-    if (L.flowers) [[-12, -26], [10, -32], [18, -18]].forEach(([dx, dy]) => ell(x + dx * s, y + dy * s, 3.4 * s, 3.4 * s, '#ff7a8a'));
-  },
-  rock(x, y, s, L) {
-    const [c1, c2] = L.rock || ['#b9bdc2', '#858a91'];
-    tdShadow(x + 5 * s, y + 2, 30 * s, 9 * s);
-    ell(x, y - 10 * s, 27 * s, 16 * s, c2); ell(x - 5 * s, y - 15 * s, 18 * s, 9 * s, c1);
-    if (L.snowy) ell(x - 3 * s, y - 20 * s, 16 * s, 6 * s, '#ffffff');
-  },
-  log(x, y, s) {
-    tdShadow(x + 4 * s, y + 3, 52 * s, 9 * s);
-    rr(x - 48 * s, y - 24 * s, 96 * s, 24 * s, 12 * s, '#8a5d36'); rr(x - 48 * s, y - 24 * s, 96 * s, 8 * s, 4 * s, '#a87648');
-    ell(x + 46 * s, y - 12 * s, 9 * s, 12 * s, '#d9b07a'); ell(x + 46 * s, y - 12 * s, 4 * s, 6 * s, '#b88a55');
-  },
-  shroom(x, y, s, L) {
-    const [c1, c2] = L.cap || ['#ff6b5a', '#c23b32'];
-    tdShadow(x + 6 * s, y + 2, 30 * s, 9 * s);
-    rr(x - 8 * s, y - 34 * s, 16 * s, 34 * s, 6 * s, '#f6ead2');
-    ctx.beginPath(); ctx.ellipse(x, y - 34 * s, 32 * s, 24 * s, 0, Math.PI, 0); ctx.lineTo(x + 32 * s, y - 32 * s); ctx.lineTo(x - 32 * s, y - 32 * s); ctx.fillStyle = c2; ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x - 2 * s, y - 37 * s, 28 * s, 20 * s, 0, Math.PI, 0); ctx.fillStyle = c1; ctx.fill();
-    [[-14, -46, 5], [6, -52, 4], [16, -40, 4], [-2, -40, 3]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.8 * s, '#fff6ea'));
-  },
-  cactus(x, y, s) {
-    tdShadow(x + 8 * s, y + 2, 26 * s, 8 * s);
-    rr(x - 11 * s, y - 70 * s, 22 * s, 70 * s, 11 * s, '#4f9a4a'); rr(x - 11 * s, y - 70 * s, 9 * s, 70 * s, 5 * s, '#6cb85e');
-    rr(x - 30 * s, y - 50 * s, 12 * s, 26 * s, 6 * s, '#4f9a4a'); rr(x - 30 * s, y - 28 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
-    rr(x + 18 * s, y - 60 * s, 12 * s, 24 * s, 6 * s, '#4f9a4a'); rr(x + 8 * s, y - 40 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
-    ell(x, y - 72 * s, 5 * s, 4 * s, '#ff8fb8');
-  },
-  mesa(x, y, s) {
-    tdShadow(x + 14 * s, y + 4, 80 * s, 18 * s, 0.28);
-    ctx.beginPath(); ctx.moveTo(x - 70 * s, y); ctx.lineTo(x - 60 * s, y - 70 * s); ctx.lineTo(x + 62 * s, y - 74 * s); ctx.lineTo(x + 72 * s, y); ctx.closePath(); ctx.fillStyle = '#b8603a'; ctx.fill();
-    for (let i = 1; i < 4; i++) { ctx.fillStyle = 'rgba(80,30,10,.18)'; ctx.fillRect(x - 68 * s + i * 2 * s, y - i * 18 * s, 136 * s, 4 * s); }
-    ell(x, y - 72 * s, 62 * s, 16 * s, '#e09a66'); ell(x - 14 * s, y - 75 * s, 34 * s, 8 * s, '#f0b480');
-  },
-  cloud(x, y, s) {
-    tdShadow(x + 10 * s, y + 6, 70 * s, 14 * s, 0.1);
-    [[-40, -16, 26], [40, -16, 24], [-14, -30, 32], [18, -34, 30], [0, -12, 28]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, '#ffffff', '#c9d8ef'));
-  },
-  pillar(x, y, s) {
-    tdShadow(x + 10 * s, y + 3, 32 * s, 9 * s);
-    rr(x - 20 * s, y - 86 * s, 40 * s, 86 * s, 4 * s, '#efe6cf'); rr(x + 6 * s, y - 86 * s, 14 * s, 86 * s, 3 * s, '#d4c8a8');
-    for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 10 * s - 1, y - 84 * s, 2, 80 * s);
-    ell(x, y - 88 * s, 26 * s, 9 * s, '#fff7e0'); ell(x, y - 88 * s, 16 * s, 5 * s, '#ffd86b');
-  },
-  vent(x, y, s) {
-    tdShadow(x + 6 * s, y + 3, 44 * s, 11 * s);
-    ctx.beginPath(); ctx.moveTo(x - 42 * s, y); ctx.lineTo(x - 14 * s, y - 40 * s); ctx.lineTo(x + 14 * s, y - 40 * s); ctx.lineTo(x + 42 * s, y); ctx.closePath(); ctx.fillStyle = '#3a2f2e'; ctx.fill();
-    ell(x, y - 40 * s, 15 * s, 6 * s, '#ff7a2a'); ell(x, y - 40 * s, 8 * s, 3 * s, '#ffd36b');
-  },
-  coral(x, y, s) {
-    const c = ['#ff7f8f', '#ff9f5a', '#c78bff', '#ff6fb0'][Math.floor(Math.abs(x * 7 + y) % 4)];
-    tdShadow(x + 5 * s, y + 2, 30 * s, 8 * s, 0.18);
-    ctx.strokeStyle = c; ctx.lineCap = 'round'; ctx.lineWidth = 9 * s;
-    [[0, -50, -6], [-20, -38, -30], [20, -42, 24], [-8, -28, -16]].forEach(([dx, dy, tx]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * s, y + dy * 0.5 * s, x + tx * s, y + dy * s); ctx.stroke(); ell(x + tx * s, y + dy * s, 7 * s, 7 * s, shade(c, 0.3)); });
-  },
-  weed(x, y, s) {
-    ctx.strokeStyle = '#3f9a5a'; ctx.lineCap = 'round'; ctx.lineWidth = 6 * s;
-    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 8 * s, y); ctx.bezierCurveTo(x + i * 8 * s + 14 * s, y - 30 * s, x + i * 8 * s - 14 * s, y - 50 * s, x + i * 10 * s, y - (70 + i * 8) * s); ctx.stroke(); }
-  },
-  grave(x, y, s, L) {
-    const [c1, c2] = L.rock;
-    tdShadow(x + 8 * s, y + 3, 30 * s, 8 * s);
-    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, 0); ctx.lineTo(x + 22 * s, y); ctx.closePath(); ctx.fillStyle = c2; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, -Math.PI / 2); ctx.lineTo(x, y); ctx.closePath(); ctx.fillStyle = c1; ctx.fill();
-    ctx.fillStyle = 'rgba(30,30,45,.55)'; ctx.fillRect(x - 2 * s, y - 50 * s, 4 * s, 22 * s); ctx.fillRect(x - 9 * s, y - 44 * s, 18 * s, 4 * s);
-    ell(x - 10 * s, y - 2 * s, 10 * s, 4 * s, '#4f6b3f');
-  },
-  deadtree(x, y, s) {
-    tdShadow(x + 14 * s, y + 3, 50 * s, 14 * s, 0.25);
-    ctx.strokeStyle = '#2e2a33'; ctx.lineCap = 'round';
-    const br = (x0, y0, a, len, w, n) => { const x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); if (n > 0) { br(x1, y1, a - 0.5, len * 0.66, w * 0.62, n - 1); br(x1, y1, a + 0.45, len * 0.6, w * 0.62, n - 1); } };
-    br(x, y, -Math.PI / 2, 56 * s, 13 * s, 3);
-  },
-  pumpkin(x, y, s) { pumpkin(x, y, s * 0.42); },
-  snowman(x, y, s) {
-    tdShadow(x + 8 * s, y + 3, 30 * s, 9 * s);
-    tdBall(x, y - 22 * s, 24 * s, '#ffffff', '#c8d8ea'); tdBall(x, y - 58 * s, 17 * s, '#ffffff', '#c8d8ea');
-    ell(x - 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333'); ell(x + 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333');
-    tri(x, y - 57 * s, x + 14 * s, y - 55 * s, x, y - 53 * s, '#f08c2a');
-    rr(x - 16 * s, y - 44 * s, 32 * s, 6 * s, 3 * s, '#e8574a');
-  },
-  crystal(x, y, s) {
-    const c = ['#7ee8ff', '#ff9ff0', '#b39cff'][Math.floor(Math.abs(x * 3 + y) % 3)];
-    tdShadow(x + 6 * s, y + 2, 32 * s, 9 * s);
-    [[-16, 44, -0.25, 9], [0, 64, 0, 12], [16, 40, 0.3, 9]].forEach(([dx, h, a, w]) => {
-      ctx.save(); ctx.translate(x + dx * s, y); ctx.rotate(a);
-      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(w * s, -h * s); ctx.lineTo(w * s, 0); ctx.closePath();
-      ctx.fillStyle = shade(c, -0.25); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(0, 0); ctx.closePath(); ctx.fillStyle = shade(c, 0.25); ctx.fill();
-      ctx.restore();
-    });
-  },
-  crater(x, y, s) {
-    ell(x, y - 6 * s, 46 * s, 15 * s, 'rgba(60,62,75,.35)'); ell(x + 4 * s, y - 4 * s, 38 * s, 11 * s, 'rgba(40,42,55,.3)');
-    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(x, y - 6 * s, 46 * s, 15 * s, 0, 0.1, Math.PI - 0.1); ctx.stroke();
-  },
-};
-
-// the painting is seeded by the habitat's name, so it is the same every time; it also notes where its ponds, vents and
-// crystals are, for the live layer
-const GROUND_LIVE = {};
-function bakeGround(theme, tod, w) {
-  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, H = LH + SKY_MAX, h = Math.round(w * H / LW), k = w / LW, saved = ctx;
-  const out = document.createElement('canvas'); out.width = w; out.height = h;
-  let seed = [...theme].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) % 2147483647 || 7;
-  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const live = GROUND_LIVE[theme] = { ponds: [], vents: [], glints: [], cracks: [] };
-  try {
-    ctx = out.getContext('2d'); ctx.setTransform(k, 0, 0, k, 0, SKY_MAX * k);
-    const top = -SKY_MAX;
-    ctx.fillStyle = vgrad(top, LH, L.g[0], L.g[1]); ctx.fillRect(0, top, LW, H);
-    for (let i = 0; i < 60; i++) {   // soft light and dark blotches so the ground isn't flat
-      const x = r() * LW, y = top + r() * H, rad = 60 + r() * 160, light = r() < 0.5;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-      g.addColorStop(0, light ? 'rgba(255,255,230,.15)' : 'rgba(20,40,10,.07)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-    }
-    if (L.puffs) for (let i = 0; i < 26; i++) { const x = r() * LW, y = top + r() * H; tdBall(x, y, 30 + r() * 50, 'rgba(255,255,255,.7)', 'rgba(200,215,240,.25)'); }
-    // the play patch: a darker rim of trodden ground, then the patch, lighter in the middle, with pebbles
-    patchPath(16); ctx.fillStyle = 'rgba(30,40,15,.16)'; ctx.fill();
-    patchPath(); const pg = ctx.createRadialGradient(PATCH.x - 80, PATCH.y - 60, 30, PATCH.x, PATCH.y, PATCH.rx);
-    pg.addColorStop(0, shade(L.patch[0], 0.08)); pg.addColorStop(0.7, L.patch[0]); pg.addColorStop(1, L.patch[1]); ctx.fillStyle = pg; ctx.fill();
-    ctx.save(); patchPath(); ctx.clip();
-    ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(60,40,20,.14)'; patchPath(); ctx.stroke();
-    for (let i = 0; i < 320; i++) {
-      const x = PATCH.x + (r() - 0.5) * PATCH.rx * 2, y = PATCH.y + (r() - 0.5) * PATCH.ry * 2, rad = 1 + r() * 3.4;
-      ell(x, y, rad, rad * 0.7, r() < 0.5 ? rgba(L.speck || shade(L.patch[1], -0.3), 0.45) : 'rgba(255,250,235,.5)');
-    }
-    if (L.shells) for (let i = 0; i < 14; i++) { const x = PATCH.x + (r() - 0.5) * PATCH.rx * 1.7, y = PATCH.y + (r() - 0.5) * PATCH.ry * 1.6; if (r() < 0.5) { starPath(x, y, 8, 0.5); ctx.fillStyle = '#ff9a6b'; ctx.fill(); } else ell(x, y, 6, 4.5, '#fff1e0'); }
-    ctx.restore();
-    // grass tufts, flowers, pebbles outside the patch
-    const tuft = (x, y, s) => {
-      ctx.lineCap = 'round';
-      [[-5, -9], [0, -13], [5, -9]].forEach(([dx, dy]) => { ctx.strokeStyle = L.tuft[0]; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * 0.4 * s, y + dy * 0.5 * s, x + dx * s, y + dy * s); ctx.stroke(); });
-      ctx.strokeStyle = L.tuft[1]; ctx.lineWidth = 1.4 * s; ctx.beginPath(); ctx.moveTo(x, y - 1); ctx.lineTo(x, y - 11 * s); ctx.stroke();
-    };
-    for (let i = 0; i < 260; i++) {
-      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
-      if (L.tuft) tuft(x, y, 0.8 + r() * 0.7);
-      else ell(x, y, 2 + r() * 3, 1.5 + r() * 2, rgba(L.speck || shade(L.g[1], -0.25), 0.35));
-    }
-    if (L.flowers) for (let i = 0; i < 90; i++) {
-      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
-      const col = ['#fff6d8', '#ffd84a', '#ff9eb5', '#c9b6ff'][Math.floor(r() * 4)];
-      for (let p = 0; p < 5; p++) { const a = p / 5 * TAU; ell(x + Math.cos(a) * 3.4, y + Math.sin(a) * 2.4, 2.6, 2, col); }
-      ell(x, y, 1.8, 1.8, '#f2a33a');
-    }
-    if (L.snowy) for (let i = 0; i < 120; i++) { const x = r() * LW, y = top + r() * H; live.glints.push([x, y]); }
-    if (L.sparkle) for (let i = 0; i < 40; i++) live.glints.push([r() * LW, top + r() * (H - 60)]);
-    if (L.craters) for (let i = 0; i < 9; i++) { const x = r() * LW, y = 380 + r() * 320; TD_PROP.crater(x, y, 0.6 + r() * 0.6, L); }
-    if (L.cracks) for (let i = 0; i < 7; i++) {   // glowing lava cracks across the ground
-      let x = r() * LW, y = top + 120 + r() * (H - 200); const pts = [[x, y]];
-      for (let j = 0; j < 6; j++) { x += 20 + r() * 40; y += (r() - 0.5) * 30; pts.push([x, y]); }
-      ctx.strokeStyle = '#2a1a16'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke();
-      ctx.strokeStyle = '#ff6a1f'; ctx.lineWidth = 2.5; ctx.stroke();
-      live.cracks.push(pts);
-    }
-    // a pond (or puddle, lava pool, frozen pond) at the back on the left
-    const pond = L.pond && { x: 205, y: 330, rx: 150, ry: 58, kind: L.pond };
-    if (pond) {
-      const P = { water: ['#8f7a4c', '#3f8fc9', '#6cc0e8'], puddle: ['#6b5a40', '#506a80', '#7e98ad'], lava: ['#2a1a16', '#ff5a1a', '#ffc04a'], ice: ['#b7cde0', '#9fd2f0', '#e8f6ff'] }[pond.kind];
-      ell(pond.x, pond.y + 4, pond.rx + 10, pond.ry + 9, P[0]);
-      const g = ctx.createRadialGradient(pond.x + 20, pond.y + 10, 10, pond.x, pond.y, pond.rx); g.addColorStop(0, P[1]); g.addColorStop(1, P[2]);
-      ell(pond.x, pond.y, pond.rx, pond.ry, g);
-      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(pond.x, pond.y, pond.rx - 6, pond.ry - 4, 0, Math.PI * 1.05, Math.PI * 1.7); ctx.stroke();
-      if (pond.kind === 'water') [[-50, -8, 20], [54, 10, 16], [4, -18, 12]].forEach(([dx, dy, rad]) => { ell(pond.x + dx, pond.y + dy + 2, rad, rad * 0.55, '#3e8f3a'); ell(pond.x + dx, pond.y + dy, rad, rad * 0.55, '#5fb54f'); });
-      live.ponds.push(pond);
-    }
-    // the scenery: rows of props at the back, smaller and denser further away, drawn back to front
-    const props = [];
-    for (let y = top + 30; y < 395; y += 64) for (let x = -30; x < LW + 40; x += 150) {
-      if (r() < L.gap) continue;
-      const px = x + (r() - 0.5) * 110, py = y + (r() - 0.5) * 40;
-      if (pond && ((px - pond.x) / (pond.rx + 50)) ** 2 + ((py - pond.y) / (pond.ry + 60)) ** 2 < 1) continue;
-      if (py > 330 && inPatch(px, py + 40)) continue;
-      props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
-    }
-    props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
-    { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.5)'); sh.addColorStop(0.6, 'rgba(8,14,4,.18)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
-      const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.5)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
-    vividCanvas(out);   // brighter, fresher colours with more contrast (before the sea tint and the dusk or night tint)
-    if (L.tint) { ctx.fillStyle = L.tint; ctx.fillRect(0, top, LW, H); }
-    if (OUTDOOR.includes(theme) && tod !== 'day') { ctx.fillStyle = tod === 'night' ? 'rgba(10,18,60,.5)' : 'rgba(110,45,70,.2)'; ctx.fillRect(0, top, LW, H); }
-    if (theme === 'haunted' || theme === 'crystal' || theme === 'space') { ctx.fillStyle = 'rgba(10,8,30,.12)'; ctx.fillRect(0, top, LW, H); }
-  } finally { ctx = saved; }
-  return out;
-}
-
-// what moves on the ground: cloud shadows, rippling ponds, lava glow and smoke, twinkles, light through the sea, fog
-function drawGroundLive(t, theme, tod, wkind) {
-  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, live = GROUND_LIVE[theme]; if (!live) return;
-  ctx.save();
-  if (OUTDOOR.includes(theme) && tod === 'day' && wkind !== 'rain' && wkind !== 'storm')
-    for (let i = 0; i < 2; i++) { const x = ((t * 16 + i * 760) % (LW + 700)) - 350; ell(x, 150 + i * 330, 260, 95, 'rgba(20,40,10,.07)'); }
-  for (const p of live.ponds) {
-    if (p.kind === 'lava') { ctx.globalAlpha = 0.35 + Math.sin(t * 2) * 0.15; glow(p.x, p.y, p.rx * 1.1, '#ff7a2a', 0.6); ctx.globalAlpha = 1; }
-    else for (let i = 0; i < 3; i++) { const a = (t * 0.5 + i / 3) % 1; ctx.strokeStyle = `rgba(255,255,255,${0.45 * (1 - a)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x - 30 + i * 30, p.y + 4, 10 + a * 30, 4 + a * 10, 0, 0, TAU); ctx.stroke(); }
-  }
-  for (const pts of live.cracks) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 1.6 + pts[0][0]); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); }
-  ctx.globalAlpha = 1;
-  for (const v of live.vents) for (let i = 0; i < 3; i++) { const ph = (t * 0.3 + i / 3 + v.x * 0.001) % 1; ctx.globalAlpha = (1 - ph) * 0.4; ell(v.x + Math.sin(ph * 5 + i) * 10, v.y - 40 * v.s - ph * 90, 10 + ph * 18, 8 + ph * 14, '#8a7f7a'); }
-  ctx.globalAlpha = 1;
-  live.glints.forEach(([x, y], i) => { const a = Math.sin(t * 2.2 + i * 1.7); if (a > 0.6) { ctx.globalAlpha = (a - 0.6) * 2.2; starPath(x, y, 3 + (i % 3) * 2, 0.35); ctx.fillStyle = L.sparkle || '#ffffff'; ctx.fill(); } });
-  ctx.globalAlpha = 1;
-  if (theme === 'ocean') {   // ripples of light on the sea floor and bubbles rising
-    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 3;
-    for (let i = 0; i < 14; i++) { const x = (i * 97 + Math.sin(t * 0.7 + i) * 30) % LW, y = -SKY_MAX + ((i * 131) % (LH + SKY_MAX)); ctx.beginPath(); ctx.ellipse(x, y, 40 + Math.sin(t + i) * 10, 14, Math.sin(i), 0, TAU); ctx.stroke(); }
-    for (let i = 0; i < 10; i++) { const y = LH - ((t * 50 + i * 97) % (LH + SKY_MAX)), x = (i * 137) % LW + Math.sin(t * 2 + i) * 8; ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4 + (i % 3) * 2, 0, TAU); ctx.stroke(); }
-  }
-  if (theme === 'haunted') for (let i = 0; i < 4; i++) { const x = ((t * 14 + i * 400) % (LW + 600)) - 300; ell(x, 250 + i * 120, 240, 40, 'rgba(200,200,230,.08)'); }
-  ctx.restore();
-}
 /* tall phone screens: a real painting above the 16:9 backdrop instead of a stretched strip. It continues the colours at the
    seam (with a soft mirrored blend), deepens towards the top, and adds what belongs up there in each habitat. Baked once
    per backdrop and size, drawn in world space so it pans with the camera. */
@@ -6793,6 +6765,296 @@ function drawBadge() {
   ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; ctx.fillText(lab, x + 18, y + h / 2 + 1);
   ctx.font = '700 21px "Be Vietnam Pro", sans-serif'; ctx.fillText(txt, x + w2 + 46, y + h / 2 + 1);
+}
+/* ---------- top-down yard: the home (and friends' houses) seen from above at a slant ----------
+   The ground of each habitat is painted once: lawn, sand, snow, sea floor..., a patch to play on in the middle and the
+   habitat's scenery (trees, rocks, crystals, coral...) at the back. Everything standing on the ground has a depth d, the
+   screen y of its feet. The pet, poops and decorations are still drawn in their side-view space standing on GROUND;
+   atDepth() moves that space so GROUND lands on d and shrinks it a little the further back d is. */
+const D_BACK = 430, D_FRONT = 650, D_MID = 545;
+const depthK = d => 0.62 + 0.2 * Math.max(0, Math.min(1, (d - D_BACK) / (D_FRONT - D_BACK)));
+const randomD = () => D_BACK + 10 + Math.random() * (D_FRONT - D_BACK - 20);
+const petD = () => game ? null : pet.d;   // minigames keep the side view they were laid out for, with the full-size pet
+let depthCtx = null;   // the depth being drawn; particles spawned meanwhile belong to it
+function atDepth(x, d, fn) {
+  if (d == null) return fn();
+  const k = depthK(d), prev = depthCtx;
+  ctx.save(); ctx.translate(x, d); ctx.scale(k, k); ctx.translate(-x, -GROUND); depthCtx = { ax: x, d };
+  try { return fn(); } finally { ctx.restore(); depthCtx = prev; }
+}
+// a point of the screen picture -> the side-view space of something standing at (ax, d), and back
+const toDepth = (p, ax, d) => { if (d == null) return p; const k = depthK(d); return { ...p, x: ax + (p.x - ax) / k, y: GROUND + (p.y - d) / k }; };
+const fromDepth = (x, y, ax, d) => { if (d == null) return { x, y, k: 1 }; const k = depthK(d); return { x: ax + (x - ax) * k, y: d + (y - GROUND) * k, k }; };
+// a body returned by drawPet (side-view space) as it shows on screen, for the chat bubble
+const bodyOnScreen = b => { const d = petD(); if (!b || d == null) return b; const p = fromDepth(b.x, b.cy, pet.x, d); return { ...b, x: p.x, cy: p.y, rx: b.rx * p.k, ry: b.ry * p.k, R: b.R * p.k }; };
+const drawByDepth = list => list.sort((a, b) => a.d - b.d).forEach(o => o.draw());
+
+// what each habitat's ground looks like: lawn colours, the play patch, grass tufts, and the scenery at the back
+const GROUND_LOOK = {
+  meadow: { g: ['#7cc257', '#68b04a'], patch: ['#ecce96', '#c99f63'], tuft: ['#4e9636', '#9ad670'], flowers: 1, props: ['tree', 'tree', 'bush', 'rock', 'bush'], pond: 'water', gap: 0.45 },
+  forest: { g: ['#58a04a', '#3f873a'], patch: ['#c9a66d', '#9a7748'], tuft: ['#2f7030', '#7cc35a'], props: ['tree', 'tree', 'pine', 'tree', 'log', 'shroom', 'bush'], gap: 0.15, tree: ['#6cbf55', '#2e6e2e'] },
+  fairy: { g: ['#a7e08f', '#8dd07f'], patch: ['#f8e9c8', '#e2c79a'], tuft: ['#6fb85a', '#c8f0a8'], flowers: 1, props: ['shroom', 'shroom', 'tree', 'bush'], pond: 'water', sparkle: '#fff3a8', gap: 0.4, tree: ['#b9e98f', '#5aa65a'], cap: ['#ff8fb8', '#e8457a'] },
+  canyon: { g: ['#e2a56a', '#cf8a52'], patch: ['#f5d29f', '#dfa86e'], tuft: ['#a8763f', '#d9a35f'], props: ['mesa', 'cactus', 'rock', 'cactus', 'mesa'], speck: '#b06a3a', gap: 0.5, rock: ['#d98a5a', '#9c5432'] },
+  sky: { g: ['#f6f9ff', '#d9e5f7'], patch: ['#fff4d2', '#f1dca6'], props: ['cloud', 'cloud', 'pillar', 'cloud'], sparkle: '#ffffff', gap: 0.35, puffs: 1 },
+  storm: { g: ['#5f8d55', '#4a7444'], patch: ['#a8926d', '#7f6a4a'], tuft: ['#355f30', '#7aa86a'], props: ['tree', 'rock', 'bush', 'rock'], pond: 'puddle', gap: 0.45, tree: ['#5f9a55', '#2c5a2e'] },
+  volcano: { g: ['#4d3f3c', '#382d2c'], patch: ['#857469', '#5f504a'], props: ['rock', 'vent', 'rock', 'rock'], pond: 'lava', cracks: 1, speck: '#2a2020', gap: 0.5, rock: ['#6b5d5a', '#2f2626'] },
+  ocean: { g: ['#e3d3a2', '#cdb882'], patch: ['#f3e7c2', '#dccb98'], props: ['coral', 'weed', 'coral', 'rock', 'weed'], tint: 'rgba(50,150,210,.2)', shells: 1, gap: 0.35 },
+  haunted: { g: ['#4f4e63', '#3c3b50'], patch: ['#7a6d5f', '#5a4f44'], tuft: ['#34334a', '#6c6b86'], props: ['grave', 'deadtree', 'grave', 'pumpkin', 'grave'], gap: 0.4, rock: ['#8a8a9a', '#4e4e5e'] },
+  snow: { g: ['#f4f8fc', '#dae6f2'], patch: ['#dcecf8', '#bad4ea'], props: ['pine', 'pine', 'rock', 'snowman', 'pine'], snowy: 1, pond: 'ice', gap: 0.35, sparkle: '#ffffff' },
+  crystal: { g: ['#4c4170', '#382f58'], patch: ['#73679c', '#544a7c'], props: ['crystal', 'rock', 'crystal', 'crystal'], sparkle: '#b8f3ff', speck: '#2c2548', gap: 0.4, rock: ['#6d6396', '#3a3260'] },
+  space: { g: ['#9092a0', '#757786'], patch: ['#adafbc', '#8f91a0'], props: ['rock', 'crater', 'crystal', 'rock'], craters: 1, speck: '#5f6170', gap: 0.45, rock: ['#a5a7b4', '#5c5e6c'] },
+};
+const PATCH = { x: 640, y: 548, rx: 600, ry: 152 };
+const patchWob = a => 1 + Math.sin(a * 3 + 1) * 0.05 + Math.sin(a * 7 + 2) * 0.03 + Math.sin(a * 13) * 0.015;
+function patchPath(grow = 0) {
+  ctx.beginPath();
+  for (let i = 0; i <= 120; i++) {
+    const a = i / 120 * TAU, r = patchWob(a), x = PATCH.x + Math.cos(a) * (PATCH.rx + grow) * r, y = PATCH.y + Math.sin(a) * (PATCH.ry + grow * 0.5) * r;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+const inPatch = (x, y) => ((x - PATCH.x) / PATCH.rx) ** 2 + ((y - PATCH.y) / PATCH.ry) ** 2 < 1.08;
+
+// scenery seen from above at a slant, lit from the upper left like the pets; (x, y) is where it touches the ground
+const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(12,18,6,${Math.min(0.6, a * 1.55)})`);
+function tdBall(x, y, r, light, dark) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, light); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+const TD_PROP = {
+  tree(x, y, s, L) {
+    const [c1, c2] = L.tree || ['#8fd16a', '#3f8a37'];
+    tdShadow(x + 18 * s, y + 4, 72 * s, 22 * s, 0.25);
+    rr(x - 9 * s, y - 54 * s, 18 * s, 56 * s, 4 * s, '#7a5532'); rr(x + 2 * s, y - 54 * s, 7 * s, 56 * s, 3 * s, '#5d3f22');
+    [[-34, -72, 40], [34, -74, 38], [0, -106, 48], [-14, -80, 42], [18, -90, 40]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
+    ell(x - 18 * s, y - 124 * s, 16 * s, 9 * s, 'rgba(255,255,255,.18)', -0.5);
+    if (L.snowy) [[0, -146, 30], [-36, -104, 20], [34, -106, 18]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.45 * s, '#ffffff'));
+  },
+  pine(x, y, s, L) {
+    tdShadow(x + 14 * s, y + 3, 50 * s, 16 * s, 0.25);
+    rr(x - 7 * s, y - 30 * s, 14 * s, 32 * s, 3 * s, '#6b4a2b');
+    [[0, 62, 26], [-28, 50, 22], [-54, 38, 18], [-76, 24, 14]].forEach(([dy, w, h], i) => {
+      const by = y - 22 * s + dy * s * 0.9 - i * 6 * s;
+      tri(x - w * s, by, x + w * s, by, x, by - (h + 34) * s, '#2f6f3f'); tri(x - w * s, by, x, by, x, by - (h + 34) * s, '#3f8a4f');
+      if (L.snowy) { tri(x - w * 0.55 * s, by - (h + 34) * s * 0.45, x + w * 0.55 * s, by - (h + 34) * s * 0.45, x, by - (h + 34) * s, '#ffffff'); }
+    });
+  },
+  bush(x, y, s, L) {
+    const [c1, c2] = L.tree || ['#86c95f', '#3d8034'];
+    tdShadow(x + 6 * s, y + 2, 36 * s, 10 * s);
+    [[-16, -14, 18], [16, -14, 18], [0, -24, 22]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
+    if (L.flowers) [[-12, -26], [10, -32], [18, -18]].forEach(([dx, dy]) => ell(x + dx * s, y + dy * s, 3.4 * s, 3.4 * s, '#ff7a8a'));
+  },
+  rock(x, y, s, L) {
+    const [c1, c2] = L.rock || ['#b9bdc2', '#858a91'];
+    tdShadow(x + 5 * s, y + 2, 30 * s, 9 * s);
+    ell(x, y - 10 * s, 27 * s, 16 * s, c2); ell(x - 5 * s, y - 15 * s, 18 * s, 9 * s, c1);
+    if (L.snowy) ell(x - 3 * s, y - 20 * s, 16 * s, 6 * s, '#ffffff');
+  },
+  log(x, y, s) {
+    tdShadow(x + 4 * s, y + 3, 52 * s, 9 * s);
+    rr(x - 48 * s, y - 24 * s, 96 * s, 24 * s, 12 * s, '#8a5d36'); rr(x - 48 * s, y - 24 * s, 96 * s, 8 * s, 4 * s, '#a87648');
+    ell(x + 46 * s, y - 12 * s, 9 * s, 12 * s, '#d9b07a'); ell(x + 46 * s, y - 12 * s, 4 * s, 6 * s, '#b88a55');
+  },
+  shroom(x, y, s, L) {
+    const [c1, c2] = L.cap || ['#ff6b5a', '#c23b32'];
+    tdShadow(x + 6 * s, y + 2, 30 * s, 9 * s);
+    rr(x - 8 * s, y - 34 * s, 16 * s, 34 * s, 6 * s, '#f6ead2');
+    ctx.beginPath(); ctx.ellipse(x, y - 34 * s, 32 * s, 24 * s, 0, Math.PI, 0); ctx.lineTo(x + 32 * s, y - 32 * s); ctx.lineTo(x - 32 * s, y - 32 * s); ctx.fillStyle = c2; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x - 2 * s, y - 37 * s, 28 * s, 20 * s, 0, Math.PI, 0); ctx.fillStyle = c1; ctx.fill();
+    [[-14, -46, 5], [6, -52, 4], [16, -40, 4], [-2, -40, 3]].forEach(([dx, dy, r]) => ell(x + dx * s, y + dy * s, r * s, r * 0.8 * s, '#fff6ea'));
+  },
+  cactus(x, y, s) {
+    tdShadow(x + 8 * s, y + 2, 26 * s, 8 * s);
+    rr(x - 11 * s, y - 70 * s, 22 * s, 70 * s, 11 * s, '#4f9a4a'); rr(x - 11 * s, y - 70 * s, 9 * s, 70 * s, 5 * s, '#6cb85e');
+    rr(x - 30 * s, y - 50 * s, 12 * s, 26 * s, 6 * s, '#4f9a4a'); rr(x - 30 * s, y - 28 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
+    rr(x + 18 * s, y - 60 * s, 12 * s, 24 * s, 6 * s, '#4f9a4a'); rr(x + 8 * s, y - 40 * s, 22 * s, 10 * s, 5 * s, '#4f9a4a');
+    ell(x, y - 72 * s, 5 * s, 4 * s, '#ff8fb8');
+  },
+  mesa(x, y, s) {
+    tdShadow(x + 14 * s, y + 4, 80 * s, 18 * s, 0.28);
+    ctx.beginPath(); ctx.moveTo(x - 70 * s, y); ctx.lineTo(x - 60 * s, y - 70 * s); ctx.lineTo(x + 62 * s, y - 74 * s); ctx.lineTo(x + 72 * s, y); ctx.closePath(); ctx.fillStyle = '#b8603a'; ctx.fill();
+    for (let i = 1; i < 4; i++) { ctx.fillStyle = 'rgba(80,30,10,.18)'; ctx.fillRect(x - 68 * s + i * 2 * s, y - i * 18 * s, 136 * s, 4 * s); }
+    ell(x, y - 72 * s, 62 * s, 16 * s, '#e09a66'); ell(x - 14 * s, y - 75 * s, 34 * s, 8 * s, '#f0b480');
+  },
+  cloud(x, y, s) {
+    tdShadow(x + 10 * s, y + 6, 70 * s, 14 * s, 0.1);
+    [[-40, -16, 26], [40, -16, 24], [-14, -30, 32], [18, -34, 30], [0, -12, 28]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, '#ffffff', '#c9d8ef'));
+  },
+  pillar(x, y, s) {
+    tdShadow(x + 10 * s, y + 3, 32 * s, 9 * s);
+    rr(x - 20 * s, y - 86 * s, 40 * s, 86 * s, 4 * s, '#efe6cf'); rr(x + 6 * s, y - 86 * s, 14 * s, 86 * s, 3 * s, '#d4c8a8');
+    for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 10 * s - 1, y - 84 * s, 2, 80 * s);
+    ell(x, y - 88 * s, 26 * s, 9 * s, '#fff7e0'); ell(x, y - 88 * s, 16 * s, 5 * s, '#ffd86b');
+  },
+  vent(x, y, s) {
+    tdShadow(x + 6 * s, y + 3, 44 * s, 11 * s);
+    ctx.beginPath(); ctx.moveTo(x - 42 * s, y); ctx.lineTo(x - 14 * s, y - 40 * s); ctx.lineTo(x + 14 * s, y - 40 * s); ctx.lineTo(x + 42 * s, y); ctx.closePath(); ctx.fillStyle = '#3a2f2e'; ctx.fill();
+    ell(x, y - 40 * s, 15 * s, 6 * s, '#ff7a2a'); ell(x, y - 40 * s, 8 * s, 3 * s, '#ffd36b');
+  },
+  coral(x, y, s) {
+    const c = ['#ff7f8f', '#ff9f5a', '#c78bff', '#ff6fb0'][Math.floor(Math.abs(x * 7 + y) % 4)];
+    tdShadow(x + 5 * s, y + 2, 30 * s, 8 * s, 0.18);
+    ctx.strokeStyle = c; ctx.lineCap = 'round'; ctx.lineWidth = 9 * s;
+    [[0, -50, -6], [-20, -38, -30], [20, -42, 24], [-8, -28, -16]].forEach(([dx, dy, tx]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * s, y + dy * 0.5 * s, x + tx * s, y + dy * s); ctx.stroke(); ell(x + tx * s, y + dy * s, 7 * s, 7 * s, shade(c, 0.3)); });
+  },
+  weed(x, y, s) {
+    ctx.strokeStyle = '#3f9a5a'; ctx.lineCap = 'round'; ctx.lineWidth = 6 * s;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 8 * s, y); ctx.bezierCurveTo(x + i * 8 * s + 14 * s, y - 30 * s, x + i * 8 * s - 14 * s, y - 50 * s, x + i * 10 * s, y - (70 + i * 8) * s); ctx.stroke(); }
+  },
+  grave(x, y, s, L) {
+    const [c1, c2] = L.rock;
+    tdShadow(x + 8 * s, y + 3, 30 * s, 8 * s);
+    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, 0); ctx.lineTo(x + 22 * s, y); ctx.closePath(); ctx.fillStyle = c2; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 22 * s, y); ctx.lineTo(x - 22 * s, y - 40 * s); ctx.arc(x, y - 40 * s, 22 * s, Math.PI, -Math.PI / 2); ctx.lineTo(x, y); ctx.closePath(); ctx.fillStyle = c1; ctx.fill();
+    ctx.fillStyle = 'rgba(30,30,45,.55)'; ctx.fillRect(x - 2 * s, y - 50 * s, 4 * s, 22 * s); ctx.fillRect(x - 9 * s, y - 44 * s, 18 * s, 4 * s);
+    ell(x - 10 * s, y - 2 * s, 10 * s, 4 * s, '#4f6b3f');
+  },
+  deadtree(x, y, s) {
+    tdShadow(x + 14 * s, y + 3, 50 * s, 14 * s, 0.25);
+    ctx.strokeStyle = '#2e2a33'; ctx.lineCap = 'round';
+    const br = (x0, y0, a, len, w, n) => { const x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); if (n > 0) { br(x1, y1, a - 0.5, len * 0.66, w * 0.62, n - 1); br(x1, y1, a + 0.45, len * 0.6, w * 0.62, n - 1); } };
+    br(x, y, -Math.PI / 2, 56 * s, 13 * s, 3);
+  },
+  pumpkin(x, y, s) { pumpkin(x, y, s * 0.42); },
+  snowman(x, y, s) {
+    tdShadow(x + 8 * s, y + 3, 30 * s, 9 * s);
+    tdBall(x, y - 22 * s, 24 * s, '#ffffff', '#c8d8ea'); tdBall(x, y - 58 * s, 17 * s, '#ffffff', '#c8d8ea');
+    ell(x - 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333'); ell(x + 6 * s, y - 62 * s, 2.5 * s, 2.5 * s, '#333');
+    tri(x, y - 57 * s, x + 14 * s, y - 55 * s, x, y - 53 * s, '#f08c2a');
+    rr(x - 16 * s, y - 44 * s, 32 * s, 6 * s, 3 * s, '#e8574a');
+  },
+  crystal(x, y, s) {
+    const c = ['#7ee8ff', '#ff9ff0', '#b39cff'][Math.floor(Math.abs(x * 3 + y) % 3)];
+    tdShadow(x + 6 * s, y + 2, 32 * s, 9 * s);
+    [[-16, 44, -0.25, 9], [0, 64, 0, 12], [16, 40, 0.3, 9]].forEach(([dx, h, a, w]) => {
+      ctx.save(); ctx.translate(x + dx * s, y); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(w * s, -h * s); ctx.lineTo(w * s, 0); ctx.closePath();
+      ctx.fillStyle = shade(c, -0.25); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-w * s, 0); ctx.lineTo(-w * s, -h * s); ctx.lineTo(0, -(h + 14) * s); ctx.lineTo(0, 0); ctx.closePath(); ctx.fillStyle = shade(c, 0.25); ctx.fill();
+      ctx.restore();
+    });
+  },
+  crater(x, y, s) {
+    ell(x, y - 6 * s, 46 * s, 15 * s, 'rgba(60,62,75,.35)'); ell(x + 4 * s, y - 4 * s, 38 * s, 11 * s, 'rgba(40,42,55,.3)');
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(x, y - 6 * s, 46 * s, 15 * s, 0, 0.1, Math.PI - 0.1); ctx.stroke();
+  },
+};
+
+// the painting is seeded by the habitat's name, so it is the same every time; it also notes where its ponds, vents and
+// crystals are, for the live layer
+const GROUND_LIVE = {};
+function bakeGround(theme, tod, w) {
+  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, H = LH + SKY_MAX, h = Math.round(w * H / LW), k = w / LW, saved = ctx;
+  const out = document.createElement('canvas'); out.width = w; out.height = h;
+  let seed = [...theme].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) % 2147483647 || 7;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const live = GROUND_LIVE[theme] = { ponds: [], vents: [], glints: [], cracks: [] };
+  try {
+    ctx = out.getContext('2d'); ctx.setTransform(k, 0, 0, k, 0, SKY_MAX * k);
+    const top = -SKY_MAX;
+    ctx.fillStyle = vgrad(top, LH, L.g[0], L.g[1]); ctx.fillRect(0, top, LW, H);
+    for (let i = 0; i < 60; i++) {   // soft light and dark blotches so the ground isn't flat
+      const x = r() * LW, y = top + r() * H, rad = 60 + r() * 160, light = r() < 0.5;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, light ? 'rgba(255,255,230,.15)' : 'rgba(20,40,10,.07)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    if (L.puffs) for (let i = 0; i < 26; i++) { const x = r() * LW, y = top + r() * H; tdBall(x, y, 30 + r() * 50, 'rgba(255,255,255,.7)', 'rgba(200,215,240,.25)'); }
+    // the play patch: a darker rim of trodden ground, then the patch, lighter in the middle, with pebbles
+    patchPath(16); ctx.fillStyle = 'rgba(30,40,15,.16)'; ctx.fill();
+    patchPath(); const pg = ctx.createRadialGradient(PATCH.x - 80, PATCH.y - 60, 30, PATCH.x, PATCH.y, PATCH.rx);
+    pg.addColorStop(0, shade(L.patch[0], 0.08)); pg.addColorStop(0.7, L.patch[0]); pg.addColorStop(1, L.patch[1]); ctx.fillStyle = pg; ctx.fill();
+    ctx.save(); patchPath(); ctx.clip();
+    ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(60,40,20,.14)'; patchPath(); ctx.stroke();
+    for (let i = 0; i < 320; i++) {
+      const x = PATCH.x + (r() - 0.5) * PATCH.rx * 2, y = PATCH.y + (r() - 0.5) * PATCH.ry * 2, rad = 1 + r() * 3.4;
+      ell(x, y, rad, rad * 0.7, r() < 0.5 ? rgba(L.speck || shade(L.patch[1], -0.3), 0.45) : 'rgba(255,250,235,.5)');
+    }
+    if (L.shells) for (let i = 0; i < 14; i++) { const x = PATCH.x + (r() - 0.5) * PATCH.rx * 1.7, y = PATCH.y + (r() - 0.5) * PATCH.ry * 1.6; if (r() < 0.5) { starPath(x, y, 8, 0.5); ctx.fillStyle = '#ff9a6b'; ctx.fill(); } else ell(x, y, 6, 4.5, '#fff1e0'); }
+    ctx.restore();
+    // grass tufts, flowers, pebbles outside the patch
+    const tuft = (x, y, s) => {
+      ctx.lineCap = 'round';
+      [[-5, -9], [0, -13], [5, -9]].forEach(([dx, dy]) => { ctx.strokeStyle = L.tuft[0]; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * 0.4 * s, y + dy * 0.5 * s, x + dx * s, y + dy * s); ctx.stroke(); });
+      ctx.strokeStyle = L.tuft[1]; ctx.lineWidth = 1.4 * s; ctx.beginPath(); ctx.moveTo(x, y - 1); ctx.lineTo(x, y - 11 * s); ctx.stroke();
+    };
+    for (let i = 0; i < 260; i++) {
+      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
+      if (L.tuft) tuft(x, y, 0.8 + r() * 0.7);
+      else ell(x, y, 2 + r() * 3, 1.5 + r() * 2, rgba(L.speck || shade(L.g[1], -0.25), 0.35));
+    }
+    if (L.flowers) for (let i = 0; i < 90; i++) {
+      const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
+      const col = ['#fff6d8', '#ffd84a', '#ff9eb5', '#c9b6ff'][Math.floor(r() * 4)];
+      for (let p = 0; p < 5; p++) { const a = p / 5 * TAU; ell(x + Math.cos(a) * 3.4, y + Math.sin(a) * 2.4, 2.6, 2, col); }
+      ell(x, y, 1.8, 1.8, '#f2a33a');
+    }
+    if (L.snowy) for (let i = 0; i < 120; i++) { const x = r() * LW, y = top + r() * H; live.glints.push([x, y]); }
+    if (L.sparkle) for (let i = 0; i < 40; i++) live.glints.push([r() * LW, top + r() * (H - 60)]);
+    if (L.craters) for (let i = 0; i < 9; i++) { const x = r() * LW, y = 380 + r() * 320; TD_PROP.crater(x, y, 0.6 + r() * 0.6, L); }
+    if (L.cracks) for (let i = 0; i < 7; i++) {   // glowing lava cracks across the ground
+      let x = r() * LW, y = top + 120 + r() * (H - 200); const pts = [[x, y]];
+      for (let j = 0; j < 6; j++) { x += 20 + r() * 40; y += (r() - 0.5) * 30; pts.push([x, y]); }
+      ctx.strokeStyle = '#2a1a16'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke();
+      ctx.strokeStyle = '#ff6a1f'; ctx.lineWidth = 2.5; ctx.stroke();
+      live.cracks.push(pts);
+    }
+    // a pond (or puddle, lava pool, frozen pond) at the back on the left
+    const pond = L.pond && { x: 205, y: 330, rx: 150, ry: 58, kind: L.pond };
+    if (pond) {
+      const P = { water: ['#8f7a4c', '#3f8fc9', '#6cc0e8'], puddle: ['#6b5a40', '#506a80', '#7e98ad'], lava: ['#2a1a16', '#ff5a1a', '#ffc04a'], ice: ['#b7cde0', '#9fd2f0', '#e8f6ff'] }[pond.kind];
+      ell(pond.x, pond.y + 4, pond.rx + 10, pond.ry + 9, P[0]);
+      const g = ctx.createRadialGradient(pond.x + 20, pond.y + 10, 10, pond.x, pond.y, pond.rx); g.addColorStop(0, P[1]); g.addColorStop(1, P[2]);
+      ell(pond.x, pond.y, pond.rx, pond.ry, g);
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(pond.x, pond.y, pond.rx - 6, pond.ry - 4, 0, Math.PI * 1.05, Math.PI * 1.7); ctx.stroke();
+      if (pond.kind === 'water') [[-50, -8, 20], [54, 10, 16], [4, -18, 12]].forEach(([dx, dy, rad]) => { ell(pond.x + dx, pond.y + dy + 2, rad, rad * 0.55, '#3e8f3a'); ell(pond.x + dx, pond.y + dy, rad, rad * 0.55, '#5fb54f'); });
+      live.ponds.push(pond);
+    }
+    // the scenery: rows of props at the back, smaller and denser further away, drawn back to front
+    const props = [];
+    for (let y = top + 30; y < 395; y += 64) for (let x = -30; x < LW + 40; x += 150) {
+      if (r() < L.gap) continue;
+      const px = x + (r() - 0.5) * 110, py = y + (r() - 0.5) * 40;
+      if (pond && ((px - pond.x) / (pond.rx + 50)) ** 2 + ((py - pond.y) / (pond.ry + 60)) ** 2 < 1) continue;
+      if (py > 330 && inPatch(px, py + 40)) continue;
+      props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
+    }
+    props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
+    { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.5)'); sh.addColorStop(0.6, 'rgba(8,14,4,.18)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
+      const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.5)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
+    vividCanvas(out);   // brighter, fresher colours with more contrast (before the sea tint and the dusk or night tint)
+    if (L.tint) { ctx.fillStyle = L.tint; ctx.fillRect(0, top, LW, H); }
+    if (OUTDOOR.includes(theme) && tod !== 'day') { ctx.fillStyle = tod === 'night' ? 'rgba(10,18,60,.5)' : 'rgba(110,45,70,.2)'; ctx.fillRect(0, top, LW, H); }
+    if (theme === 'haunted' || theme === 'crystal' || theme === 'space') { ctx.fillStyle = 'rgba(10,8,30,.12)'; ctx.fillRect(0, top, LW, H); }
+  } finally { ctx = saved; }
+  return out;
+}
+
+// what moves on the ground: cloud shadows, rippling ponds, lava glow and smoke, twinkles, light through the sea, fog
+function drawGroundLive(t, theme, tod, wkind) {
+  const L = GROUND_LOOK[theme] || GROUND_LOOK.meadow, live = GROUND_LIVE[theme]; if (!live) return;
+  ctx.save();
+  if (OUTDOOR.includes(theme) && tod === 'day' && wkind !== 'rain' && wkind !== 'storm')
+    for (let i = 0; i < 2; i++) { const x = ((t * 16 + i * 760) % (LW + 700)) - 350; ell(x, 150 + i * 330, 260, 95, 'rgba(20,40,10,.07)'); }
+  for (const p of live.ponds) {
+    if (p.kind === 'lava') { ctx.globalAlpha = 0.35 + Math.sin(t * 2) * 0.15; glow(p.x, p.y, p.rx * 1.1, '#ff7a2a', 0.6); ctx.globalAlpha = 1; }
+    else for (let i = 0; i < 3; i++) { const a = (t * 0.5 + i / 3) % 1; ctx.strokeStyle = `rgba(255,255,255,${0.45 * (1 - a)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(p.x - 30 + i * 30, p.y + 4, 10 + a * 30, 4 + a * 10, 0, 0, TAU); ctx.stroke(); }
+  }
+  for (const pts of live.cracks) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 1.6 + pts[0][0]); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); pts.forEach(([a, b], j) => j ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  for (const v of live.vents) for (let i = 0; i < 3; i++) { const ph = (t * 0.3 + i / 3 + v.x * 0.001) % 1; ctx.globalAlpha = (1 - ph) * 0.4; ell(v.x + Math.sin(ph * 5 + i) * 10, v.y - 40 * v.s - ph * 90, 10 + ph * 18, 8 + ph * 14, '#8a7f7a'); }
+  ctx.globalAlpha = 1;
+  live.glints.forEach(([x, y], i) => { const a = Math.sin(t * 2.2 + i * 1.7); if (a > 0.6) { ctx.globalAlpha = (a - 0.6) * 2.2; starPath(x, y, 3 + (i % 3) * 2, 0.35); ctx.fillStyle = L.sparkle || '#ffffff'; ctx.fill(); } });
+  ctx.globalAlpha = 1;
+  if (theme === 'ocean') {   // ripples of light on the sea floor and bubbles rising
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 3;
+    for (let i = 0; i < 14; i++) { const x = (i * 97 + Math.sin(t * 0.7 + i) * 30) % LW, y = -SKY_MAX + ((i * 131) % (LH + SKY_MAX)); ctx.beginPath(); ctx.ellipse(x, y, 40 + Math.sin(t + i) * 10, 14, Math.sin(i), 0, TAU); ctx.stroke(); }
+    for (let i = 0; i < 10; i++) { const y = LH - ((t * 50 + i * 97) % (LH + SKY_MAX)), x = (i * 137) % LW + Math.sin(t * 2 + i) * 8; ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4 + (i % 3) * 2, 0, TAU); ctx.stroke(); }
+  }
+  if (theme === 'haunted') for (let i = 0; i < 4; i++) { const x = ((t * 14 + i * 400) % (LW + 600)) - 300; ell(x, 250 + i * 120, 240, 40, 'rgba(200,200,230,.08)'); }
+  ctx.restore();
 }
 // the pet's needs, age, weight and coins as a slim strip inside the screen (the stats panel under the console is hidden)
 const isPhone = () => cv.clientWidth < 640;
@@ -7554,7 +7816,7 @@ function drawPet(t, dt) {
   ctx.globalAlpha = fade;
   if (fade > 0.02) {
     if (s.variant && VARIANT[s.variant]) ctx.filter = VARIANT[s.variant].filter;
-    drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop, mo: pose });
+    drawCreature({ x, cy, rx, ry, R: Rg, gy: GROUND, sp, def, t, md, look, lookY, wag, dir: pet.dir, sick: s.sick, asleep: s.asleep, hop, mo: pose, wear: meta.wear });
     ctx.filter = 'none';
     drawWear(x, cy, ry, Rg, t);
   }
@@ -7791,7 +8053,7 @@ function render(ts) {
   resize(); moveCamera(dt); worldSpace(); bandDone = false;
   uiK = Math.min(2.2, Math.max(1, (COARSE ? 1100 : 820) / Math.max(1, cv.clientWidth)));
   if (ts - noteT > 300) { noteT = ts; NotePop.sync(); }   // keep the note card placed under the status bar, hidden in games and visits
-  if (house) { drawHouse(t, dt); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawBanner(); requestAnimationFrame(render); return; }
+  if (house) { drawHouse(t, dt); drawParticles(dt); if (house.weather) drawHouseWeather(t, dt, house.weather); if (house.theme) { drawForeground(t, house.theme); drawLightWash(house.theme, house.tod); drawBokeh(t, house.theme, house.tod, house.weather && house.weather.kind); } drawVignette(); topSpace(); drawEventTicker(t); drawBanner(); requestAnimationFrame(render); return; }
   if (state && state.hatched && !state.alive) { drawGone(t); fillBand(); requestAnimationFrame(render); return; }
   // things standing in the yard (decorations, poops, visitors, the pet) are drawn back to front by their depth
   const yard = [];
@@ -7838,7 +8100,7 @@ function render(ts) {
   if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, -padTop, LW, LH + padTop); } }
   // everything that sits on top of the picture: the stats strip at the very top, banners, the chat bubble
   drawVignette(); topSpace();
-  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); }
+  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); drawEventTicker(t); }
   drawBanner();
   worldSpace();
   if (bubble && lastBody && state && state.hatched) drawBubble(bodyOnScreen(lastBody), t);
@@ -7938,7 +8200,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261103165637';
+  const BUILD = '20261105084718';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
