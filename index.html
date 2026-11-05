@@ -1708,7 +1708,8 @@ cv.addEventListener('pointerdown', e => {
     const slot = CUP_X.findIndex(cx => Math.abs(p.x - cx) < 80);
     if (slot >= 0 && p.y > CUP_Y - 160 && p.y < CUP_Y + 30) { act('gm-cup' + slot); return; }
   }
-  if (game && game.type === 'fish' && game.phase === 'ask') { act('gm-fishgo'); return; }   // anywhere on the picture casts / reels in
+  if (game && game.type === 'fish' && game.phase === 'ask') { act('gm-fishgo'); return; }
+  if (game && game.type === 'memory') { const i = memHit(p); if (i >= 0) act('gm-c' + i); return; }   // a card on the board   // anywhere on the picture casts / reels in
   if (bubble && bubble.rect) {
     const [bx, by, bw, bh] = bubble.rect;
     if (p.x >= bx && p.x <= bx + bw && p.y >= by && p.y <= by + bh) { bubble = null; return; }
@@ -2721,6 +2722,140 @@ function drawFishCanvases() {
     ctx = prev;
   });
 }
+/* ---------- memory: flip cards to find the 10 pairs of pets ----------
+   20 cards with the baby forms of 10 random species. A short peek at the start, then flip two at a time.
+   Fewer flips = more coins; the best (fewest flips) is kept in meta.memBest. On tall phones the board uses the sky band. */
+GAMES.memory = { name: 'Lật thẻ tìm cặp', rounds: 0, need: 1, coin: 0, petX: 1150, hint: () => 'Nhớ kỹ vị trí các bé thú nhé!', next: '' };
+GAME_BUTTONS.memory = [];
+Object.assign(ICON_LABEL, { 'g-memory': 'Lật thẻ tìm cặp' });
+Object.assign(EMO_ICON, { 'g-memory': '🎴' });
+const MEM_PAIRS = 10, MEM_PEEK = 2600, MEM_FLIP = 260;
+const memThumbs = {};
+function memThumb(sp) {
+  if (!memThumbs[sp.id]) { const c = document.createElement('canvas'); c.width = c.height = 200; thumb(c, sp, 0); memThumbs[sp.id] = c; }
+  return memThumbs[sp.id];
+}
+// where the board and each card go (world coordinates); tall phones get 4 columns using the band above the yard
+function memLayout() {
+  const tall = gameLift() > 0;
+  if (tall) {
+    const top = -padTop + 40, bottom = 380, cols = 4, rows = 5, gap = 22, hud = 90;
+    const cw = (1200 - gap * (cols - 1)) / cols, ch = Math.min(cw * 1.25, (bottom - top - hud - gap * (rows - 1)) / rows), w = cols * cw + gap * (cols - 1);
+    return { cols, rows, cw, ch, gap, x0: 640 - w / 2, y0: top + hud, hudY: top + hud / 2, board: [640 - w / 2 - 24, top, w + 48, hud + rows * ch + gap * (rows - 1) + 24] };
+  }
+  const cols = 5, rows = 4, gap = 12, hud = 56, top = 70, ch = (690 - top - hud - gap * (rows - 1)) / rows, cw = ch * 0.84, w = cols * cw + gap * (cols - 1), cx = 600;
+  return { cols, rows, cw, ch, gap, x0: cx - w / 2, y0: top + hud, hudY: top + hud / 2, board: [cx - w / 2 - 16, top, w + 32, hud + rows * ch + gap * (rows - 1) + 16] };
+}
+const memRect = (L, i) => [L.x0 + (i % L.cols) * (L.cw + L.gap), L.y0 + Math.floor(i / L.cols) * (L.ch + L.gap), L.cw, L.ch];
+function memHit(p) {
+  const L = memLayout();
+  for (let i = 0; i < MEM_PAIRS * 2; i++) { const [x, y, w, h] = memRect(L, i); if (p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h) return i; }
+  return -1;
+}
+
+GAMES.memory.start = g => {
+  const sps = shuffle(SPECIES.slice()).slice(0, MEM_PAIRS);
+  const cards = shuffle(sps.concat(sps)).map(sp => ({ sp, up: true, done: false, flipAt: 0, doneAt: 0 }));
+  sps.forEach(memThumb);
+  g.d = { cards, open: [], moves: 0, found: 0, peekUntil: now() + MEM_PEEK, resolveAt: 0, t0: now() };
+};
+GAMES.memory.input = id => {
+  const g = game, d = g.d, T = now(), i = +String(id).slice(1), c = d.cards[i];
+  if (!c || T < d.peekUntil || c.up || c.done || d.open.length >= 2 || d.resolveAt) return;
+  c.up = true; c.flipAt = T; d.open.push(i); Sound.play('click');
+  if (d.open.length === 2) {
+    d.moves++;
+    const [a, b] = d.open.map(k => d.cards[k]);
+    d.match = a.sp.id === b.sp.id; d.resolveAt = T + (d.match ? 420 : 950);
+  }
+};
+GAMES.memory.tick = T => {
+  const g = game, d = g.d;
+  if (d.peekUntil && T >= d.peekUntil) { d.peekUntil = 0; d.cards.forEach(c => { c.up = false; c.flipAt = T; }); Sound.play('chirp'); say('Bắt đầu! Lật 2 thẻ giống nhau để ghép cặp.', 1e9); }
+  if (d.resolveAt && T >= d.resolveAt) {
+    const pair = d.open.map(k => d.cards[k]); d.resolveAt = 0; d.open = [];
+    if (d.match) {
+      pair.forEach(c => { c.done = true; c.doneAt = T; }); d.found++; Sound.play('happy');
+      say(pick([`Đúng cặp ${pair[0].sp.stages[0].name}!`, 'Giỏi quá!', 'Chuẩn luôn!']) + ` (${d.found}/${MEM_PAIRS})`, 1e9);
+      if (d.found >= MEM_PAIRS) memWin();
+    } else { pair.forEach(c => { c.up = false; c.flipAt = T; }); Sound.play('boing', 0.5); }
+  }
+  if (g.phase === 'reveal' && T - g.at > 3200) endGame(false);
+  return true;
+};
+function memWin() {
+  const g = game, d = g.d, s = state, best = meta.memBest || 0;
+  d.stars = d.moves <= 15 ? 3 : d.moves <= 22 ? 2 : 1;
+  d.coins = 4 + d.stars * 3; d.record = !best || d.moves < best;
+  if (d.record) { meta.memBest = d.moves; saveMeta(); }
+  g.results.push(true); g.phase = 'reveal'; g.at = now(); quest('win'); syncMode(true);
+  for (let i = 0; i < 12; i++) spawn('spark', 640 + (Math.random() - 0.5) * 500, 300 + (Math.random() - 0.5) * 200, { vx: (Math.random() - 0.5) * 300, vy: -200 - Math.random() * 200, max: 1.2, color: pick(['#ffd43b', '#ff8fab', '#74c0fc']) });
+  say(`Xong cả ${MEM_PAIRS} cặp sau ${d.moves} lượt!` + (d.record ? ' Kỷ lục mới!' : ''), 1e9);
+}
+GAMES.memory.coins = g => g.d.coins || 0;
+GAMES.memory.score = g => g.d.found >= MEM_PAIRS ? `xong ${MEM_PAIRS} cặp sau ${g.d.moves} lượt` : `ghép được ${g.d.found}/${MEM_PAIRS} cặp`;
+
+/* ---------- drawing ---------- */
+function memCard(c, x, y, w, h, t, T) {
+  // flip: the card narrows to nothing and opens up showing the other side
+  const fp = c.flipAt ? Math.min(1, (T - c.flipAt) / MEM_FLIP) : 1, sx = Math.abs(Math.cos(fp * Math.PI)), face = fp < 0.5 ? !c.up : c.up;
+  const pop = c.done ? 1 + Math.max(0, Math.sin(Math.min(1, (T - c.doneAt) / 400) * Math.PI)) * 0.08 : 1;
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(Math.max(0.03, sx) * pop, pop);
+  const r = Math.min(w, h) * 0.12;
+  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+  if (face) {
+    rr(-w / 2, -h / 2, w, h, r, '#ffffff'); ctx.shadowColor = 'transparent';
+    const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, vivid(c.sp.col)); g.addColorStop(1, '#ffffff');
+    ctx.globalAlpha = 0.45; rr(-w / 2 + 6, -h / 2 + 6, w - 12, h - 12, r * 0.8, g); ctx.globalAlpha = 1;
+    const img = memThumb(c.sp), s = Math.min(w, h) * 0.92;
+    ctx.drawImage(img, -s / 2, -s / 2 - h * 0.02, s, s);
+    if (c.done) {
+      ctx.strokeStyle = '#40c057'; ctx.lineWidth = 6; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, r); ctx.stroke();
+      ell(w / 2 - 18, -h / 2 + 18, 14, 14, '#40c057'); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w / 2 - 25, -h / 2 + 18); ctx.lineTo(w / 2 - 19, -h / 2 + 24); ctx.lineTo(w / 2 - 10, -h / 2 + 12); ctx.stroke();
+    }
+  } else {
+    const g = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); g.addColorStop(0, '#7950f2'); g.addColorStop(1, '#e64980');
+    rr(-w / 2, -h / 2, w, h, r, g); ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 7, -h / 2 + 7, w - 14, h - 14, r * 0.7); ctx.stroke();
+    // a paw print in the middle
+    const k = Math.min(w, h) / 120; ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ell(0, 10 * k, 18 * k, 15 * k, 'rgba(255,255,255,.9)');
+    [[-20, -12], [-7, -24], [7, -24], [20, -12]].forEach(([a, b]) => ell(a * k, b * k, 7 * k, 8.5 * k, 'rgba(255,255,255,.9)'));
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 4; i++) { starPath(-w / 2 + 16 + i * (w - 32) / 3, h / 2 - 16, 4); ctx.fill(); }
+  }
+  ctx.restore();
+}
+GAMES.memory.draw = t => {
+  const g = game, d = g.d, T = now(), L = memLayout(), [bx, by, bw, bh] = L.board;
+  // the board is solid, so nothing drawn before (the band on phones keeps old pixels) shows through
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
+  rr(bx, by, bw, bh, 28, '#fff4e6'); ctx.restore();
+  ctx.strokeStyle = '#f3c58f'; ctx.lineWidth = 5; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx + 4, by + 4, bw - 8, bh - 8, 24); ctx.stroke();
+  // header: pairs found, flips, best
+  const fs = L.cols === 4 ? 50 : 24;
+  ctx.font = `800 ${fs}px "Be Vietnam Pro", sans-serif`; ctx.textBaseline = 'middle'; ctx.fillStyle = '#7a4b1e';
+  ctx.textAlign = 'left'; ctx.fillText(`🎴 ${d.found}/${MEM_PAIRS} cặp`, bx + 28, L.hudY);
+  ctx.textAlign = 'center'; ctx.fillText(`Lượt: ${d.moves}`, bx + bw / 2, L.hudY);
+  ctx.textAlign = 'right'; ctx.fillText(meta.memBest ? `🏆 Kỷ lục: ${meta.memBest}` : '🏆 Chưa có kỷ lục', bx + bw - 28, L.hudY);
+  d.cards.forEach((c, i) => { const [x, y, w, h] = memRect(L, i); memCard(c, x, y, w, h, t, T); });
+  if (d.peekUntil) {
+    const left = Math.ceil((d.peekUntil - T) / 1000), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2;
+    const pw = L.cols === 4 ? 720 : 460, ph = L.cols === 4 ? 150 : 100;
+    ctx.save(); ctx.globalAlpha = 0.9; rr(640 - pw / 2, cy - ph / 2, pw, ph, ph / 2, 'rgba(30,30,50,.78)'); ctx.restore();
+    ctx.font = `800 ${L.cols === 4 ? 84 : 40}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.fillText(`Nhớ kỹ nhé... ${left}`, 640, cy + 2);
+  }
+  if (g.phase === 'reveal') {
+    const e = Math.min(1, (T - g.at) / 400), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2, big = L.cols === 4 ? 1.5 : 1;
+    ctx.save(); ctx.translate(640, cy); ctx.scale(easeOut(e) * big, easeOut(e) * big);
+    ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; rr(-260, -120, 520, 240, 36, '#ffffff'); ctx.shadowColor = 'transparent';
+    ctx.font = '800 46px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#2f9e44'; ctx.fillText('Hoàn thành!', 0, -62);
+    for (let k = 0; k < 3; k++) { starPath(-70 + k * 70, 0, 26); ctx.fillStyle = k < d.stars ? '#fcc419' : '#dee2e6'; ctx.fill(); }
+    ctx.font = '700 26px "Be Vietnam Pro", sans-serif'; ctx.fillStyle = '#495057';
+    ctx.fillText(`${d.moves} lượt · +${d.coins} xu` + (d.record ? ' · Kỷ lục mới!' : ''), 0, 70);
+    ctx.restore();
+  }
+};
 /* ---------- actions ---------- */
 function act(a) {
   const s = state; if (!s) return;
@@ -8508,7 +8643,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261105124744';
+  const BUILD = '20261105140138';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
