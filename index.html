@@ -1714,6 +1714,8 @@ cv.addEventListener('pointerdown', e => {
     const [bx, by, bw, bh] = bubble.rect;
     if (p.x >= bx && p.x <= bx + bw && p.y >= by && p.y <= by + bh) { bubble = null; return; }
   }
+  // a tree with fruit or bugs wins over the pet standing in front of it
+  if (state && state.hatched && state.alive && !game && !house && hitGarden(p)) { const st = gardenState(); if (st && (st.fruits || st.bugs)) { gardenAct(); return; } }
   if (canGrab() && hitPet(p)) {
     drag = { sx: p.x, sy: p.y, hist: [{ x: p.x, y: p.y, t: performance.now() }], grabbed: false };
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
@@ -4061,6 +4063,7 @@ function gardenAct() {
     say(`Gieo hạt và tưới nước rồi! Cây cần 12 giờ đất ẩm để lớn và ra trái. Mỗi lần tưới giữ ẩm 3 giờ.`, 6000); log('Gieo một hạt cây ăn quả trong vườn.'); return;
   }
   if (st.fruits > 0) {
+    if (pet.errand === 'pick' || (idle && idle.type === 'pick')) return;   // already on the way / picking: extra taps must not restart it
     if (s.asleep || s.trip || game || house || busy() || phys.held || phys.air) { say(`Cây có ${st.fruits} trái chín, đợi ${s.name} rảnh rồi hái nhé.`, 3000); return; }
     const R = petR(); idle = null; pet.errand = 'pick'; pet.tx = GARDEN.x - 60 - R * 0.4; pet.td = GARDEN.d + 22; pet.nextMove = T + 9000; pet.nextIdle = T;
     say(`${s.name} chạy ra vườn hái trái!`, 2500); return;
@@ -4146,7 +4149,7 @@ async function helpGarden() {
   } catch (e) { say(errText(e), 4000); Sound.play('lose'); }
   finally { helping = false; }
 }
-const hitGarden = (p, g = meta.garden) => { const k = depthK(GARDEN.d), st = gardenState(now(), g), h = (st ? 40 + 230 * st.p : 40) + 70; return p.x > GARDEN.x - 90 * k - (st ? 50 : 0) && p.x < GARDEN.x + 90 * k + (st ? 70 : 0) && p.y < GARDEN.d + 30 * k + (st ? 20 : 0) && p.y > GARDEN.d - h * k; };   // the gauges beside it count too
+const hitGarden = (p, g = meta.garden) => { const k = depthK(GARDEN.d), st = gardenState(now(), g), h = (st ? 40 + 230 * st.p : 40) + 130; return p.x > GARDEN.x - 90 * k - (st ? 50 : 0) && p.x < GARDEN.x + 90 * k + (st ? 70 : 0) && p.y < GARDEN.d + 30 * k + (st ? 20 : 0) && p.y > GARDEN.d - h * k; };   // the gauges beside it count too
 
 // drawn in the pet's side-view space, standing on GROUND (atDepth puts it at the plot's depth); visit = a friend's tree
 function drawGarden(t, g = meta.garden, visit = false) {
@@ -8643,7 +8646,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261105140138';
+  const BUILD = '20261106084745';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
