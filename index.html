@@ -3106,7 +3106,7 @@ const MENU_ICONS = {
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
   sleep: () => [['light', state.lightOff ? 's-on' : 's-off'], ['wake', 's-wake']],
   gone: () => [['newpet', 'newpet']],
-  gamemenu: () => Object.keys(GAMES).map(k => ['g-' + k, 'g-' + k]).concat([['back3', 'back']]),
+  gamemenu: () => Object.keys(GAMES).filter(k => !GAMES[k].hidden).map(k => ['g-' + k, 'g-' + k]).concat([['back3', 'back']]),
   game: () => GAME_BUTTONS[game.type].map(k => ['gm-' + k, k]).concat([['quit', 'quit']]),
 };
 const iconBtn = (act, icon, dis) => `<button type="button" class="icon" data-act="${act}" id="btn-${act}" title="${ICON_LABEL[icon]}" aria-label="${ICON_LABEL[icon]}"${dis ? ' disabled' : ''}><canvas width="104" height="104" data-icon="${icon}"></canvas></button>`;
@@ -5036,7 +5036,8 @@ const DUEL_MOVE = { nem: { icon: '💦', name: 'Ném bóng nước' }, khien: { 
 const DUEL_BEATS = { nem: 'chieu', chieu: 'khien', khien: 'nem' };
 const DUEL_EMO = ['👍', '😆', '😮', '🤝'];
 const HANH_COL = { Kim: '#fcc419', 'Mộc': '#51cf66', 'Thủy': '#4dabf7', 'Hỏa': '#ff6b6b', 'Thổ': '#c08a4a' };
-GAMES.duel = { name: 'Đấu tay đôi', rounds: 0, need: 1, coin: 0, petX: 380, hint: () => 'Chọn chiêu cho hiệp này!', next: '' };
+// (hidden: not in the 🎮 list, it starts from a challenge)
+GAMES.duel = { name: 'Đấu tay đôi', hidden: true, rounds: 0, need: 1, coin: 0, petX: 380, hint: () => 'Chọn chiêu cho hiệp này!', next: '' };
 GAME_BUTTONS.duel = ['dnem', 'dkhien', 'dchieu'];
 Object.assign(ICON_LABEL, { dnem: 'Ném bóng nước (thắng Chiêu hệ)', dkhien: 'Giơ khiên lá (thắng Ném bóng)', dchieu: 'Chiêu hệ (thắng Giơ khiên)', 'x-duel': 'Đấu tay đôi với người đang online' });
 Object.assign(EMO_ICON, { dnem: '💦', dkhien: '🛡️', dchieu: '✨', 'x-duel': '⚔️' });
@@ -9689,7 +9690,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116150214';
+  const BUILD = '20261116150611';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
