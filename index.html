@@ -1868,7 +1868,7 @@ cv.addEventListener('pointerdown', e => {
     if (slot >= 0 && p.y > CUP_Y - 160 && p.y < CUP_Y + 30) { act('gm-cup' + slot); return; }
   }
   if (game && game.type === 'fish' && game.phase === 'ask') { act('gm-fishgo'); return; }
-  if (game && game.type === 'memory') { const i = memHit(p); if (i >= 0) act('gm-c' + i); return; }   // a card on the board   // anywhere on the picture casts / reels in
+  if (game && game.type === 'memory') { const a = memTap(p); if (a) act('gm-' + a); return; }   // a level button or a card on the board   // a card on the board   // anywhere on the picture casts / reels in
   if (bubble && bubble.rect) {
     const [bx, by, bw, bh] = bubble.rect;
     if (p.x >= bx && p.x <= bx + bw && p.y >= by && p.y <= by + bh) { bubble = null; return; }
@@ -2883,46 +2883,66 @@ function drawFishCanvases() {
     ctx = prev;
   });
 }
-/* ---------- memory: flip cards to find the 10 pairs of pets ----------
-   20 cards with the baby forms of 10 random species. A short peek at the start, then flip two at a time.
-   Fewer flips = more coins; the best (fewest flips) is kept in meta.memBest. On tall phones the board uses the sky band. */
-GAMES.memory = { name: 'Lật thẻ tìm cặp', rounds: 0, need: 1, coin: 0, petX: 1150, hint: () => 'Nhớ kỹ vị trí các bé thú nhé!', next: '' };
-GAME_BUTTONS.memory = [];
-Object.assign(ICON_LABEL, { 'g-memory': 'Lật thẻ tìm cặp' });
-Object.assign(EMO_ICON, { 'g-memory': '🎴' });
-const MEM_PAIRS = 10, MEM_PEEK = 2600, MEM_FLIP = 260;
+/* ---------- memory: flip cards to find the pairs of pets ----------
+   First pick a level: 10, 15, 20 or 25 pairs (the baby forms of that many random species). A short peek at the start,
+   then flip two at a time. Fewer flips = more stars and coins; the best (fewest flips) of each level is kept in
+   meta.memBests (the old meta.memBest counts as the 10-pair record). The board lays itself out for the number of cards;
+   on tall phones it uses the sky band. */
+GAMES.memory = { name: 'Lật thẻ tìm cặp', rounds: 0, need: 1, coin: 0, petX: 1150, hint: () => 'Chọn độ khó: 10, 15, 20 hay 25 cặp hình?', next: '' };
+const MEM_LEVELS = [[10, 'Dễ', '#40c057'], [15, 'Vừa', '#fab005'], [20, 'Khó', '#fd7e14'], [25, 'Siêu khó', '#e03131']];
+// the level buttons show only while choosing; during play the cards are tapped on the board
+Object.defineProperty(GAME_BUTTONS, 'memory', { enumerable: true, get: () => game && game.type === 'memory' && game.d.pick ? MEM_LEVELS.map(([n]) => 'm' + n) : [] });
+Object.assign(ICON_LABEL, { 'g-memory': 'Lật thẻ tìm cặp', m10: 'Dễ: 10 cặp hình', m15: 'Vừa: 15 cặp hình', m20: 'Khó: 20 cặp hình', m25: 'Siêu khó: 25 cặp hình' });
+Object.assign(EMO_ICON, { 'g-memory': '🎴', m10: '🟢', m15: '🟡', m20: '🟠', m25: '🔴' });
+const MEM_FLIP = 260;
+const memBest = n => (meta.memBests || {})[n] || (n === 10 ? meta.memBest || 0 : 0);
 const memThumbs = {};
 function memThumb(sp) {
   if (!memThumbs[sp.id]) { const c = document.createElement('canvas'); c.width = c.height = 200; thumb(c, sp, 0); memThumbs[sp.id] = c; }
   return memThumbs[sp.id];
 }
-// where the board and each card go (world coordinates); tall phones get 4 columns using the band above the yard
-function memLayout() {
-  const tall = gameLift() > 0;
-  if (tall) {
-    const top = -padTop + 40, bottom = 380, cols = 4, rows = 5, gap = 22, hud = 90;
-    const cw = (1200 - gap * (cols - 1)) / cols, ch = Math.min(cw * 1.25, (bottom - top - hud - gap * (rows - 1)) / rows), w = cols * cw + gap * (cols - 1);
-    return { cols, rows, cw, ch, gap, x0: 640 - w / 2, y0: top + hud, hudY: top + hud / 2, board: [640 - w / 2 - 24, top, w + 48, hud + rows * ch + gap * (rows - 1) + 24] };
+// where the board and each card go (world coordinates) for n cards: the number of columns that gives the biggest cards
+// in the space (tall phones: the whole width, from the sky band down to the yard; otherwise left of the pet)
+function memLayout(n = 20) {
+  const tall = gameLift() > 0, gap = tall ? 18 : 12, hud = tall ? 90 : 56, ratio = tall ? 1.25 : 1.19;
+  const top = tall ? -padTop + 40 : 70, bottom = tall ? 380 : 690, left = tall ? 40 : 60, right = tall ? 1240 : 1060;
+  const W = right - left, H = bottom - top - hud;
+  let best = null;
+  for (let cols = 3; cols <= 10; cols++) {
+    const rows = Math.ceil(n / cols), cw = Math.min((W - gap * (cols - 1)) / cols, (H - gap * (rows - 1)) / rows / ratio);
+    if (!best || cw > best.cw) best = { cols, rows, cw };
   }
-  const cols = 5, rows = 4, gap = 12, hud = 56, top = 70, ch = (690 - top - hud - gap * (rows - 1)) / rows, cw = ch * 0.84, w = cols * cw + gap * (cols - 1), cx = 600;
-  return { cols, rows, cw, ch, gap, x0: cx - w / 2, y0: top + hud, hudY: top + hud / 2, board: [cx - w / 2 - 16, top, w + 32, hud + rows * ch + gap * (rows - 1) + 16] };
+  const { cols, rows, cw } = best, ch = cw * ratio, w = cols * cw + gap * (cols - 1), h = rows * ch + gap * (rows - 1), cx = (left + right) / 2;
+  return { tall, cols, rows, cw, ch, gap, x0: cx - w / 2, y0: top + hud, hudY: top + hud / 2, cx, board: [cx - w / 2 - 24, top, w + 48, hud + h + 24] };
 }
 const memRect = (L, i) => [L.x0 + (i % L.cols) * (L.cw + L.gap), L.y0 + Math.floor(i / L.cols) * (L.ch + L.gap), L.cw, L.ch];
-function memHit(p) {
-  const L = memLayout();
-  for (let i = 0; i < MEM_PAIRS * 2; i++) { const [x, y, w, h] = memRect(L, i); if (p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h) return i; }
-  return -1;
+// the level chooser: four big buttons in a 2x2 grid on the board
+function memPickRects(L) {
+  const bw = L.tall ? 520 : 400, bh = L.tall ? 230 : 150, gx = L.tall ? 40 : 30, cy = L.y0 + (L.tall ? 160 : 120);
+  return MEM_LEVELS.map((lv, i) => [L.cx - bw - gx / 2 + (i % 2) * (bw + gx), cy + Math.floor(i / 2) * (bh + gx), bw, bh]);
+}
+// what a tap on the picture means: a level ('m15') while choosing, a card ('c7') while playing
+function memTap(p) {
+  const d = game.d, inside = ([x, y, w, h]) => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
+  if (d.pick) { const i = memPickRects(memLayout()).findIndex(inside); return i >= 0 ? 'm' + MEM_LEVELS[i][0] : ''; }
+  const L = memLayout(d.cards.length);
+  for (let i = 0; i < d.cards.length; i++) if (inside(memRect(L, i))) return 'c' + i;
+  return '';
 }
 
-GAMES.memory.start = g => {
-  const sps = shuffle(SPECIES.slice()).slice(0, MEM_PAIRS);
+GAMES.memory.start = g => { g.d = { pick: true }; };
+function memBegin(pairs) {
+  const g = game, sps = shuffle(SPECIES.slice()).slice(0, pairs);
   const cards = shuffle(sps.concat(sps)).map(sp => ({ sp, up: true, done: false, flipAt: 0, doneAt: 0 }));
   sps.forEach(memThumb);
-  g.d = { cards, open: [], moves: 0, found: 0, peekUntil: now() + MEM_PEEK, resolveAt: 0, t0: now() };
-};
+  g.d = { pairs, cards, open: [], moves: 0, found: 0, peekUntil: now() + 1500 + pairs * 120, resolveAt: 0, t0: now() };   // a longer look at a bigger board
+  Sound.play('ping'); say(`${pairs} cặp hình! Nhìn thật kỹ nhé...`, 1e9); syncMode(true);
+}
 GAMES.memory.input = id => {
-  const g = game, d = g.d, T = now(), i = +String(id).slice(1), c = d.cards[i];
-  if (!c || T < d.peekUntil || c.up || c.done || d.open.length >= 2 || d.resolveAt) return;
+  const g = game, d = g.d, T = now(), s = String(id);
+  if (d.pick) { const n = +s.slice(1); if (s[0] === 'm' && MEM_LEVELS.some(([k]) => k === n)) memBegin(n); return; }
+  const i = +s.slice(1), c = d.cards[i];
+  if (s[0] !== 'c' || !c || T < d.peekUntil || c.up || c.done || d.open.length >= 2 || d.resolveAt) return;
   c.up = true; c.flipAt = T; d.open.push(i); Sound.play('click');
   if (d.open.length === 2) {
     d.moves++;
@@ -2932,29 +2952,73 @@ GAMES.memory.input = id => {
 };
 GAMES.memory.tick = T => {
   const g = game, d = g.d;
+  if (d.pick) return true;
   if (d.peekUntil && T >= d.peekUntil) { d.peekUntil = 0; d.cards.forEach(c => { c.up = false; c.flipAt = T; }); Sound.play('chirp'); say('Bắt đầu! Lật 2 thẻ giống nhau để ghép cặp.', 1e9); }
   if (d.resolveAt && T >= d.resolveAt) {
     const pair = d.open.map(k => d.cards[k]); d.resolveAt = 0; d.open = [];
     if (d.match) {
       pair.forEach(c => { c.done = true; c.doneAt = T; }); d.found++; Sound.play('happy');
-      say(pick([`Đúng cặp ${pair[0].sp.stages[0].name}!`, 'Giỏi quá!', 'Chuẩn luôn!']) + ` (${d.found}/${MEM_PAIRS})`, 1e9);
-      if (d.found >= MEM_PAIRS) memWin();
+      say(pick([`Đúng cặp ${pair[0].sp.stages[0].name}!`, 'Giỏi quá!', 'Chuẩn luôn!']) + ` (${d.found}/${d.pairs})`, 1e9);
+      if (d.found >= d.pairs) memWin();
     } else { pair.forEach(c => { c.up = false; c.flipAt = T; }); Sound.play('boing', 0.5); }
   }
   if (g.phase === 'reveal' && T - g.at > 3200) endGame(false);
   return true;
 };
 function memWin() {
-  const g = game, d = g.d, s = state, best = meta.memBest || 0;
-  d.stars = d.moves <= 15 ? 3 : d.moves <= 22 ? 2 : 1;
-  d.coins = 4 + d.stars * 3; d.record = !best || d.moves < best;
-  if (d.record) { meta.memBest = d.moves; saveMeta(); }
+  const g = game, d = g.d, P = d.pairs, best = memBest(P);
+  d.stars = d.moves <= P * 1.5 ? 3 : d.moves <= P * 2.2 ? 2 : 1;
+  d.coins = Math.round((4 + d.stars * 3) * P / 10); d.record = !best || d.moves < best;   // bigger boards pay more
+  if (d.record) { meta.memBests = { ...(meta.memBests || {}), [P]: d.moves }; saveMeta(); }
   g.results.push(true); g.phase = 'reveal'; g.at = now(); quest('win'); syncMode(true);
   for (let i = 0; i < 12; i++) spawn('spark', 640 + (Math.random() - 0.5) * 500, 300 + (Math.random() - 0.5) * 200, { vx: (Math.random() - 0.5) * 300, vy: -200 - Math.random() * 200, max: 1.2, color: pick(['#ffd43b', '#ff8fab', '#74c0fc']) });
-  say(`Xong cả ${MEM_PAIRS} cặp sau ${d.moves} lượt!` + (d.record ? ' Kỷ lục mới!' : ''), 1e9);
+  say(`Xong cả ${P} cặp sau ${d.moves} lượt!` + (d.record ? ' Kỷ lục mới!' : ''), 1e9);
+  // a new personal best goes to the server; if it beats everyone, the whole server sees my name in the corner
+  if (d.record && Net.online) {
+    const was = memChamp(P);
+    Net.rpc('submit_memory', { p_pairs: P, p_moves: d.moves }).then(memChampsLoad).then(() => {
+      const c = memChamp(P);
+      if (c && c.username === Net.username && (!was || was.username !== Net.username || was.moves > c.moves)) { queueBanner({ title: 'Kỷ lục toàn server!', sub: `Bạn đứng đầu mức ${P} cặp với ${c.moves} lượt`, color: MEM_LEVELS.find(([k]) => k === P)[2], dur: 5000 }); Sound.play('win'); }
+    }).catch(() => {});
+  }
+}
+
+/* ---------- the record holders of the whole server, pinned in the top-left corner of the yard ----------
+   One card at a time, turning through the levels every 4.5 s; each level has its own look: 10 a green glow, 15 golden
+   twinkles, 20 little flames, 25 a crown and a rainbow rim. */
+const memChamp = n => (Net.champs || []).find(c => +c.pairs === n);
+async function memChampsLoad() {
+  if (!Net.online) return;
+  try { const c = await Net.rpc('memory_champions'); if (Array.isArray(c)) Net.champs = c.filter(x => x && MEM_LEVELS.some(([k]) => k === +x.pairs)); } catch (e) {}   // (older server: no table yet)
+}
+function drawMemChampion(t, x, y) {
+  const list = MEM_LEVELS.map(([n, name, col]) => ({ n, name, col, c: memChamp(n) })).filter(v => v.c);
+  if (!list.length) return;
+  const SLOT = 4.5, k = Math.floor(t / SLOT) % list.length, ph = (t % SLOT) / SLOT, v = list[k];
+  const a = Math.min(1, ph / 0.08, (1 - ph) / 0.08), slide = (1 - Math.min(1, ph / 0.08)) * -16;
+  const name = `@${String(v.c.username).slice(0, 16)}`, sub = `${v.n} cặp · ${v.c.moves} lượt`, me = v.c.username === Net.username;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(slide, 0);
+  ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; const nw = ctx.measureText(name).width;
+  ctx.font = '700 13px "Be Vietnam Pro", sans-serif'; const w = Math.max(nw, ctx.measureText(`${v.name} · ${sub}`).width, 120) + 66, h = 50;
+  const lv = v.n;
+  if (lv === 10) glow(x + w / 2, y + h / 2, w * 0.7, v.col, 0.25 + 0.12 * Math.sin(t * 3));
+  if (lv === 25) {   // a rainbow rim that turns
+    const g = ctx.createConicGradient ? ctx.createConicGradient(t * 1.5, x + w / 2, y + h / 2) : null;
+    if (g) { ['#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#b197fc', '#ff6b6b'].forEach((c, i) => g.addColorStop(i / 5, c)); rr(x - 3, y - 3, w + 6, h + 6, h / 2 + 3, g); }
+  }
+  rr(x, y, w, h, h / 2, 'rgba(15,20,35,.72)');
+  rr(x + 3, y + 3, w - 6, h - 6, h / 2 - 3, rgba(v.col, 0.28));
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.font = '26px serif'; ctx.fillText('🏆', x + 26, y + h / 2 + 1);
+  ctx.textAlign = 'left'; ctx.fillStyle = me ? '#ffe066' : '#ffffff'; ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; ctx.fillText(name, x + 48, y + 17);
+  ctx.fillStyle = v.col; ctx.font = '700 13px "Be Vietnam Pro", sans-serif'; ctx.fillText(`${v.name} · ${sub}`, x + 48, y + 35);
+  if (lv === 15) for (let i = 0; i < 5; i++) { const s = Math.sin(t * 4 + i * 1.7); if (s > 0.2) { starPath(x + 12 + rnd(i + 3) * (w - 24), y + (i % 2 ? -4 : h + 4), 4 + s * 4, 0.4); ctx.fillStyle = '#ffe066'; ctx.fill(); } }
+  if (lv === 20) for (let i = 0; i < 4; i++) flame(x + 40 + i * (w - 70) / 3, y + 2, 7 + Math.sin(t * 5 + i) * 1.5, t * 1.3 + i);
+  if (lv === 25) { ctx.save(); ctx.translate(x + 26, y - 4 + Math.sin(t * 2.5) * 2); ctx.beginPath(); ctx.moveTo(-12, 6); ctx.lineTo(-12, -6); ctx.lineTo(-6, 0); ctx.lineTo(0, -10); ctx.lineTo(6, 0); ctx.lineTo(12, -6); ctx.lineTo(12, 6); ctx.closePath(); ctx.fillStyle = '#ffd43b'; ctx.fill(); ctx.strokeStyle = '#e8a700'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+    for (let i = 0; i < 3; i++) { const s = Math.sin(t * 5 + i * 2); if (s > 0.4) { starPath(x + w - 14 - i * 22, y + 6 + (i % 2) * 36, 3 + s * 3, 0.4); ctx.fillStyle = '#ffffff'; ctx.fill(); } } }
+  ctx.restore();
 }
 GAMES.memory.coins = g => g.d.coins || 0;
-GAMES.memory.score = g => g.d.found >= MEM_PAIRS ? `xong ${MEM_PAIRS} cặp sau ${g.d.moves} lượt` : `ghép được ${g.d.found}/${MEM_PAIRS} cặp`;
+GAMES.memory.score = g => !g.d.pairs ? 'chưa chọn độ khó' : g.d.found >= g.d.pairs ? `xong ${g.d.pairs} cặp sau ${g.d.moves} lượt` : `ghép được ${g.d.found}/${g.d.pairs} cặp`;
 
 /* ---------- drawing ---------- */
 function memCard(c, x, y, w, h, t, T) {
@@ -2962,55 +3026,71 @@ function memCard(c, x, y, w, h, t, T) {
   const fp = c.flipAt ? Math.min(1, (T - c.flipAt) / MEM_FLIP) : 1, sx = Math.abs(Math.cos(fp * Math.PI)), face = fp < 0.5 ? !c.up : c.up;
   const pop = c.done ? 1 + Math.max(0, Math.sin(Math.min(1, (T - c.doneAt) / 400) * Math.PI)) * 0.08 : 1;
   ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(Math.max(0.03, sx) * pop, pop);
-  const r = Math.min(w, h) * 0.12;
-  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+  const r = Math.min(w, h) * 0.12, k = Math.min(w, h) / 120;
+  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 4 * k;
   if (face) {
     rr(-w / 2, -h / 2, w, h, r, '#ffffff'); ctx.shadowColor = 'transparent';
     const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2); g.addColorStop(0, vivid(c.sp.col)); g.addColorStop(1, '#ffffff');
-    ctx.globalAlpha = 0.45; rr(-w / 2 + 6, -h / 2 + 6, w - 12, h - 12, r * 0.8, g); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.45; rr(-w / 2 + 6 * k, -h / 2 + 6 * k, w - 12 * k, h - 12 * k, r * 0.8, g); ctx.globalAlpha = 1;
     const img = memThumb(c.sp), s = Math.min(w, h) * 0.92;
     ctx.drawImage(img, -s / 2, -s / 2 - h * 0.02, s, s);
     if (c.done) {
-      ctx.strokeStyle = '#40c057'; ctx.lineWidth = 6; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, r); ctx.stroke();
-      ell(w / 2 - 18, -h / 2 + 18, 14, 14, '#40c057'); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(w / 2 - 25, -h / 2 + 18); ctx.lineTo(w / 2 - 19, -h / 2 + 24); ctx.lineTo(w / 2 - 10, -h / 2 + 12); ctx.stroke();
+      ctx.strokeStyle = '#40c057'; ctx.lineWidth = 6 * k; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 3 * k, -h / 2 + 3 * k, w - 6 * k, h - 6 * k, r); ctx.stroke();
+      ell(w / 2 - 18 * k, -h / 2 + 18 * k, 14 * k, 14 * k, '#40c057'); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4 * k; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(w / 2 - 25 * k, -h / 2 + 18 * k); ctx.lineTo(w / 2 - 19 * k, -h / 2 + 24 * k); ctx.lineTo(w / 2 - 10 * k, -h / 2 + 12 * k); ctx.stroke();
     }
   } else {
     const g = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); g.addColorStop(0, '#7950f2'); g.addColorStop(1, '#e64980');
     rr(-w / 2, -h / 2, w, h, r, g); ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 7, -h / 2 + 7, w - 14, h - 14, r * 0.7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4 * k; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-w / 2 + 7 * k, -h / 2 + 7 * k, w - 14 * k, h - 14 * k, r * 0.7); ctx.stroke();
     // a paw print in the middle
-    const k = Math.min(w, h) / 120; ctx.fillStyle = 'rgba(255,255,255,.9)';
     ell(0, 10 * k, 18 * k, 15 * k, 'rgba(255,255,255,.9)');
     [[-20, -12], [-7, -24], [7, -24], [20, -12]].forEach(([a, b]) => ell(a * k, b * k, 7 * k, 8.5 * k, 'rgba(255,255,255,.9)'));
-    ctx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 4; i++) { starPath(-w / 2 + 16 + i * (w - 32) / 3, h / 2 - 16, 4); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 4; i++) { starPath(-w / 2 + 16 * k + i * (w - 32 * k) / 3, h / 2 - 16 * k, 4 * k); ctx.fill(); }
   }
   ctx.restore();
 }
 GAMES.memory.draw = t => {
-  const g = game, d = g.d, T = now(), L = memLayout(), [bx, by, bw, bh] = L.board;
+  const g = game, d = g.d, T = now(), L = memLayout(d.pick ? 20 : d.cards.length), [bx, by, bw] = L.board;
+  const bh = d.pick ? (([x, y, w, h]) => y + h + 40 - by)(memPickRects(L)[3]) : L.board[3];   // the chooser's board ends under its buttons
   // the board is solid, so nothing drawn before (the band on phones keeps old pixels) shows through
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
   rr(bx, by, bw, bh, 28, '#fff4e6'); ctx.restore();
   ctx.strokeStyle = '#f3c58f'; ctx.lineWidth = 5; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx + 4, by + 4, bw - 8, bh - 8, 24); ctx.stroke();
-  // header: pairs found, flips, best
-  const fs = L.cols === 4 ? 50 : 24;
+  const fs = L.tall ? 50 : 24;
   ctx.font = `800 ${fs}px "Be Vietnam Pro", sans-serif`; ctx.textBaseline = 'middle'; ctx.fillStyle = '#7a4b1e';
-  ctx.textAlign = 'left'; ctx.fillText(`🎴 ${d.found}/${MEM_PAIRS} cặp`, bx + 28, L.hudY);
+  if (d.pick) {
+    // choosing a level: four big buttons, each with its record
+    ctx.textAlign = 'center'; ctx.fillText('🎴 Chọn độ khó', L.cx, L.hudY + (L.tall ? 40 : 20));
+    memPickRects(L).forEach(([x, y, w, h], i) => {
+      const [n, name, col] = MEM_LEVELS[i], b = memBest(n), hover = 1 + Math.sin(t * 3 + i) * 0.015;
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(hover, hover);
+      ctx.shadowColor = 'rgba(0,0,0,.2)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 5; rr(-w / 2, -h / 2, w, h, h * 0.22, col); ctx.shadowColor = 'transparent';
+      rr(-w / 2 + 8, -h / 2 + 8, w - 16, h * 0.36, h * 0.18, 'rgba(255,255,255,.18)');
+      ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff';
+      ctx.font = `800 ${L.tall ? 64 : 40}px "Baloo 2", sans-serif`; ctx.fillText(`${n} cặp`, 0, -h * 0.14);
+      ctx.font = `700 ${L.tall ? 34 : 21}px "Be Vietnam Pro", sans-serif`; ctx.fillText(b ? `${name} · 🏆 ${b} lượt` : name, 0, h * 0.24);
+      ctx.restore();
+    });
+    return;
+  }
+  // header: pairs found, flips, best for this level
+  const best = memBest(d.pairs);
+  ctx.textAlign = 'left'; ctx.fillText(`🎴 ${d.found}/${d.pairs} cặp`, bx + 28, L.hudY);
   ctx.textAlign = 'center'; ctx.fillText(`Lượt: ${d.moves}`, bx + bw / 2, L.hudY);
-  ctx.textAlign = 'right'; ctx.fillText(meta.memBest ? `🏆 Kỷ lục: ${meta.memBest}` : '🏆 Chưa có kỷ lục', bx + bw - 28, L.hudY);
+  ctx.textAlign = 'right'; ctx.fillText(best ? `🏆 Kỷ lục: ${best}` : '🏆 Chưa có kỷ lục', bx + bw - 28, L.hudY);
   d.cards.forEach((c, i) => { const [x, y, w, h] = memRect(L, i); memCard(c, x, y, w, h, t, T); });
   if (d.peekUntil) {
     const left = Math.ceil((d.peekUntil - T) / 1000), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2;
-    const pw = L.cols === 4 ? 720 : 460, ph = L.cols === 4 ? 150 : 100;
-    ctx.save(); ctx.globalAlpha = 0.9; rr(640 - pw / 2, cy - ph / 2, pw, ph, ph / 2, 'rgba(30,30,50,.78)'); ctx.restore();
-    ctx.font = `800 ${L.cols === 4 ? 84 : 40}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.fillText(`Nhớ kỹ nhé... ${left}`, 640, cy + 2);
+    const pw = L.tall ? 720 : 460, ph = L.tall ? 150 : 100;
+    ctx.save(); ctx.globalAlpha = 0.9; rr(L.cx - pw / 2, cy - ph / 2, pw, ph, ph / 2, 'rgba(30,30,50,.78)'); ctx.restore();
+    ctx.font = `800 ${L.tall ? 84 : 40}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.fillText(`Nhớ kỹ nhé... ${left}`, L.cx, cy + 2);
   }
   if (g.phase === 'reveal') {
-    const e = Math.min(1, (T - g.at) / 400), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2, big = L.cols === 4 ? 1.5 : 1;
-    ctx.save(); ctx.translate(640, cy); ctx.scale(easeOut(e) * big, easeOut(e) * big);
+    const e = Math.min(1, (T - g.at) / 400), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2, big = L.tall ? 1.5 : 1;
+    ctx.save(); ctx.translate(L.cx, cy); ctx.scale(easeOut(e) * big, easeOut(e) * big);
     ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; rr(-260, -120, 520, 240, 36, '#ffffff'); ctx.shadowColor = 'transparent';
-    ctx.font = '800 46px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#2f9e44'; ctx.fillText('Hoàn thành!', 0, -62);
+    ctx.font = '800 46px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#2f9e44'; ctx.fillText(`Xong ${d.pairs} cặp!`, 0, -62);
     for (let k = 0; k < 3; k++) { starPath(-70 + k * 70, 0, 26); ctx.fillStyle = k < d.stars ? '#fcc419' : '#dee2e6'; ctx.fill(); }
     ctx.font = '700 26px "Be Vietnam Pro", sans-serif'; ctx.fillStyle = '#495057';
     ctx.fillText(`${d.moves} lượt · +${d.coins} xu` + (d.record ? ' · Kỷ lục mới!' : ''), 0, 70);
@@ -4650,7 +4730,7 @@ const NET_ERR = {
 const errText = e => { const m = String((e && (e.message || e.error_description || e.msg)) || e || ''); const k = Object.keys(NET_ERR).find(x => m.includes(x)); return k ? NET_ERR[k] : 'Lỗi kết nối, thử lại sau nhé.'; };
 const RANK = { common: 1, rare: 2, epic: 3, legend: 4, mythic: 5 };
 const Net = {
-  sb: null, uid: '', username: '', code: '', online: false, gifts: 0, inbox: null, pushTimer: 0, pushP: null, rev: null, stale: false,
+  sb: null, uid: '', username: '', code: '', online: false, gifts: 0, inbox: null, pushTimer: 0, pushP: null, rev: null, stale: false, champs: [],
   loadLib() {
     if (window.supabase) return Promise.resolve(true);
     return new Promise(res => { const s = document.createElement('script'); s.src = SUPA_LIB; s.onload = () => res(!!window.supabase); s.onerror = () => res(false); document.head.appendChild(s); setTimeout(() => res(!!window.supabase), 8000); });
@@ -4733,6 +4813,7 @@ const Net = {
       this.push();
     }
     NotePop.update(ib.book);
+    memChampsLoad();   // the memory game's record holders, pinned in the corner
     // friends who helped with my fruit tree: apply it, save it, then mark it seen
     if (ib.helps && ib.helps.length) { gardenHelped(ib.helps); await this.push(); try { await this.rpc('ack_helps'); } catch (e) {} }
     syncMode(true); if (panelKind === 'hood') renderPanel();
@@ -9589,7 +9670,11 @@ function render(ts) {
   if (anim && anim.type === 'evolve') { const p = animP(); if (p < 0.35) { ctx.fillStyle = `rgba(255,255,255,${(1 - p / 0.35) * 0.85})`; ctx.fillRect(0, -padTop, LW, LH + padTop); } }
   // everything that sits on top of the picture: the stats strip at the very top, banners, the chat bubble
   drawVignette(); topSpace();
-  if (state && state.hatched && state.alive && !game) { scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); drawEventTicker(t); }
+  if (state && state.hatched && state.alive && !game) {
+    scaled(14, 14, drawHud); scaled(LW - 14, 14, drawHudInfo); drawEventTicker(t);
+    const cy = 14 + (teacherEvent() ? 72 : 42) * uiK;   // the memory champion, under the status bar (and the event notice when it runs)
+    scaled(14, cy, () => drawMemChampion(t, 14, cy));
+  }
   drawBanner();
   worldSpace();
   if (bubble && lastBody && state && state.hatched) drawBubble(bodyOnScreen(lastBody), t);
@@ -9690,7 +9775,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116150611';
+  const BUILD = '20261116152028';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
