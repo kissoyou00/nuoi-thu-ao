@@ -1082,7 +1082,8 @@ function newState(name, shell) {
 const ageMin = () => state && state.hatched ? (now() - state.born) / 60000 : 0;
 function log(text) { state.log.unshift({ t: now(), text }); state.log = state.log.slice(0, 7); renderSide(); }
 function say(text, ms = 4000) { $('say').textContent = text; sayUntil = now() + ms; }
-function save() { if (!state) return; state.last = now(); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} Net.queue(); }
+// (Net.stale: another device has the newer save, so this copy must not overwrite it)
+function save() { if (!state || Net.stale) return; state.last = now(); try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} Net.queue(); }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
@@ -3099,7 +3100,7 @@ const defaultMeta = () => ({ streak: { day: '', n: 0 }, quests: { day: '', list:
 function loadMeta() { try { return Object.assign(defaultMeta(), JSON.parse(localStorage.getItem(META_KEY)) || {}); } catch (e) { return defaultMeta(); } }
 let meta = loadMeta();
 // photos can fill the browser's storage: drop the oldest and try again
-function saveMeta() { try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { if (meta.album.length) { meta.album.pop(); saveMeta(); return; } } Net.queue(); }
+function saveMeta() { if (Net.stale) return; try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { if (meta.album.length) { meta.album.pop(); saveMeta(); return; } } Net.queue(); }
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(v => v[1]);
 const bannerQ = [];
@@ -4138,7 +4139,7 @@ async function helpGarden() {
   const what = helpFor(g); if (!what) { say(`Cây nhà @${h.username} vừa được chăm xong, lát nữa quay lại giúp nhé.`, 3500); return; }
   helping = true;
   try {
-    await Net.push();
+    if (!(await Net.push())) { say(errText(''), 4000); return; }
     const r = await Net.rpc('help_garden', { code: h.code, what });
     const T = now(); (h.helps = h.helps || []).push({ kind: what, at: T });
     if (state && typeof r.coins === 'number') state.coins = r.coins;
@@ -4482,7 +4483,7 @@ const NET_ERR = {
 const errText = e => { const m = String((e && (e.message || e.error_description || e.msg)) || e || ''); const k = Object.keys(NET_ERR).find(x => m.includes(x)); return k ? NET_ERR[k] : 'Lỗi kết nối, thử lại sau nhé.'; };
 const RANK = { common: 1, rare: 2, epic: 3, legend: 4, mythic: 5 };
 const Net = {
-  sb: null, uid: '', username: '', code: '', online: false, gifts: 0, inbox: null, pushTimer: 0, pushing: false,
+  sb: null, uid: '', username: '', code: '', online: false, gifts: 0, inbox: null, pushTimer: 0, pushP: null, rev: null, stale: false,
   loadLib() {
     if (window.supabase) return Promise.resolve(true);
     return new Promise(res => { const s = document.createElement('script'); s.src = SUPA_LIB; s.onload = () => res(!!window.supabase); s.onerror = () => res(false); document.head.appendChild(s); setTimeout(() => res(!!window.supabase), 8000); });
@@ -4502,13 +4503,14 @@ const Net = {
     try { await this.pull(); this.online = true; } catch (e) { this.note = 'Không kết nối được máy chủ, đang chơi ngoại tuyến.'; }
   },
   async rpc(name, args = {}) { const { data, error } = await this.sb.rpc(name, args); if (error) throw error; return data; },
-  // the cloud save wins when it is newer, or when this browser holds someone else's save; photos stay on this device
-  async pull() {
+  // the cloud save wins when it is newer, or when this browser holds someone else's save, or (force) when another device
+  // has saved since this one last did; photos stay on this device
+  async pull(force = false) {
     const p = await this.rpc('my_profile');
-    this.username = p.username; this.code = p.code;
+    this.username = p.username; this.code = p.code; this.rev = p.rev ?? null;   // (no rev: the server has the older schema)
     let local = null, localMeta = null; try { local = JSON.parse(localStorage.getItem(KEY)); localMeta = JSON.parse(localStorage.getItem(META_KEY)); } catch (e) {}
     const owner = localStorage.getItem(OWNER_KEY), mineHere = !owner || owner === this.uid;
-    const cloudNewer = p.state && (!local || !mineHere || (p.state.last || 0) >= (local.last || 0));
+    const cloudNewer = p.state && (force || !local || !mineHere || (p.state.last || 0) >= (local.last || 0));
     if (p.state || p.meta && Object.keys(p.meta).length) {
       if (cloudNewer || !mineHere) {
         if (p.state) localStorage.setItem(KEY, JSON.stringify(p.state)); else localStorage.removeItem(KEY);
@@ -4522,10 +4524,27 @@ const Net = {
   },
   metaForCloud() { return { ...meta, album: [], dex }; },
   queue() { if (!this.online || this.pushTimer) return; this.pushTimer = setTimeout(() => { this.pushTimer = 0; this.push(); }, 15000); },
-  async push() {
-    if (!this.online || this.pushing) return;
-    clearTimeout(this.pushTimer); this.pushTimer = 0; this.pushing = true;
-    try { if (state) state.last = now(); await this.rpc('push_save', { p_state: state, p_meta: this.metaForCloud() }); } catch (e) {} finally { this.pushing = false; }
+  // upload the save; resolves true once the server has it, false if it failed (callers about to let the server change
+  // coins or items must stop then, or they would take the server's older numbers over what was not uploaded)
+  push() {
+    if (!this.online || this.stale) return Promise.resolve(false);
+    if (this.pushP) return this.pushP.then(() => this.push());   // one already on its way holds older data: send again after it
+    clearTimeout(this.pushTimer); this.pushTimer = 0;
+    return this.pushP = (async () => {
+      try {
+        if (state) state.last = now();
+        const args = { p_state: state, p_meta: this.metaForCloud() }; if (this.rev != null) args.p_rev = this.rev;
+        const r = await this.rpc('push_save', args); if (typeof r === 'number') this.rev = r;
+        return true;
+      } catch (e) { if (String((e && e.message) || e).includes('stale_save')) await this.gotStale(); return false; }
+      finally { this.pushP = null; }
+    })();
+  },
+  // another device saved since this one last did: this copy is old. Stop saving it, take the cloud save and start again.
+  async gotStale() {
+    this.stale = true; say('Bé vừa được chơi trên máy khác, đang tải bản mới nhất...', 6000);
+    try { await this.pull(true); } catch (e) {}
+    location.reload();
   },
   // what others did to my house: gifts waiting, things stolen, visitors, notes
   async poll() {
@@ -4687,7 +4706,7 @@ function stealReason() {
 async function doSteal() {
   const why = stealReason(); if (why) { say(why, 4500); Sound.play('lose'); return; }
   try {
-    await Net.push();
+    if (!(await Net.push())) { say(errText(''), 4000); return; }
     const r = await Net.rpc('steal', { code: house.code });
     applyCloud(r);
     const name = (shopItem(r.item) || {}).name || r.item;
@@ -4709,7 +4728,7 @@ function applyCloud(r) {
 async function sendGift(coins, item) {
   const note = ($('giftNote') && $('giftNote').value) || '';
   try {
-    await Net.push();
+    if (!(await Net.push())) { say(errText(''), 4000); return; }
     applyCloud(await Net.rpc('send_gift', { code: house.code, coins, item: item || '', note }));
     house.mood = 'love'; house.moodUntil = now() + 3500; Sound.play('win'); quest('gift');
     const what = item ? ((shopItem(item) || {}).name || item).toLowerCase() : `${coins} xu`;
@@ -4720,7 +4739,7 @@ async function sendGift(coins, item) {
 }
 async function claimGifts() {
   try {
-    await Net.push();
+    if (!(await Net.push())) { say(errText(''), 4000); return; }
     const r = await Net.rpc('claim_gifts'); applyCloud(r); Net.gifts = 0;
     (r.gifts || []).forEach(g => {
       const what = [g.coins ? `${g.coins} xu` : '', g.item ? ((shopItem(g.item) || {}).name || g.item).toLowerCase() : ''].filter(Boolean).join(' và ');
@@ -8626,7 +8645,8 @@ function start(snap) {
   requestAnimationFrame(render);
   setInterval(logic, 100);
   setInterval(tick, 1000);
-  document.addEventListener('visibilitychange', () => { save(); if (document.hidden) Net.push(); else Net.poll(); });
+  // coming back to the game also uploads at once: if another device has played since, this old copy finds out right away
+  document.addEventListener('visibilitychange', () => { save(); Net.push(); if (!document.hidden) Net.poll(); });
   window.addEventListener('pagehide', () => { save(); Net.push(); });
   if (Net.online) {
     setInterval(() => Net.poll(), 45000); setTimeout(() => Net.poll(), 3000);
@@ -8682,7 +8702,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116113803';
+  const BUILD = '20261116123116';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
