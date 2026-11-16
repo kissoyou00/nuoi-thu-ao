@@ -454,7 +454,9 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
 .dex-head h2 { margin: 0; font-size: 13px; }
 .dex-head h2 b { font-family: var(--display); font-size: 22px; color: var(--ink); letter-spacing: 0; margin-left: 6px; font-variant-numeric: tabular-nums; }
 .odds { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
-.odds span { display: inline-flex; align-items: center; gap: 6px; }
+.odds button { display: inline-flex; align-items: center; gap: 6px; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 999px; padding: 2px 8px; cursor: pointer; }
+.odds button.on { border-color: var(--ink); color: var(--ink); font-weight: 700; }
+.card[hidden] { display: none; }
 .odds i { width: 10px; height: 10px; border-radius: 50%; background: var(--r-common); }
 .dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
 .card { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 8px 8px 10px; display: grid; gap: 4px; justify-items: center; text-align: center; }
@@ -489,6 +491,8 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
 .fish-card .stars.r3 { color: #9c36b5; } .fish-card .stars.r4 { color: #e8590c; }
 .fish-card.unknown { background: #f3f1ee; border-color: #e3ddd5; }
 .fish-card.unknown b { color: #9a8f86; }
+/* phones: three cards across, so 50 species stay a short scroll (after .dex-grid and .card so it wins) */
+@media (max-width: 480px) { .dex-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .card { padding: 6px 4px 8px; } .card b { font-size: 12px; } }
 </style>
 </head>
 <body>
@@ -621,12 +625,12 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
   <section class="dex" aria-labelledby="dexTitle">
     <div class="dex-head">
       <h2 id="dexTitle">Bộ sưu tập <b id="dexCount">0/67</b></h2>
-      <div class="odds" aria-label="Tỉ lệ nở">
-        <span><i></i>Thường 50%</span>
-        <span><i style="background:var(--r-rare)"></i>Hiếm 28%</span>
-        <span><i style="background:var(--r-epic)"></i>Quý hiếm 14%</span>
-        <span><i style="background:var(--r-legend)"></i>Huyền thoại 6%</span>
-        <span><i style="background:var(--r-mythic)"></i>Thần thoại 2%</span>
+      <div class="odds" id="dexOdds" aria-label="Tỉ lệ nở, bấm để lọc theo độ hiếm">
+        <button type="button" data-rar="common"><i></i>Thường 50%</button>
+        <button type="button" data-rar="rare"><i style="background:var(--r-rare)"></i>Hiếm 28%</button>
+        <button type="button" data-rar="epic"><i style="background:var(--r-epic)"></i>Quý hiếm 14%</button>
+        <button type="button" data-rar="legend"><i style="background:var(--r-legend)"></i>Huyền thoại 6%</button>
+        <button type="button" data-rar="mythic"><i style="background:var(--r-mythic)"></i>Thần thoại 2%</button>
       </div>
     </div>
     <div class="dex-grid" id="dexGrid"></div>
@@ -763,6 +767,153 @@ const SPECIES = [
     { name: 'Hải Long', R: 118, ears: 'fin', tail: 'dragon', feet: true, eye: 'sharp', extras: ['crest', 'spikes', 'bubbles'] },
     { name: 'Hải Thần Vương', R: 136, ears: 'fin', eye: 'sharp', extras: ['aura', 'tentacles', 'crest', 'crown', 'bubbles'] } ] },
 ];
+/* ---------- the newer species (added November 2026), drawn with the parts in 23a ----------
+   Same fields as SPECIES (02). swim: hovers like a fish, with no feet. The markings are kept on each species here.
+   Đợt 1: 9 common and 1 rare. */
+SPECIES.push(
+  { id: 'soc', rarity: 'common', type: 'Rừng', col: '#c98a5c', acc: '#f3d6b0', belly: '#fbead6', iris: '#5a3418', marks: ['tuft', 'socks'], sock: '#8a5a3b', stages: [
+    { name: 'Sóc Hạt Dẻ', R: 66, ears: 'cat', tail: 'bushy', extras: ['acorn'] },
+    { name: 'Sóc Lá Thu', R: 96, ears: 'cat', tail: 'bushy', feet: true, eye: 'iris', col: '#d98a4f', extras: ['acorn', 'leaves'] },
+    { name: 'Sóc Bay', R: 118, ears: 'cat', tail: 'bushy', feet: true, eye: 'iris', col: '#b9825a', extras: ['glider', 'leaves'] } ] },
+  { id: 'vit', rarity: 'common', type: 'Nước', col: '#fffaf0', acc: '#ff9f1c', belly: '#ffffff', iris: '#3a2f2a', shape: 'wide', marks: ['socks', 'noarms'], sock: '#ff9f1c', stages: [
+    { name: 'Vịt Con', R: 64, col: '#ffe066', tail: 'puff', extras: ['bill', 'birdwings'] },
+    { name: 'Vịt Đi Mưa', R: 96, tail: 'feather', feet: true, eye: 'iris', extras: ['bill', 'birdwings', 'cloud'] },
+    { name: 'Vịt Áo Tơi', R: 118, tail: 'feather', feet: true, eye: 'iris', extras: ['bill', 'birdwings', 'hood', 'bubbles'] } ] },
+  { id: 'cun', rarity: 'common', type: 'Đất', col: '#f3dcb2', acc: '#a0522d', belly: '#fffaf0', iris: '#4a2c17', marks: ['patch', 'socks'], sock: '#fffaf0', stages: [
+    { name: 'Cún Bông', R: 66, ears: 'floppy', tail: 'wag', extras: ['tongue'] },
+    { name: 'Cún Lon Ton', R: 96, ears: 'floppy', tail: 'wag', feet: true, eye: 'iris', extras: ['tongue', 'bandana'] },
+    { name: 'Chó Giữ Nhà', R: 118, shape: 'pear', ears: 'floppy', tail: 'wag', feet: true, eye: 'iris', col: '#e8c48f', extras: ['tongue', 'bandana'] } ] },
+  { id: 'cuu', rarity: 'common', type: 'Gió', col: '#fff6ee', acc: '#ffd6e8', belly: '#ffffff', iris: '#5b4b8a', marks: ['socks'], sock: '#6b5b73', stages: [
+    { name: 'Cừu Mây', R: 66, ears: 'leafear', extras: ['wool'] },
+    { name: 'Cừu Bông Gòn', R: 96, ears: 'leafear', feet: true, eye: 'iris', extras: ['wool', 'flower'] },
+    { name: 'Cừu Sấm', R: 118, ears: 'leafear', feet: true, eye: 'sharp', col: '#eef0ff', extras: ['wool', 'horns2', 'spark'] } ] },
+  { id: 'oc', rarity: 'common', type: 'Cỏ', col: '#ffe0a3', acc: '#d4a373', belly: '#fff5d6', iris: '#3a2f2a', shape: 'wide', marks: ['dots', 'noarms'], stages: [
+    { name: 'Ốc Sên Con', R: 62, extras: ['snail', 'antenna'] },
+    { name: 'Ốc Cầu Vồng', R: 94, eye: 'iris', acc: '#ff8fb8', extras: ['snail', 'prism', 'antenna'] },
+    { name: 'Ốc Lâu Đài', R: 116, eye: 'iris', acc: '#b197fc', extras: ['snail', 'prism', 'castle', 'antenna'] } ] },
+  { id: 'cua', rarity: 'common', type: 'Nước', col: '#ff7b5c', acc: '#ffb199', belly: '#ffe3d8', iris: '#3a2f2a', shape: 'wide', marks: ['dots', 'noarms'], stages: [
+    { name: 'Cua Cát', R: 62, col: '#f2c18d', extras: ['claws', 'antenna'] },
+    { name: 'Cua Đỏ', R: 94, feet: true, eye: 'iris', extras: ['claws', 'antenna', 'bubbles'] },
+    { name: 'Cua Hoàng Đế', R: 118, feet: true, eye: 'sharp', col: '#e8443a', extras: ['claws', 'antenna', 'crown', 'spikes'] } ] },
+  { id: 'de', rarity: 'common', type: 'Bọ', col: '#9a7646', acc: '#d9b97a', belly: '#efdcb4', iris: '#2a1d14', marks: ['chevron'], markCol: '#6b4f2a', stages: [
+    { name: 'Dế Con', R: 62, extras: ['antenna'] },
+    { name: 'Dế Kéo Đàn', R: 94, feet: true, eye: 'iris', extras: ['antenna', 'bugwings', 'fiddle'] },
+    { name: 'Dế Hiệp Sĩ', R: 116, feet: true, eye: 'sharp', col: '#7a5a32', extras: ['antenna', 'bugwings', 'crest', 'fangs'] } ] },
+  { id: 'ga', rarity: 'common', type: 'Đất', col: '#ffd8a8', acc: '#ff4d4d', belly: '#fffbe6', iris: '#3a2f2a', shape: 'tall', marks: ['noarms'], stages: [
+    { name: 'Gà Con', R: 60, col: '#ffe066', tail: 'puff', extras: ['beak', 'birdwings'] },
+    { name: 'Gà Choai', R: 92, tail: 'feather', feet: true, eye: 'iris', extras: ['beak', 'birdwings', 'comb'] },
+    { name: 'Gà Trống Bình Minh', R: 116, tail: 'phoenix', feet: true, eye: 'sharp', col: '#f4a259', extras: ['beak', 'birdwings', 'comb'] } ] },
+  { id: 'cavang', rarity: 'common', type: 'Nước', col: '#ff9a3c', acc: '#ffd8a8', belly: '#fff1e0', iris: '#3a2f2a', shape: 'fish', swim: true, marks: ['waves'], stages: [
+    { name: 'Cá Vàng Nhỏ', R: 60, ears: 'fin', tail: 'fish', extras: ['bubbles'] },
+    { name: 'Cá Đuôi Voan', R: 92, ears: 'fin', tail: 'veil', eye: 'iris', extras: ['bubbles', 'crest'] },
+    { name: 'Cá Vàng Hoàng Hậu', R: 112, ears: 'fin', tail: 'veil', eye: 'iris', col: '#ffb347', extras: ['bubbles', 'crest', 'crown'] } ] },
+  { id: 'cao', rarity: 'rare', type: 'Ma', col: '#ff9e5e', acc: '#fff1e0', belly: '#fff1e0', iris: '#c2410c', marks: ['collar', 'socks', 'tuft'], collar: '#fff1e0', sock: '#5c3a1e', flame: ['#ff6a2b', '#ffb02e', '#fff2a8'], stages: [
+    { name: 'Cáo Đèn Lồng', R: 66, ears: 'fox', tail: 'fluffy', tails: 1, extras: ['lantern'] },
+    { name: 'Cáo Trung Thu', R: 96, ears: 'fox', tail: 'fluffy', tails: 1, feet: true, eye: 'iris', extras: ['lantern', 'wisps'] },
+    { name: 'Cáo Hồ Ly', R: 118, ears: 'fox', tail: 'fluffy', tails: 3, feet: true, eye: 'sharp', col: '#ff8a4c', extras: ['lantern', 'wisps', 'aura'] } ] },
+);
+// Đợt 2: 7 rare and 3 epic. palette: the body colour steps through these, a new one every 3 s (the chameleon)
+const GECKO = ['#7ed957', '#4dabf7', '#ff8fb8', '#ffd43b', '#b197fc'];
+SPECIES.push(
+  { id: 'cu', rarity: 'rare', type: 'Vũ trụ', col: '#8d7bb8', acc: '#ffd56b', belly: '#efe6ff', iris: '#ffb400', marks: ['noarms', 'chevron'], markCol: '#efe6ff', stages: [
+    { name: 'Cú Con', R: 64, tail: 'feather', extras: ['beak', 'feathers', 'birdwings'] },
+    { name: 'Cú Đêm', R: 94, tail: 'feather', feet: true, eye: 'iris', extras: ['beak', 'feathers', 'birdwings', 'stars', 'moon'] },
+    { name: 'Cú Thông Thái', R: 116, tail: 'feather', feet: true, eye: 'iris', col: '#7a68a8', extras: ['beak', 'feathers', 'birdwings', 'stars', 'glasses'] } ] },
+  { id: 'voi', rarity: 'rare', type: 'Đất', col: '#a9b8c9', acc: '#ffc2d1', belly: '#e3eaf2', iris: '#3a2f2a', marks: ['socks'], sock: '#8c99aa', stages: [
+    { name: 'Voi Con', R: 70, ears: 'bigears', tail: 'wag', extras: ['trunk'] },
+    { name: 'Voi Tưới Hoa', R: 100, ears: 'bigears', tail: 'wag', feet: true, eye: 'iris', extras: ['trunk', 'flower', 'bubbles'] },
+    { name: 'Voi Đại Ngàn', R: 122, shape: 'pear', ears: 'bigears', tail: 'wag', feet: true, eye: 'iris', col: '#97a6b8', extras: ['trunk', 'tusks', 'leaves'] } ] },
+  { id: 'haicau', rarity: 'rare', type: 'Băng', col: '#c9d6e3', acc: '#7a8da3', belly: '#f2f6fa', iris: '#1f2d3d', shape: 'wide', marks: ['noarms', 'dots'], stages: [
+    { name: 'Hải Cẩu Bông', R: 66, col: '#f4f7fb', tail: 'fish', extras: ['flippers', 'whiskers'] },
+    { name: 'Hải Cẩu Tung Bóng', R: 96, tail: 'fish', eye: 'iris', extras: ['flippers', 'whiskers', 'ball'] },
+    { name: 'Hải Cẩu Băng Trôi', R: 118, tail: 'fish', eye: 'iris', col: '#b7c8da', extras: ['flippers', 'whiskers', 'ball', 'frost'] } ] },
+  { id: 'tacke', rarity: 'rare', type: 'Cỏ', col: '#7ed957', acc: '#ffd23f', belly: '#e9fbd8', iris: '#e8590c', marks: ['dots'], stages: [
+    { name: 'Tắc Kè Lá', R: 64, tail: 'dragon', extras: ['leaves'] },
+    { name: 'Tắc Kè Đổi Màu', R: 94, tail: 'dragon', feet: true, eye: 'iris', palette: GECKO, extras: ['spots'] },
+    { name: 'Tắc Kè Cầu Vồng', R: 116, tail: 'dragon', feet: true, eye: 'sharp', palette: GECKO, extras: ['spots', 'crest', 'aura'] } ] },
+  { id: 'nhim', rarity: 'rare', type: 'Đá', col: '#d8b48e', acc: '#7a5a3c', belly: '#f5e6d3', iris: '#2b1d12', marks: ['socks'], sock: '#7a5a3c', stages: [
+    { name: 'Nhím Hạt Dẻ', R: 64, ears: 'round', extras: ['quills', 'acorn'] },
+    { name: 'Nhím Gai Bạc', R: 94, ears: 'round', feet: true, eye: 'iris', acc: '#a8b4c0', extras: ['quills'] },
+    { name: 'Nhím Pháo Hoa', R: 116, ears: 'round', feet: true, eye: 'iris', acc: '#8f6bd8', extras: ['quills', 'fireworks'] } ] },
+  { id: 'raica', rarity: 'rare', type: 'Nước', col: '#9b6b43', acc: '#e9d3b5', belly: '#f2e2cc', iris: '#2b1d12', marks: ['tuft'], stages: [
+    { name: 'Rái Cá Sông', R: 66, ears: 'round', tail: 'otter', extras: ['whiskers'] },
+    { name: 'Rái Cá Ôm Sò', R: 96, ears: 'round', tail: 'otter', feet: true, eye: 'iris', extras: ['whiskers', 'clam'] },
+    { name: 'Rái Cá Thủy Thủ', R: 118, ears: 'round', tail: 'otter', feet: true, eye: 'iris', extras: ['whiskers', 'clam', 'sailor'] } ] },
+  { id: 'sua', rarity: 'rare', type: 'Biển sâu', col: '#c7b8ff', acc: '#ff9be0', iris: '#5f3dc4', shape: 'bell', swim: true, marks: ['glow'], stages: [
+    { name: 'Sứa Đom Đóm', R: 60, extras: ['tentacles'] },
+    { name: 'Sứa Lồng Đèn', R: 90, eye: 'iris', col: '#ffc9de', extras: ['tentacles', 'bubbles'] },
+    { name: 'Sứa Ánh Trăng', R: 112, eye: 'iris', col: '#d0ebff', extras: ['tentacles', 'moon', 'aura'] } ] },
+  { id: 'gautruc', rarity: 'epic', type: 'Rừng', col: '#fbfbf7', acc: '#2b2b2b', belly: '#ffffff', iris: '#5c3d2e', marks: ['pandaeyes', 'socks'], sock: '#2b2b2b', stages: [
+    { name: 'Gấu Trúc Con', R: 70, ears: 'panda', tail: 'puff' },
+    { name: 'Gấu Trúc Tre Xanh', R: 100, ears: 'panda', tail: 'puff', feet: true, eye: 'iris', extras: ['bamboo'] },
+    { name: 'Gấu Trúc Võ Sư', R: 124, shape: 'pear', ears: 'panda', tail: 'puff', feet: true, eye: 'iris', extras: ['bamboo', 'headband'] } ] },
+  { id: 'canhcut', rarity: 'epic', type: 'Băng', col: '#3b4a6b', acc: '#ffb703', belly: '#ffffff', iris: '#1b2433', shape: 'tall', marks: ['noarms', 'socks'], sock: '#ffb703', stages: [
+    { name: 'Cánh Cụt Con', R: 64, col: '#9aa7bd', extras: ['beak', 'flippers'] },
+    { name: 'Cánh Cụt Trượt Băng', R: 96, feet: true, eye: 'iris', extras: ['beak', 'flippers', 'scarf'] },
+    { name: 'Cánh Cụt Hoàng Đế', R: 120, feet: true, eye: 'iris', extras: ['beak', 'flippers', 'scarf', 'crown'] } ] },
+  { id: 'cachep', rarity: 'epic', type: 'Nước', col: '#fff4ea', acc: '#ff6b3d', belly: '#fff8f0', iris: '#3a2f2a', shape: 'fish', swim: true, marks: ['koi'], stages: [
+    { name: 'Cá Chép Con', R: 62, ears: 'fin', tail: 'fish', extras: ['bubbles'] },
+    { name: 'Chép Vàng Vượt Thác', R: 94, ears: 'fin', tail: 'veil', eye: 'iris', col: '#ffd166', acc: '#ff9f1c', extras: ['bubbles', 'crest'] },
+    { name: 'Long Ngư', R: 120, ears: 'fin', tail: 'dragon', eye: 'sharp', col: '#ffd166', extras: ['horns1', 'barbels', 'crest', 'aura'] } ] },
+);
+// Đợt 3: 3 epic, 4 legend, 3 mythic, from Vietnamese folk tales (Lân, Nghê, Trâu Vàng, Thỏ Ngọc, Kim Quy, chim Lạc).
+// swim on a stage: only that form hovers (the cloud cat once it rides its cloud)
+SPECIES.push(
+  { id: 'meomay', rarity: 'epic', type: 'Gió', col: '#eef6ff', acc: '#74c0fc', belly: '#ffffff', iris: '#1c7ed6', marks: ['tuft', 'socks'], sock: '#a5d8ff', stages: [
+    { name: 'Mèo Mây', R: 66, ears: 'cat', tail: 'swirl' },
+    { name: 'Mèo Gió Lốc', R: 96, ears: 'cat', tail: 'swirl', eye: 'iris', swim: true, extras: ['cloudbed'] },
+    { name: 'Mèo Thiên Phong', R: 120, ears: 'cat', tail: 'swirl', eye: 'sharp', swim: true, extras: ['cloudbed', 'stars', 'aura'] } ] },
+  { id: 'boru', rarity: 'epic', type: 'Bọ', col: '#ff4d4d', acc: '#2b2b2b', belly: '#ffe3e3', iris: '#2b2b2b', marks: ['ladydots'], stages: [
+    { name: 'Bọ Rùa Chấm', R: 64, extras: ['antenna'] },
+    { name: 'Bọ Rùa Đèn', R: 96, feet: true, eye: 'iris', marks: ['glow'], extras: ['antenna', 'bugwings'] },
+    { name: 'Bọ Rùa Hiệp Sĩ', R: 118, feet: true, eye: 'sharp', col: '#e03131', extras: ['antenna', 'bugwings', 'crest'] } ] },
+  { id: 'lan', rarity: 'epic', type: 'Thánh', col: '#ff6b6b', acc: '#ffd43b', belly: '#fff4e6', iris: '#c92a2a', mane: ['#ffd43b', '#ff922b', '#ffffff', '#69db7c'], marks: ['socks'], sock: '#ffd43b', stages: [
+    { name: 'Lân Con', R: 68, ears: 'cat', tail: 'fluffy', extras: ['fringe'] },
+    { name: 'Lân Múa', R: 98, ears: 'cat', tail: 'fluffy', feet: true, eye: 'iris', extras: ['mane', 'horn1', 'fringe'] },
+    { name: 'Lân Vàng Trung Thu', R: 122, ears: 'cat', tail: 'fluffy', feet: true, eye: 'iris', col: '#ffc53d', acc: '#ff6b6b', extras: ['mane', 'horn1', 'fringe', 'aura'] } ] },
+  { id: 'nghe', rarity: 'legend', type: 'Đá', col: '#b8ad98', acc: '#8a7f6a', belly: '#e9e3d6', iris: '#7a4b1e', marks: ['cloudscroll'], stages: [
+    { name: 'Nghê Đá', R: 68, ears: 'cat', tail: 'fluffy', extras: ['curls'] },
+    { name: 'Nghê Đồng', R: 96, ears: 'cat', tail: 'fluffy', feet: true, eye: 'iris', col: '#c08a4a', acc: '#7a4b1e', extras: ['curls', 'fangs'] },
+    { name: 'Nghê Thần Canh Đình', R: 114, ears: 'cat', tail: 'fluffy', feet: true, eye: 'sharp', col: '#d9a937', acc: '#9a6a12', extras: ['curls', 'fangs', 'gem', 'aura'] },
+    { name: 'Nghê Ngọc Trấn Quốc', R: 130, ears: 'cat', tail: 'fluffy', feet: true, eye: 'sharp', col: '#7fd1b9', acc: '#2b8a6e', extras: ['curls', 'fangs', 'gem', 'aura', 'halo'] } ] },
+  { id: 'hac', rarity: 'legend', type: 'Gió', col: '#fffaf0', acc: '#dee2e6', belly: '#ffffff', iris: '#2b2b2b', shape: 'tall', marks: ['noarms'], stages: [
+    { name: 'Hạc Giấy', R: 64, col: '#ffd6e0', marks: ['facets'], tail: 'feather', extras: ['longbeak', 'birdwings'] },
+    { name: 'Hạc Mây', R: 94, tail: 'feather', feet: true, eye: 'iris', extras: ['longbeak', 'redcap', 'birdwings', 'cloud'] },
+    { name: 'Hạc Tiên', R: 114, tail: 'feather', feet: true, eye: 'iris', extras: ['longbeak', 'redcap', 'wings', 'cloud'] },
+    { name: 'Hạc Thiên Niên', R: 130, tail: 'feather', feet: true, eye: 'sharp', extras: ['longbeak', 'redcap', 'wings', 'halo', 'aura'] } ] },
+  { id: 'trau', rarity: 'legend', type: 'Đất', col: '#6b7079', acc: '#e9dcc9', belly: '#9aa0a8', iris: '#2b2b2b', shape: 'wide', marks: ['socks'], sock: '#3f4248', stages: [
+    { name: 'Nghé Con', R: 70, col: '#9096a0', ears: 'leafear', tail: 'wag', extras: ['snout'] },
+    { name: 'Trâu Cày', R: 100, ears: 'leafear', tail: 'wag', feet: true, eye: 'iris', extras: ['snout', 'buffhorns', 'flower'] },
+    { name: 'Trâu Thần', R: 116, ears: 'leafear', tail: 'wag', feet: true, eye: 'sharp', extras: ['snout', 'buffhorns', 'leaves'] },
+    { name: 'Trâu Vàng Hồ Tây', R: 132, ears: 'leafear', tail: 'wag', feet: true, eye: 'sharp', col: '#e8b931', belly: '#fff3bf', extras: ['snout', 'buffhorns', 'aura', 'halo'] } ] },
+  { id: 'cavoi', rarity: 'legend', type: 'Vũ trụ', col: '#5c7cfa', acc: '#dbe4ff', belly: '#e7ecff', iris: '#1b2a6b', shape: 'fish', swim: true, marks: ['grooves'], stages: [
+    { name: 'Cá Voi Con', R: 66, ears: 'fin', tail: 'fluke', extras: ['spout'] },
+    { name: 'Cá Voi Hát', R: 96, ears: 'fin', tail: 'fluke', eye: 'iris', extras: ['spout', 'bubbles'] },
+    { name: 'Cá Voi Sao Băng', R: 116, ears: 'fin', tail: 'fluke', eye: 'iris', col: '#5f3dc4', extras: ['spout', 'stars'] },
+    { name: 'Cá Voi Tinh Vân', R: 134, ears: 'fin', tail: 'fluke', eye: 'sharp', col: '#7048e8', extras: ['spout', 'stars', 'moon', 'aura'] } ] },
+  { id: 'thongoc', rarity: 'mythic', type: 'Vũ trụ', col: '#fffaf5', acc: '#ffd8a8', belly: '#ffffff', iris: '#9c36b5', marks: ['tuft'], stages: [
+    { name: 'Thỏ Trăng Con', R: 64, ears: 'long', tail: 'puff', extras: ['moonback'] },
+    { name: 'Thỏ Giã Thuốc', R: 88, ears: 'long', tail: 'puff', feet: true, eye: 'iris', extras: ['moonback', 'mortar'] },
+    { name: 'Thỏ Ngọc', R: 104, ears: 'long', tail: 'puff', feet: true, eye: 'iris', extras: ['moonback', 'mortar', 'stars'] },
+    { name: 'Thỏ Ngọc Cung Trăng', R: 120, ears: 'long', tail: 'puff', feet: true, eye: 'sharp', extras: ['moonback', 'stars', 'halo', 'aura'] },
+    { name: 'Nguyệt Thố Tiên Quân', R: 136, ears: 'long', tail: 'puff', feet: true, eye: 'sharp', col: '#fff4e6', extras: ['moonback', 'stars', 'halo', 'aura', 'wings'] } ] },
+  { id: 'kimquy', rarity: 'mythic', type: 'Thánh', col: '#8ce99a', acc: '#2f9e44', belly: '#fff9db', iris: '#2b2b2b', shape: 'wide', marks: ['dots'], stages: [
+    { name: 'Rùa Ngọc Con', R: 64, extras: ['shell'] },
+    { name: 'Rùa Ngọc', R: 88, feet: true, eye: 'iris', extras: ['shell', 'gem'] },
+    { name: 'Rùa Vàng', R: 106, feet: true, eye: 'iris', col: '#f2c94c', acc: '#b8860b', extras: ['shell', 'gem'] },
+    { name: 'Kim Quy', R: 122, feet: true, eye: 'sharp', col: '#f2c94c', acc: '#b8860b', extras: ['shell', 'gem', 'crown', 'aura'] },
+    { name: 'Kim Quy Thần Tướng', R: 138, feet: true, eye: 'sharp', col: '#ffd43b', acc: '#2f9e44', extras: ['shell', 'gem', 'crown', 'aura', 'halo'] } ] },
+  { id: 'chimlac', rarity: 'mythic', type: 'Gió', col: '#ffd8a8', acc: '#2b8a3e', belly: '#fff4e6', iris: '#7a2e0e', shape: 'tall', marks: ['noarms'], stages: [
+    { name: 'Chim Lạc Con', R: 62, tail: 'feather', extras: ['longbeak', 'plume', 'birdwings'] },
+    { name: 'Chim Lạc Trống Đồng', R: 88, tail: 'feather', feet: true, eye: 'iris', col: '#d4a63a', acc: '#7a5212', marks: ['dongson'], extras: ['longbeak', 'plume', 'birdwings'] },
+    { name: 'Chim Lạc Bay', R: 106, tail: 'phoenix', feet: true, eye: 'iris', col: '#d4a63a', acc: '#7a5212', marks: ['dongson'], extras: ['longbeak', 'plume', 'wings'] },
+    { name: 'Thần Điểu Lạc', R: 122, tail: 'phoenix', feet: true, eye: 'sharp', col: '#e8590c', acc: '#ffd43b', marks: ['dongson'], extras: ['longbeak', 'plume', 'wings', 'aura'] },
+    { name: 'Thần Điểu Lạc Hồng', R: 138, tail: 'phoenix', feet: true, eye: 'sharp', col: '#e8590c', acc: '#ffd43b', marks: ['dongson'], extras: ['longbeak', 'plume', 'wings', 'aura', 'halo'] } ] },
+);
+// ngũ hành: the 18 kinds grouped into five elements; each one beats the next (Kim → Mộc → Thổ → Thủy → Hỏa → Kim)
+const HANH = { 'Điện': 'Kim', 'Pha lê': 'Kim', 'Vũ trụ': 'Kim', 'Cỏ': 'Mộc', 'Rừng': 'Mộc', 'Nấm': 'Mộc', 'Bọ': 'Mộc', 'Tiên': 'Mộc',
+  'Nước': 'Thủy', 'Biển sâu': 'Thủy', 'Băng': 'Thủy', 'Lửa': 'Hỏa', 'Rồng': 'Hỏa', 'Đất': 'Thổ', 'Đá': 'Thổ', 'Gió': 'Thổ', 'Ma': 'Thổ', 'Thánh': 'Thổ' };
+const HANH_BEATS = { Kim: 'Mộc', 'Mộc': 'Thổ', 'Thổ': 'Thủy', 'Thủy': 'Hỏa', 'Hỏa': 'Kim' };
 /* ---------- things the pet can tell you ---------- */
 const FORTUNE = {
   'Công việc': [
@@ -3054,9 +3205,16 @@ function renderSide() {
     logEl.innerHTML = s.log.map(e => `<li><time>${hhmm(e.t)}</time><span>${esc(e.text)}</span></li>`).join('');
   }
 }
+// tapping a rarity in the collection header shows only that rarity; tapping it again shows them all
+$('dexOdds').addEventListener('click', e => {
+  const b = e.target.closest('button[data-rar]'); if (!b) return;
+  const f = b.classList.contains('on') ? '' : b.dataset.rar;
+  $('dexOdds').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.rar === f));
+  $('dexGrid').querySelectorAll('.card').forEach(c => { c.hidden = !!f && c.dataset.rar !== f; });
+});
 function renderDex() {
   const grid = $('dexGrid');
-  if (!grid.children.length) grid.innerHTML = SPECIES.map(sp => `<figure class="card" id="dex-${sp.id}" data-sp="${sp.id}" role="button" tabindex="0" aria-label="Xem các dạng"><canvas width="240" height="240"></canvas><b></b><span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span><small></small></figure>`).join('');
+  if (!grid.children.length) grid.innerHTML = SPECIES.map(sp => `<figure class="card" id="dex-${sp.id}" data-sp="${sp.id}" data-rar="${sp.rarity}" role="button" tabindex="0" aria-label="Xem các dạng"><canvas width="240" height="240"></canvas><b></b><span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span><small></small></figure>`).join('');
   let found = 0, total = 0;
   SPECIES.forEach(sp => {
     const m = dex[sp.id] ?? -1, card = $('dex-' + sp.id);
@@ -3079,7 +3237,7 @@ function showForms(id) {
   const sp = spById(id), m = dex[id] ?? -1, pop = $('dexPop'), row = $('dexForms');
   pop.dataset.sp = id; pop.hidden = false;
   $('dexPopTitle').textContent = m < 0 ? 'Loài chưa gặp' : sp.stages[m].name;
-  $('dexPopInfo').innerHTML = `<span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span> Hệ ${esc(sp.type)} · đã có ${m + 1}/${sp.stages.length} dạng`;
+  $('dexPopInfo').innerHTML = `<span class="rar r-${sp.rarity}">${RARITY[sp.rarity].label}</span> Hệ ${esc(sp.type)} · hành ${HANH[sp.type] || '?'} · đã có ${m + 1}/${sp.stages.length} dạng`;
   row.innerHTML = sp.stages.map((st, i) => `${i ? '<i class="dex-arrow" aria-hidden="true">›</i>' : ''}<figure class="form${i <= m ? '' : ' unknown'}"><canvas width="200" height="200"></canvas><b>${i <= m ? esc(st.name) : '???'}</b><small>Dạng ${i + 1}</small></figure>`).join('');
   row.querySelectorAll('canvas').forEach((cv2, i) => {
     thumb(cv2, sp, i, i > m);
@@ -5230,7 +5388,9 @@ function skyFor() {
 /* ---------- detailed ("HD") look: soft shading, rim light, fur, glossy eyes ----------
    every species uses it; each one has a surface: fur (default), feather, skin, ghost or stone */
 const HD_SPECIES = new Set(SPECIES.map(s => s.id));
-const HD_TEX = { chim: 'feather', phuong: 'feather', ech: 'skin', heo: 'skin', nam: 'skin', rua: 'skin', hoa: 'skin', long: 'skin', hai: 'skin', ma: 'ghost', da: 'stone' };
+const HD_TEX = { chim: 'feather', phuong: 'feather', ech: 'skin', heo: 'skin', nam: 'skin', rua: 'skin', hoa: 'skin', long: 'skin', hai: 'skin', ma: 'ghost', da: 'stone',
+  vit: 'feather', ga: 'feather', oc: 'skin', cua: 'skin', de: 'skin', cavang: 'skin', cu: 'feather', canhcut: 'feather', voi: 'skin', haicau: 'skin', tacke: 'skin', sua: 'ghost', cachep: 'skin',
+  boru: 'skin', nghe: 'stone', hac: 'feather', trau: 'skin', cavoi: 'skin', kimquy: 'skin', chimlac: 'feather' };
 const texOf = id => HD_TEX[id] || 'fur';
 // rows of small overlapping feather edges
 function hdFeather(cx, cy, rx, ry, col, R) {
@@ -5461,6 +5621,7 @@ function drawTail(def, sp, x, cy, rx, ry, R, dir, t, col = sp.col, acc = sp.acc)
       ctx.strokeStyle = col; ctx.lineWidth = R * 0.1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.75, by, ex, ey); ctx.stroke(); tube3D(R * 0.1);
       ctx.shadowColor = acc; ctx.shadowBlur = 20; starPath(ex, ey, R * 0.22); ctx.fillStyle = acc; ctx.fill(); ctx.shadowBlur = 0; soft3D(ex, ey, R * 0.22, R * 0.22); break;
     }
+    default: if (TAILS_MORE[def.tail]) TAILS_MORE[def.tail](bx, by, sd, R, w, t, col, acc);   // the newer tails (23a)
   }
 }
 function bodyPath(shape, x, cy, rx, ry) {
@@ -5491,12 +5652,19 @@ function bodyPath(shape, x, cy, rx, ry) {
       }
       ctx.closePath(); break;
     }
+    case 'fish': ctx.ellipse(x, cy, rx * 1.12, ry * 0.86, 0, 0, TAU); break;
+    case 'bell': {   // a jellyfish's dome with a wavy frill along the bottom
+      ctx.moveTo(x - rx, cy + ry * 0.35); ctx.bezierCurveTo(x - rx, cy - ry * 1.25, x + rx, cy - ry * 1.25, x + rx, cy + ry * 0.35);
+      for (let i = 1; i <= 8; i++) { const xx = x + rx - i * rx / 4; ctx.quadraticCurveTo(xx + rx / 8, cy + ry * (0.62 + Math.sin(performance.now() / 300 + i) * 0.04), xx, cy + ry * 0.35); }
+      ctx.closePath(); break;
+    }   // a plump fish, wider than tall
     default: ctx.ellipse(x, cy, rx, ry, 0, 0, TAU);
   }
 }
 let faceAt = { x: 0, y: 0, R: 1 };
 // species markings painted inside the head or body outline (clipped there by the caller)
 function drawMarks(part, marks, r, R, col, acc, sp, t, fx = r.x, fy = r.y) {
+  drawMarksMore(part, marks, r, R, col, acc, fx, fy);   // the newer species' markings (23a)
   const has = k => marks.includes(k), dk = shade(col, -0.32), lt = shade(col, 0.45), mc = sp.markCol || acc;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   if (part === 'head') {
@@ -5537,6 +5705,369 @@ function drawMarks(part, marks, r, R, col, acc, sp, t, fx = r.x, fy = r.y) {
     if (has('zigzag')) { ctx.strokeStyle = dk; ctx.lineWidth = R * 0.05; for (const sd of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 4; k++) { const yy = r.y - r.ry * 0.6 + k * r.ry * 0.3, xx = r.x + sd * (r.rx * 0.85 - (k % 2) * R * 0.1); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); } }
   }
 }
+/* ---------- body parts for the newer species (02a) ----------
+   drawCreature (24) calls drawMore('back', P) before the body, and drawMore('front', P) after the face; P holds the body's
+   measurements (head x/hy/hrx/hry, body by/brx/bry, face fx/fy, mouth my, topY, R, colours, has(), back = seen from behind).
+   Tails go through TAILS_MORE from drawTail (23). Lit from the upper left like the rest, with soft3D on each piece. */
+const TAILS_MORE = {
+  // a squirrel's big tail: a fat S rising behind the back, curling over at the tip
+  bushy(bx, by, sd, R, w, t, col, acc) {
+    for (let i = 0; i <= 9; i++) {
+      const u = i / 9, px = bx + sd * R * (0.45 + Math.sin(u * Math.PI) * 0.75 - u * 0.1 + w * 0.03 * u), py = by - R * 1.35 * u + Math.sin(u * 5) * R * 0.04;
+      const r = R * (0.2 + Math.sin(u * Math.PI * 0.9) * 0.2), c = i > 7 ? acc : col;
+      ell(px, py, r, r * 0.92, c); soft3D(px, py, r, r * 0.92);
+    }
+    ell(bx + sd * R * 0.3, by - R * 1.42, R * 0.17, R * 0.15, acc); soft3D(bx + sd * R * 0.3, by - R * 1.42, R * 0.17, R * 0.15);
+  },
+  // long see-through fins that ripple
+  veil(bx, by, sd, R, w, t, col, acc) {
+    ctx.save(); ctx.translate(bx + sd * R * 0.35, by - R * 0.2); ctx.scale(sd, 1); ctx.globalAlpha *= 0.85;
+    for (const i of [-1, 1, 0]) {
+      const a = i * 0.55 + Math.sin(t * 2.4 + i) * 0.12, len = R * (i ? 0.85 : 1.05);
+      ctx.save(); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0, -R * 0.08);
+      ctx.bezierCurveTo(len * 0.5, -R * 0.3, len, -R * 0.2 + Math.sin(t * 3 + i) * R * 0.06, len * 1.05, R * 0.05);
+      ctx.bezierCurveTo(len * 0.8, R * 0.25, len * 0.4, R * 0.16, 0, R * 0.08); ctx.closePath();
+      const g = ctx.createLinearGradient(0, 0, len, 0); g.addColorStop(0, col); g.addColorStop(1, rgba(acc, 0.55));
+      ctx.fillStyle = g; ctx.fill(); soft3D(len * 0.5, 0, len * 0.5, R * 0.2);
+      ctx.strokeStyle = rgba(shade(col, -0.3), 0.35); ctx.lineWidth = R * 0.015; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(len * 0.15, 0); ctx.lineTo(len * (0.5 + k * 0.15), (k - 2) * R * 0.08); ctx.stroke(); }
+      ctx.restore();
+    }
+    ctx.restore();
+  },
+  // a short dog's tail that wags fast
+  wag(bx, by, sd, R, w, t, col) {
+    const wg = Math.sin(t * 11) * R * 0.12;
+    ctx.strokeStyle = shade(col, -0.08); ctx.lineWidth = R * 0.13; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.32, by - R * 0.05, bx + sd * R * 0.36 + wg, by - R * 0.45); ctx.stroke(); tube3D(R * 0.13);
+  },
+};
+
+function drawMore(layer, P) {
+  const { x, R, hy, hrx, hry, by, brx, bry, fx, fy, my, t, col, acc, def, has, back, md } = P;
+  if (layer === 'back') {
+    // fluffy wool: puffs around the head and the body, which are drawn over the middle
+    if (has('wool')) {
+      const wc = shade(col, 0.35);
+      for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + 0.2, px = x + Math.cos(a) * hrx * 0.98, py = hy + Math.sin(a) * hry * 0.95; ell(px, py, R * 0.2, R * 0.19, wc); soft3D(px, py, R * 0.2, R * 0.19); }
+      for (let i = 0; i < 9; i++) { const a = i / 9 * TAU, px = x + Math.cos(a) * brx * 1.02, py = by + Math.sin(a) * bry; ell(px, py, R * 0.17, R * 0.16, wc); soft3D(px, py, R * 0.17, R * 0.16); }
+    }
+    // a snail's spiral shell on its back (rainbow bands, a little castle on top)
+    if (has('snail')) {
+      const sd = -(P.dir || 1), sx = x + sd * R * 0.72, sy = by - bry * 0.55, r = R * 0.78;
+      const g = ctx.createRadialGradient(sx - r * 0.3, sy - r * 0.35, r * 0.1, sx, sy, r); g.addColorStop(0, shade(acc, 0.35)); g.addColorStop(1, shade(acc, -0.15));
+      ell(sx, sy, r, r, g);
+      if (has('prism')) ['#ff8fa3', '#ffd84d', '#8fe3a8', '#8fc8ff', '#c7a0ff'].forEach((c, k) => { ctx.strokeStyle = rgba(c, 0.75); ctx.lineWidth = r * 0.1; ctx.beginPath(); ctx.arc(sx, sy, r * (0.88 - k * 0.15), 0, TAU); ctx.stroke(); });
+      ctx.strokeStyle = shade(acc, -0.4); ctx.lineWidth = R * 0.045; ctx.lineCap = 'round'; ctx.beginPath();
+      for (let a = 0; a < 5.5 * Math.PI; a += 0.15) { const rr2 = r * 0.9 * (1 - a / (5.8 * Math.PI)); ctx.lineTo(sx + Math.cos(a + 1) * rr2, sy + Math.sin(a + 1) * rr2); }
+      ctx.stroke(); soft3D(sx, sy, r, r);
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.strokeStyle = shade(acc, -0.45); ctx.lineWidth = R * 0.035; ctx.stroke();
+      if (has('castle')) {
+        const cx = sx, cy2 = sy - r * 0.85;
+        rr(cx - R * 0.14, cy2 - R * 0.42, R * 0.28, R * 0.42, R * 0.03, '#f6ead2'); rr(cx + R * 0.02, cy2 - R * 0.42, R * 0.12, R * 0.42, R * 0.02, '#e3d2b0');
+        for (let k = 0; k < 3; k++) rr(cx - R * 0.14 + k * R * 0.1, cy2 - R * 0.5, R * 0.07, R * 0.09, R * 0.01, '#f6ead2');
+        rr(cx - R * 0.05, cy2 - R * 0.18, R * 0.1, R * 0.18, [R * 0.05, R * 0.05, 0, 0], '#8a5a3b');
+        ctx.strokeStyle = '#8a5a3b'; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.moveTo(cx, cy2 - R * 0.5); ctx.lineTo(cx, cy2 - R * 0.75); ctx.stroke();
+        tri(cx, cy2 - R * 0.75, cx + R * (0.2 + Math.sin(t * 4) * 0.03), cy2 - R * 0.68, cx, cy2 - R * 0.6, '#ff6b6b');
+      }
+    }
+    // a flying squirrel's gliding skin, stretched from the arms to the legs
+    if (has('glider')) for (const sd of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(x + sd * brx * 0.8, by - bry * 0.55);
+      ctx.quadraticCurveTo(x + sd * brx * 2.5, by - bry * 0.5 + Math.sin(t * 2) * R * 0.04, x + sd * brx * 2.15, by + bry * 0.35);
+      ctx.quadraticCurveTo(x + sd * brx * 1.6, by + bry * 1.0, x + sd * brx * 0.7, by + bry * 0.75); ctx.closePath();
+      ctx.fillStyle = shade(col, 0.12); ctx.fill(); soft3D(x + sd * brx * 1.3, by, brx * 0.6, bry * 0.7);
+      ctx.strokeStyle = rgba(shade(col, -0.4), 0.4); ctx.lineWidth = R * 0.02; ctx.stroke();
+    }
+    // a yellow rain hood framing the face
+    if (has('hood')) { ell(x, hy - hry * 0.06, hrx * 1.16, hry * 1.12, '#ffd43b'); soft3D(x, hy - hry * 0.06, hrx * 1.16, hry * 1.12); ctx.strokeStyle = '#e8a700'; ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.ellipse(x, hy - hry * 0.06, hrx * 1.16, hry * 1.12, 0, 0, TAU); ctx.stroke(); }
+    // an elephant's big fan ears, flapping slowly
+    if (def.ears === 'bigears') for (const sd of [-1, 1]) {
+      const ex = x + sd * hrx * 1.0, ey = hy + hry * 0.05, a = sd * (0.15 + Math.sin(t * 2.2 + sd) * 0.08 + POSE.ear * 0.4);
+      ell(ex, ey, R * 0.42, R * 0.5, shade(col, -0.06), a); soft3D(ex, ey, R * 0.42, R * 0.5);
+      ell(ex + sd * R * 0.04, ey + R * 0.02, R * 0.28, R * 0.36, acc, a);
+      ctx.strokeStyle = rgba(shade(col, -0.45), 0.4); ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.ellipse(ex, ey, R * 0.42, R * 0.5, a, 0, TAU); ctx.stroke();
+    }
+    // a panda's round black ears
+    if (def.ears === 'panda') for (const sd of [-1, 1]) {
+      const ex = x + sd * P.rx * 0.62, ey = P.cy - P.ry * 0.72 + POSE.ear * R * 0.06;
+      ell(ex, ey, R * 0.25, R * 0.25, '#2b2b2b'); soft3D(ex, ey, R * 0.25, R * 0.25); ell(ex, ey + R * 0.03, R * 0.12, R * 0.11, '#4a4a4a');
+    }
+    // a hedgehog's quills fanned round the head and back (tipped with sparks for the firework one)
+    if (has('quills')) {
+      const ring = (cx, cy0, rx0, ry0, n, a0, a1, L) => { for (let i = 0; i < n; i++) {
+        const a = a0 + (a1 - a0) * i / (n - 1) + Math.sin(t * 2 + i) * 0.02, bx0 = cx + Math.cos(a) * rx0 * 0.8, by0 = cy0 + Math.sin(a) * ry0 * 0.8;
+        const tx = cx + Math.cos(a) * (rx0 + L), ty = cy0 + Math.sin(a) * (ry0 + L), nx = -Math.sin(a) * R * 0.09, ny = Math.cos(a) * R * 0.09;
+        ctx.beginPath(); ctx.moveTo(bx0 + nx, by0 + ny); ctx.lineTo(tx, ty); ctx.lineTo(bx0 - nx, by0 - ny); ctx.closePath();
+        ctx.fillStyle = i % 2 ? acc : shade(acc, -0.18); ctx.fill(); soft3D((bx0 + tx) / 2, (by0 + ty) / 2, R * 0.12, R * 0.12);
+        if (has('fireworks')) { const c = ['#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#f783ac'][i % 5]; starPath(tx, ty, R * (0.06 + 0.02 * Math.sin(t * 6 + i)), 0.4); ctx.fillStyle = c; ctx.fill(); }
+      } };
+      ring(x, hy, hrx, hry, 13, -Math.PI * 1.02, Math.PI * 0.02, R * 0.32);
+      if (P.chibi) ring(x, by, brx, bry, 9, -Math.PI * 1.15, Math.PI * 0.15, R * 0.24);
+    }
+    // a Nghê's curly mane: a ring of little spiral curls round the head
+    if (has('curls')) for (let i = 0; i < 14; i++) {
+      const a = i / 14 * TAU + 0.1, px = x + Math.cos(a) * hrx * 1.02, py = hy + Math.sin(a) * hry * 0.98, r = R * 0.15;
+      ell(px, py, r, r, shade(col, -0.1)); soft3D(px, py, r, r);
+      ctx.strokeStyle = rgba(shade(col, -0.45), 0.6); ctx.lineWidth = R * 0.02; ctx.beginPath();
+      for (let k = 0; k < 2.3 * Math.PI; k += 0.3) { const rr2 = r * 0.75 * (1 - k / (2.6 * Math.PI)); ctx.lineTo(px + Math.cos(k + a) * rr2, py + Math.sin(k + a) * rr2); }
+      ctx.stroke();
+    }
+    // a big crescent moon behind the moon rabbit
+    if (has('moonback')) {
+      const mx = x + R * 0.55, my2 = hy - hry * 0.55, mr = R * 0.62;
+      glow(mx, my2, mr * 1.6, '#fff3bf', 0.35);
+      ctx.save(); ctx.beginPath(); ctx.arc(mx, my2, mr, 0, TAU); ctx.arc(mx + mr * 0.42, my2 - mr * 0.2, mr * 0.86, 0, TAU, true); ctx.fillStyle = '#ffe066'; ctx.fill('evenodd'); ctx.restore();
+      ell(mx - mr * 0.6, my2 + mr * 0.1, mr * 0.08, mr * 0.08, 'rgba(230,180,40,.5)');
+    }
+    return;
+  }
+
+  // ---- front ----
+  // riding a little cloud (drawn over the feet)
+  if (has('cloudbed')) {
+    const cy2 = by + bry * 0.95, w = R * (P.chibi ? 1.0 : 0.9);
+    [[-0.6, 0.05, 0.36], [0.6, 0.05, 0.36], [-0.25, -0.08, 0.42], [0.25, -0.1, 0.42], [0, 0.08, 0.45]].forEach(([dx, dy, r]) => { ell(x + dx * w, cy2 + dy * w, r * w, r * w * 0.7, '#ffffff'); soft3D(x + dx * w, cy2 + dy * w, r * w, r * w * 0.7); });
+  }
+  // a buffalo's wide crescent horns
+  if (has('buffhorns')) for (const sd of [-1, 1]) {
+    const bx0 = x + sd * hrx * 0.55, by0 = hy - hry * 0.75;
+    ctx.beginPath(); ctx.moveTo(bx0 - sd * R * 0.08, by0 + R * 0.06);
+    ctx.quadraticCurveTo(bx0 + sd * R * 0.75, by0 + R * 0.05, bx0 + sd * R * 0.62, by0 - R * 0.55);
+    ctx.quadraticCurveTo(bx0 + sd * R * 0.5, by0 - R * 0.12, bx0 + sd * R * 0.05, by0 - R * 0.08); ctx.closePath();
+    const hg = ctx.createLinearGradient(bx0, by0, bx0 + sd * R * 0.6, by0 - R * 0.5); hg.addColorStop(0, '#f1e6d2'); hg.addColorStop(1, '#8a7a62');
+    ctx.fillStyle = hg; ctx.fill(); soft3D(bx0 + sd * R * 0.35, by0 - R * 0.15, R * 0.3, R * 0.25);
+  }
+  // a whale's spout of water, rising and falling
+  if (has('spout')) {
+    const sx = x, sy = (P.chibi ? hy - hry : P.cy - P.ry * 0.86) - R * 0.04, h = R * (0.35 + 0.12 * Math.sin(t * 2.5));
+    ctx.strokeStyle = 'rgba(165,216,255,.9)'; ctx.lineWidth = R * 0.06; ctx.lineCap = 'round';
+    for (const sd of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + sd * R * 0.05, sy - h, sx + sd * R * 0.22, sy - h * 0.8); ctx.stroke(); }
+    for (const sd of [-1, 1]) ell(sx + sd * R * 0.24, sy - h * 0.72, R * 0.04, R * 0.05, 'rgba(208,235,255,.95)');
+  }
+  // the Lạc bird's long crest plume sweeping back from the head
+  if (has('plume')) for (let i = 0; i < 3; i++) {
+    const a = -2.3 + i * 0.25 + Math.sin(t * 2 + i) * 0.05, L = R * (1.15 - i * 0.18), bx0 = x - R * 0.05, by0 = hy - hry * 0.85;
+    ctx.save(); ctx.translate(bx0, by0); ctx.rotate(a + Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(R * 0.12, -L * 0.5, R * 0.02, -L); ctx.quadraticCurveTo(-R * 0.08, -L * 0.5, 0, 0);
+    ctx.fillStyle = i === 1 ? acc : shade(col, -0.2); ctx.fill(); soft3D(0, -L * 0.5, R * 0.08, L * 0.5); ctx.restore();
+  }
+  // the crane's red crown
+  if (has('redcap')) { ell(x, hy - hry * 0.92, R * 0.14, R * 0.08, '#e03131'); soft3D(x, hy - hry * 0.92, R * 0.14, R * 0.08); }
+  // flippers for seals and penguins, paddling
+  if (has('flippers')) for (const sd of [-1, 1]) {
+    const cx = x + sd * (P.chibi ? brx * 0.95 : P.rx * 0.9), cy2 = by - bry * 0.1;
+    ctx.save(); ctx.translate(cx, cy2); ctx.scale(sd, 1); ctx.rotate(0.45 + Math.sin(t * 4 + sd) * 0.12 - POSE.arm * 1.1);
+    ell(R * 0.12, R * 0.12, R * 0.12, R * 0.27, shade(col, -0.1), -0.3); soft3D(R * 0.12, R * 0.12, R * 0.12, R * 0.27);
+    ctx.restore();
+  }
+  // a little striped ball balanced on the head
+  if (has('ball')) {
+    const bx0 = x + Math.sin(t * 2.2) * R * 0.06, bR = R * 0.26, byy = hy - hry * 0.95 - bR * 0.9 - Math.abs(Math.sin(t * 3)) * R * 0.06;
+    ctx.save(); ctx.beginPath(); ctx.arc(bx0, byy, bR, 0, TAU); ctx.clip();
+    ['#ff6b6b', '#ffffff', '#4dabf7', '#ffffff', '#ffd43b', '#ffffff'].forEach((c, i) => { ctx.beginPath(); ctx.moveTo(bx0, byy); ctx.arc(bx0, byy, bR, t * 1.5 + i * Math.PI / 3, t * 1.5 + (i + 1) * Math.PI / 3); ctx.fillStyle = c; ctx.fill(); });
+    ctx.restore(); ctx.beginPath(); ctx.arc(bx0, byy, bR, 0, TAU); soft3D(bx0, byy, bR, bR); ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.lineWidth = R * 0.015; ctx.stroke();
+  }
+  // a white sailor cap with a blue band
+  if (has('sailor')) {
+    const sy = hy - hry * 0.88;
+    ell(x, sy, R * 0.34, R * 0.16, '#ffffff'); soft3D(x, sy, R * 0.34, R * 0.16);
+    rr(x - R * 0.3, sy + R * 0.02, R * 0.6, R * 0.09, R * 0.04, '#1c7ed6'); ell(x, sy - R * 0.14, R * 0.05, R * 0.04, '#1c7ed6');
+  }
+  // a red headband across the forehead, its ends fluttering at the side
+  if (has('headband')) {
+    const hb = hy - hry * 0.5;
+    ctx.strokeStyle = '#e03131'; ctx.lineWidth = R * 0.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(x, hb + hry * 0.25, hrx * 0.98, hry * 0.32, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+    for (const k of [0, 1]) { ctx.lineWidth = R * 0.07; ctx.beginPath(); ctx.moveTo(x + hrx * 0.9, hb + R * 0.05); ctx.quadraticCurveTo(x + hrx * 1.2, hb + R * (0.05 + k * 0.12), x + hrx * 1.35 + Math.sin(t * 8 + k) * R * 0.05, hb + R * (0.15 + k * 0.15)); ctx.stroke(); }
+  }
+
+  // dog ears hanging at the sides of the head, swinging with each bounce
+  if (def.ears === 'floppy') for (const sd of [-1, 1]) {
+    ctx.save(); ctx.translate(x + sd * hrx * 0.78, hy - hry * 0.72); ctx.rotate(-sd * (0.32 + POSE.ear * 0.6 + Math.sin(t * 2 + sd) * 0.04));   // (the tip swings outward)
+    const eg = ctx.createLinearGradient(-R * 0.15, 0, R * 0.15, 0); eg.addColorStop(0, shade(acc, 0.15)); eg.addColorStop(1, shade(acc, -0.15));
+    ell(sd * R * 0.04, R * 0.3, R * 0.16, R * 0.36, eg, -sd * 0.1); soft3D(sd * R * 0.04, R * 0.3, R * 0.16, R * 0.36);
+    ctx.strokeStyle = rgba(shade(acc, -0.5), 0.45); ctx.lineWidth = R * 0.025; ctx.beginPath(); ctx.ellipse(sd * R * 0.04, R * 0.3, R * 0.16, R * 0.36, -sd * 0.1, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+  // a rooster's red comb on top and a wattle under the beak
+  if (has('comb')) {
+    const top = hy - hry * 0.92;
+    [[-0.13, 0.1], [0, 0.14], [0.13, 0.1]].forEach(([dx, r]) => { ell(x + dx * R, top - r * R * 0.6, r * R, r * R * 1.1, '#ff4d4d'); soft3D(x + dx * R, top - r * R * 0.6, r * R, r * R * 1.1); });
+    if (!back) { ell(fx, fy + R * 0.34, R * 0.06, R * 0.09, '#ff4d4d'); soft3D(fx, fy + R * 0.34, R * 0.06, R * 0.09); }
+  }
+  // a crab's claws in place of arms, snapping now and then, raised when it cheers
+  if (has('claws')) for (const sd of [-1, 1]) {
+    const cx = x + sd * brx * 1.25, cy2 = by - bry * 0.2 - POSE.arm * R * 0.35, snap = Math.max(0, Math.sin(t * 3 + sd)) * 0.35;
+    ctx.save(); ctx.translate(cx, cy2); ctx.scale(sd * 1.6, 1.6); ctx.rotate(-0.5 - POSE.arm * 0.6);
+    ctx.strokeStyle = shade(col, -0.1); ctx.lineWidth = R * 0.1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-R * 0.18, R * 0.12); ctx.lineTo(0, 0); ctx.stroke();
+    ell(R * 0.12, -R * 0.06, R * 0.2, R * 0.12, col, -0.35 - snap); soft3D(R * 0.12, -R * 0.06, R * 0.2, R * 0.12);
+    ell(R * 0.1, R * 0.08, R * 0.16, R * 0.08, shade(col, -0.08), 0.3 + snap); soft3D(R * 0.1, R * 0.08, R * 0.16, R * 0.08);
+    ctx.restore();
+  }
+  // a lantern swinging on a string from the paw, glowing
+  if (has('lantern')) {
+    const lx = x + (P.chibi ? brx * 1.25 : P.rx * 1.05), ly = by - bry * 0.45, sw = Math.sin(t * 2.2) * 0.18, L = R * 0.3, k = 1.5;
+    const px = lx + Math.sin(sw) * L, py = ly + Math.cos(sw) * L;
+    ctx.strokeStyle = '#5c3a1e'; ctx.lineWidth = R * 0.018; ctx.beginPath(); ctx.moveTo(lx, ly - R * 0.12); ctx.lineTo(px, py - R * 0.14); ctx.stroke();
+    glow(px, py, R * 0.55, '#ffb347', 0.35 + Math.sin(t * 5) * 0.08);
+    ctx.save(); ctx.translate(px, py); ctx.scale(k, k); ctx.translate(-px, -py);
+    ell(px, py, R * 0.15, R * 0.14, '#ff5a3c'); soft3D(px, py, R * 0.15, R * 0.14);
+    ctx.strokeStyle = 'rgba(120,20,10,.45)'; ctx.lineWidth = R * 0.012; for (const k of [-0.07, 0, 0.07]) { ctx.beginPath(); ctx.ellipse(px, py, Math.abs(k) * R * 1.4 + 0.5, R * 0.14, 0, 0, TAU); ctx.stroke(); }
+    rr(px - R * 0.08, py - R * 0.17, R * 0.16, R * 0.04, R * 0.01, '#ffd23f'); rr(px - R * 0.08, py + R * 0.13, R * 0.16, R * 0.04, R * 0.01, '#ffd23f');
+    ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = R * 0.015; ctx.beginPath(); ctx.moveTo(px, py + R * 0.17); ctx.lineTo(px, py + R * 0.26); ctx.stroke();
+    ctx.restore();
+  }
+  // the rain hood's top comes over the forehead, with a brim
+  if (has('hood')) {
+    const hx = hrx * 1.16, hh = hry * 1.12, hcy = hy - hry * 0.06, brim = hy - hry * 0.3;
+    ctx.beginPath(); ctx.ellipse(x, hcy, hx, hh, 0, Math.PI, 0); ctx.quadraticCurveTo(x + hx * 0.6, brim + hry * 0.12, x, brim); ctx.quadraticCurveTo(x - hx * 0.6, brim + hry * 0.12, x - hx, hcy); ctx.closePath();
+    ctx.fillStyle = '#ffd43b'; ctx.fill(); soft3D(x, hcy - hh * 0.5, hx, hh * 0.6); ctx.strokeStyle = '#e8a700'; ctx.lineWidth = R * 0.03; ctx.stroke();
+  }
+  if (back) return;   // the rest sits on the face or the chest
+  // a duck's flat bill over the mouth
+  if (has('bill')) {
+    const bw = R * 0.27, bh = R * 0.1, byy = fy + R * 0.21, open = md === 'eat' ? eatMouth * R * 0.06 : md === 'laugh' || md === 'happy' || md === 'love' ? R * 0.025 : 0;
+    ell(fx, byy + bh * 0.7 + open, bw * 0.9, bh * 0.8, '#f08c00'); soft3D(fx, byy + bh * 0.7 + open, bw * 0.9, bh * 0.8);
+    ell(fx, byy, bw, bh, '#ffa94d'); soft3D(fx, byy, bw, bh);
+    ell(fx - bw * 0.3, byy - bh * 0.25, R * 0.015, R * 0.01, '#a35a00'); ell(fx + bw * 0.3, byy - bh * 0.25, R * 0.015, R * 0.01, '#a35a00');
+  }
+  // a dog's tongue out, panting
+  if (has('tongue') && !['sleep', 'yawn', 'eat', 'sad', 'cry', 'angry'].includes(md)) {
+    const ty = my + R * 0.1 + Math.abs(Math.sin(t * 6)) * R * 0.02;
+    ell(fx + R * 0.03, ty, R * 0.065, R * 0.085, '#ff7a8a'); soft3D(fx + R * 0.03, ty, R * 0.065, R * 0.085);
+    ctx.strokeStyle = '#d9536f'; ctx.lineWidth = R * 0.012; ctx.beginPath(); ctx.moveTo(fx + R * 0.03, ty - R * 0.06); ctx.lineTo(fx + R * 0.03, ty + R * 0.02); ctx.stroke();
+  }
+  // a red neckerchief with white dots
+  if (has('bandana')) {
+    const ny = hy + hry * 0.8;
+    ctx.beginPath(); ctx.moveTo(x - R * 0.36, ny - R * 0.04); ctx.quadraticCurveTo(x, ny + R * 0.06, x + R * 0.36, ny - R * 0.04); ctx.lineTo(x, ny + R * 0.32); ctx.closePath();
+    ctx.fillStyle = '#e03131'; ctx.fill(); soft3D(x, ny + R * 0.1, R * 0.3, R * 0.18);
+    [[-0.16, 0.04], [0.14, 0.05], [0, 0.17], [-0.05, 0.07], [0.06, 0.24]].forEach(([a, b]) => ell(x + a * R, ny + b * R, R * 0.02, R * 0.02, 'rgba(255,255,255,.9)'));
+  }
+  // an acorn hugged against the chest
+  if (has('acorn')) {
+    const ax = x, ay = by - bry * 0.05;
+    ell(ax, ay + R * 0.04, R * 0.13, R * 0.15, '#b5651d'); soft3D(ax, ay + R * 0.04, R * 0.13, R * 0.15);
+    ell(ax, ay - R * 0.08, R * 0.15, R * 0.08, '#6b4423'); soft3D(ax, ay - R * 0.08, R * 0.15, R * 0.08);
+    ctx.strokeStyle = '#6b4423'; ctx.lineWidth = R * 0.025; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(ax, ay - R * 0.15); ctx.lineTo(ax + R * 0.03, ay - R * 0.21); ctx.stroke();
+    for (const sd of [-1, 1]) { ell(ax + sd * R * 0.12, ay + R * 0.02, R * 0.07, R * 0.06, shade(col, 0.1)); soft3D(ax + sd * R * 0.12, ay + R * 0.02, R * 0.07, R * 0.06); }   // little paws round it
+  }
+  // a tiny fiddle under the chin, the bow sawing back and forth
+  if (has('fiddle')) {
+    const vx = x - brx * 0.55, vy = by - bry * 0.35;
+    ctx.save(); ctx.translate(vx, vy); ctx.rotate(-0.7); ctx.scale(1.6, 1.6);
+    ell(0, R * 0.06, R * 0.1, R * 0.08, '#b5651d'); ell(0, -R * 0.06, R * 0.085, R * 0.07, '#b5651d'); soft3D(0, 0, R * 0.1, R * 0.15);
+    rr(-R * 0.015, -R * 0.32, R * 0.03, R * 0.22, R * 0.01, '#5c3a1e'); ell(0, R * 0.01, R * 0.02, R * 0.02, '#3a2414');
+    ctx.restore();
+    const bx2 = x + brx * 0.1 + Math.sin(t * 8) * R * 0.12, by2 = vy + R * 0.02;
+    ctx.strokeStyle = '#8a5a3b'; ctx.lineWidth = R * 0.02; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx2 - R * 0.3, by2 + R * 0.08); ctx.lineTo(bx2 + R * 0.15, by2 - R * 0.1); ctx.stroke();
+  }
+  // round glasses for the wise owl
+  if (has('glasses')) {
+    ctx.strokeStyle = '#6b4423'; ctx.lineWidth = R * 0.035;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(fx + sd * R * 0.36, fy - R * 0.08, R * 0.22, 0, TAU); ctx.stroke(); ell(fx + sd * R * 0.36 - R * 0.09, fy - R * 0.17, R * 0.05, R * 0.03, 'rgba(255,255,255,.7)', -0.6); }
+    ctx.beginPath(); ctx.moveTo(fx - R * 0.14, fy - R * 0.12); ctx.quadraticCurveTo(fx, fy - R * 0.2, fx + R * 0.14, fy - R * 0.12); ctx.stroke();
+  }
+  // an elephant's trunk hanging over the mouth, swaying, curling up at the tip (with small tusks beside it)
+  if (has('trunk')) {
+    const sw = Math.sin(t * 1.8) * R * 0.08, x0 = fx, y0 = fy + R * 0.1, x1 = fx + sw, y1 = fy + R * 0.66, x2 = fx + sw * 1.6 + R * 0.16, y2 = fy + R * 0.58;
+    if (has('tusks')) for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(fx + sd * R * 0.12, fy + R * 0.18); ctx.quadraticCurveTo(fx + sd * R * 0.24, fy + R * 0.38, fx + sd * R * 0.14, fy + R * 0.44); ctx.lineTo(fx + sd * R * 0.08, fy + R * 0.22); ctx.closePath(); ctx.fillStyle = '#fffaf0'; ctx.fill(); soft3D(fx + sd * R * 0.16, fy + R * 0.3, R * 0.06, R * 0.12); }
+    ctx.lineCap = 'round'; const trunk = () => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 - sw * 0.5, (y0 + y1) / 2, x1, y1); ctx.quadraticCurveTo(x1 + R * 0.04, y1 + R * 0.1, x2, y2); };
+    ctx.strokeStyle = rgba(shade(col, -0.45), 0.55); ctx.lineWidth = R * 0.26; trunk(); ctx.stroke();   // an outline so it stands out from the face
+    ctx.strokeStyle = shade(col, 0.06); ctx.lineWidth = R * 0.21; trunk(); ctx.stroke(); tube3D(R * 0.21);
+    ctx.strokeStyle = rgba(shade(col, -0.45), 0.35); ctx.lineWidth = R * 0.012; for (let k = 1; k < 4; k++) { const yy = y0 + (y1 - y0) * k / 4; ctx.beginPath(); ctx.moveTo(x0 - R * 0.06 + sw * k / 4, yy); ctx.lineTo(x0 + R * 0.06 + sw * k / 4, yy); ctx.stroke(); }
+    ell(x2 + R * 0.02, y2 - R * 0.02, R * 0.02, R * 0.025, rgba(shade(col, -0.5), 0.6));
+  }
+  // dragon whiskers: two long wavy barbels from the corners of the mouth
+  if (has('barbels')) for (const sd of [-1, 1]) {
+    ctx.strokeStyle = acc; ctx.lineWidth = R * 0.03; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(fx + sd * R * 0.15, my);
+    for (let k = 1; k <= 8; k++) ctx.lineTo(fx + sd * R * (0.15 + k * 0.1), my + R * 0.04 * k + Math.sin(t * 3 + k * 0.8) * R * 0.05);
+    ctx.stroke();
+  }
+  // a scallop shell hugged to the chest (otter)
+  if (has('clam')) {
+    const cx = x, cy2 = by - bry * 0.05;
+    ctx.beginPath(); ctx.moveTo(cx, cy2 + R * 0.13); ctx.arc(cx, cy2 + R * 0.13, R * 0.2, Math.PI * 1.12, Math.PI * 1.88); ctx.closePath(); ctx.fillStyle = '#ffc9c9'; ctx.fill(); soft3D(cx, cy2, R * 0.2, R * 0.13);
+    ctx.strokeStyle = '#e88b8b'; ctx.lineWidth = R * 0.015; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(cx, cy2 + R * 0.12); ctx.lineTo(cx + k * R * 0.07, cy2 - R * 0.05 + Math.abs(k) * R * 0.03); ctx.stroke(); }
+    for (const sd of [-1, 1]) { ell(cx + sd * R * 0.15, cy2 + R * 0.04, R * 0.07, R * 0.06, shade(col, 0.05)); soft3D(cx + sd * R * 0.15, cy2 + R * 0.04, R * 0.07, R * 0.06); }
+  }
+  // a stalk of bamboo held at the side, with leaves at the top
+  if (has('bamboo')) {
+    const bx0 = x + brx * 1.05, by0 = by + bry * 0.6;
+    ctx.save(); ctx.translate(bx0, by0); ctx.rotate(0.12 + Math.sin(t * 1.5) * 0.03);
+    for (let k = 0; k < 4; k++) { rr(-R * 0.05, -R * (0.24 * (k + 1)), R * 0.1, R * 0.23, R * 0.03, k % 2 ? '#69db7c' : '#51cf66'); rr(-R * 0.06, -R * (0.24 * (k + 1)) - R * 0.01, R * 0.12, R * 0.025, R * 0.01, '#2f9e44'); }
+    ell(-R * 0.12, -R * 0.98, R * 0.14, R * 0.045, '#40c057', -0.5); ell(R * 0.12, -R * 1.02, R * 0.14, R * 0.045, '#51cf66', 0.4);
+    ctx.restore();
+  }
+  // a knitted scarf round the neck, one end hanging down
+  if (has('scarf')) {
+    const ny = hy + hry * 0.8;
+    ctx.save(); ctx.beginPath(); ctx.ellipse(x, ny, hrx * 0.62, R * 0.08, 0, 0, TAU); ctx.fillStyle = '#4dabf7'; ctx.fill(); soft3D(x, ny, hrx * 0.62, R * 0.08);
+    rr(x + hrx * 0.28, ny, R * 0.13, R * 0.34, R * 0.04, '#339af0');
+    ctx.fillStyle = '#ffffff'; for (const yy of [0.1, 0.22]) ctx.fillRect(x + hrx * 0.28, ny + R * yy, R * 0.13, R * 0.035);
+    ctx.restore();
+  }
+  // a long pointed beak (crane, Lạc bird)
+  if (has('longbeak')) {
+    tri(fx - R * 0.09, fy + R * 0.08, fx + R * 0.09, fy + R * 0.08, fx + R * 0.04, fy + R * 0.55, '#f08c00', 3);
+    tri(fx - R * 0.09, fy + R * 0.08, fx + R * 0.02, fy + R * 0.08, fx + R * 0.04, fy + R * 0.55, '#ffa94d', 2);
+  }
+  // a lion dancer's colourful tassel beard under the chin
+  if (has('fringe')) {
+    const fy2 = hy + hry * 0.72, cols = ['#ffd43b', '#ff6b6b', '#ffffff', '#69db7c', '#4dabf7'];
+    for (let i = 0; i < 9; i++) { const xx = x + (i - 4) * R * 0.075, L = R * (0.16 + (4 - Math.abs(i - 4)) * 0.02); ctx.strokeStyle = cols[i % cols.length]; ctx.lineWidth = R * 0.055; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(xx, fy2); ctx.lineTo(xx + Math.sin(t * 4 + i) * R * 0.03, fy2 + L); ctx.stroke(); }
+  }
+  // the moon rabbit's mortar and pestle, pounding
+  if (has('mortar')) {
+    const mx = x - brx * 0.95, my2 = by + bry * 0.5, up = Math.abs(Math.sin(t * 4)) * R * 0.18;
+    ctx.save(); ctx.translate(mx + R * 0.05, my2 - R * 0.2 - up); ctx.rotate(-0.25); rr(-R * 0.04, -R * 0.36, R * 0.08, R * 0.38, R * 0.03, '#c69c6d'); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(mx - R * 0.2, my2 - R * 0.12); ctx.lineTo(mx + R * 0.2, my2 - R * 0.12); ctx.lineTo(mx + R * 0.14, my2 + R * 0.12); ctx.lineTo(mx - R * 0.14, my2 + R * 0.12); ctx.closePath();
+    ctx.fillStyle = '#8a5a3b'; ctx.fill(); soft3D(mx, my2, R * 0.2, R * 0.12); ell(mx, my2 - R * 0.12, R * 0.2, R * 0.05, '#5c3a1e');
+  }
+}
+// a swirl of wind for a tail (the cloud cat)
+TAILS_MORE.swirl = (bx, by, sd, R, w, t, col, acc) => {
+  ctx.strokeStyle = acc; ctx.lineWidth = R * 0.07; ctx.lineCap = 'round'; ctx.beginPath();
+  for (let a = 0; a <= 3.2 * Math.PI; a += 0.15) { const r = R * 0.05 + a * R * 0.04; ctx.lineTo(bx + sd * (R * 0.35 + Math.cos(a + t * 2) * r), by - R * 0.3 - Math.sin(a + t * 2) * r * 0.8); }
+  ctx.stroke(); tube3D(R * 0.07);
+};
+// a whale's flat tail flukes, waving
+TAILS_MORE.fluke = (bx, by, sd, R, w, t, col) => {
+  const ex = bx + sd * R * 0.55, ey = by - R * 0.35 + w * R * 0.06;
+  ctx.strokeStyle = col; ctx.lineWidth = R * 0.18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + sd * R * 0.4, by, ex, ey); ctx.stroke(); tube3D(R * 0.18);
+  for (const k of [-1, 1]) { ell(ex + sd * R * 0.05 + k * R * 0.18, ey - R * 0.1, R * 0.24, R * 0.09, shade(col, -0.08), k * 0.5); soft3D(ex + k * R * 0.18, ey - R * 0.1, R * 0.24, R * 0.09); }
+};
+// a river otter's thick tail, tapering to a point
+TAILS_MORE.otter = (bx, by, sd, R, w, t, col) => {
+  ctx.beginPath(); ctx.moveTo(bx, by - R * 0.1); ctx.quadraticCurveTo(bx + sd * R * 0.45, by + R * 0.05 + w * R * 0.04, bx + sd * R * 0.75, by + R * 0.15 + w * R * 0.06);
+  ctx.quadraticCurveTo(bx + sd * R * 0.4, by + R * 0.2, bx, by + R * 0.1); ctx.closePath(); ctx.fillStyle = shade(col, -0.1); ctx.fill(); soft3D(bx + sd * R * 0.35, by + R * 0.05, R * 0.35, R * 0.1);
+};
+// markings painted inside the head and body outline (called from drawMarks, under the face)
+function drawMarksMore(part, marks, r, R, col, acc, fx, fy) {
+  if (marks.includes('pandaeyes') && part === 'head') for (const sd of [-1, 1]) ell(fx + sd * R * 0.39, fy - R * 0.02, R * 0.27, R * 0.32, '#2b2b2b', sd * -0.5);
+  if (marks.includes('koi')) {
+    const spots = part === 'head' ? [[-0.35, -0.55, 0.32, 0.22], [0.5, -0.1, 0.2, 0.16]] : [[0.35, -0.2, 0.26, 0.2], [-0.45, 0.3, 0.2, 0.15]];
+    spots.forEach(([a, b, w, h], i) => ell(r.x + a * r.rx, r.y + b * r.ry, R * w, R * h, i ? shade(acc, -0.1) : acc, i * 0.6));
+  }
+  // a ladybird: a black cap on the head, black spots and a centre line on the back
+  if (marks.includes('ladydots')) {
+    if (part === 'head') ell(r.x, r.y - r.ry * 0.95, r.rx * 1.1, r.ry * 0.42, '#2b2b2b');
+    else { ctx.fillStyle = '#2b2b2b'; ctx.fillRect(r.x - R * 0.015, r.y - r.ry, R * 0.03, r.ry * 2); [[-0.55, -0.35], [0.55, -0.35], [-0.6, 0.35], [0.6, 0.35]].forEach(([a, b]) => ell(r.x + a * r.rx, r.y + b * r.ry, R * 0.1, R * 0.09, '#2b2b2b')); }
+  }
+  // little cloud scrolls, like the carvings on a village temple
+  if (marks.includes('cloudscroll') && part === 'body') {
+    ctx.strokeStyle = rgba(shade(col, -0.4), 0.55); ctx.lineWidth = R * 0.025; ctx.lineCap = 'round';
+    for (const [a, b] of [[-0.55, -0.2], [0.55, 0.05], [-0.2, 0.55]]) { const cx = r.x + a * r.rx, cy0 = r.y + b * r.ry; ctx.beginPath(); for (let k = 0; k < 2.2 * Math.PI; k += 0.3) { const rr2 = R * 0.012 * k; ctx.lineTo(cx + Math.cos(k) * rr2, cy0 + Math.sin(k) * rr2); } ctx.stroke(); }
+  }
+  // a whale's throat grooves
+  if (marks.includes('grooves') && part === 'body') { ctx.strokeStyle = rgba(shade(col, -0.35), 0.35); ctx.lineWidth = R * 0.02; for (let k = 0; k < 4; k++) { const yy = r.y + r.ry * (0.15 + k * 0.17); ctx.beginPath(); ctx.moveTo(r.x - r.rx * 0.45, yy); ctx.quadraticCurveTo(r.x, yy + R * 0.04, r.x + r.rx * 0.45, yy); ctx.stroke(); } }
+  // Đông Sơn drum pattern: rings with a star in the middle and a zigzag band
+  if (marks.includes('dongson') && part === 'body') {
+    const lc = rgba(shade(col, -0.45), 0.6); ctx.strokeStyle = lc; ctx.lineWidth = R * 0.02;
+    for (const k of [0.25, 0.4]) { ctx.beginPath(); ctx.arc(r.x, r.y, R * k, 0, TAU); ctx.stroke(); }
+    starPath(r.x, r.y, R * 0.15, 0.4); ctx.fillStyle = lc; ctx.fill();
+    ctx.beginPath(); for (let k = 0; k <= 16; k++) { const a = k / 16 * TAU, rr2 = R * (k % 2 ? 0.29 : 0.36); ctx.lineTo(r.x + Math.cos(a) * rr2, r.y + Math.sin(a) * rr2); } ctx.stroke();
+  }
+}
 // chibi pets with feet stand on short legs: callers raise the body by this much and drawCreature fills the gap with legs
 function legLift(sp, def, R) {
   const shape = def.shape || sp.shape || 'round';
@@ -5551,7 +6082,7 @@ function drawCreature(o) {
   const fwd = dir || 1, wr = o.wear || {};   // what it wears on its body and holds (the rest is drawn by drawWear)
   // which way it faces (POSE.yaw): 0 towards us, ±π/2 sideways (+ = right), π away from us, showing its back
   const yaw = POSE.yaw || 0, yS = Math.sin(yaw), yC = Math.cos(yaw), back = yC < -0.25, faceSq = 0.62 + 0.38 * Math.max(0, yC);
-  const col = vivid(def.col || sp.col), acc = vivid(def.acc || sp.acc), ex = def.extras || [], has = k => ex.includes(k);
+  const col = vivid(def.palette ? def.palette[Math.floor(t / 3) % def.palette.length] : def.col || sp.col), acc = vivid(def.acc || sp.acc), ex = def.extras || [], has = k => ex.includes(k);
   const shape = def.shape || sp.shape || 'round', dark = shade(col, -0.18), hd = HD_SPECIES.has(sp.id);
   const line = STYLE_3D ? rgba(shade(col, -0.5), 0.32) : shade(col, -0.34), lit = STYLE_3D ? shade3D : hdShade;   // 3D toys have only a faint outline
   const tex = texOf(sp.id), furry = hd && tex === 'fur', muzzle = furry && def.ears && def.ears !== 'fin' && !has('beak') && !has('snout');
@@ -5565,7 +6096,9 @@ function drawCreature(o) {
   const by = cy + ry * 0.54, brx = rx * (shape === 'wide' || shape === 'pear' ? 0.76 : 0.61), bry = ry * 0.46;
   const fx = x + (back ? 0 : look * R * 0.18 * Math.max(0, yC) + yS * R * 0.42), fy = (chibi ? hy + hry * 0.13 : cy - ry * 0.05) + (o.lookY || 0) * R * 0.07, my = fy + R * 0.24;
   faceAt = { x: fx, y: fy, R, back, sq: faceSq };
-  const floating = shape === 'ghost' || has('tentacles');
+  const floating = shape === 'ghost' || has('tentacles') || !!(sp.swim || def.swim);   // (swimmers hover, with no feet or contact shadow)
+  // what the newer parts (23a) need to know about this body
+  const P = { x, cy, rx, ry, R, hy, hrx, hry, by, brx, bry, topY, fx, fy, my, t, col, acc, sp, def, has, back, chibi, md, dir: fwd };
 
   /* ---- behind the body ---- */
   if (has('aura')) {
@@ -5650,7 +6183,7 @@ function drawCreature(o) {
     ctx.stroke();
   }
   const tailAt = () => drawTail(def, sp, x, cy, (chibi ? brx * 1.05 : rx) * Math.max(0.15, Math.abs(yS)), ry, R, dir, t * (o.wag || 1), col, acc);
-  if (!back) tailAt();
+  if (!back) { tailAt(); drawMore('back', P); }
   if (has('spikes')) [-0.85, -0.5, 0.5, 0.85].forEach(k => {
     const a = -Math.PI / 2 + k * 1.15, px = x + Math.cos(a) * rx, py = cy + Math.sin(a) * ry;
     const nx = Math.cos(a), ny = Math.sin(a), tx = -ny, ty = nx, s = R * 0.16;
@@ -5860,7 +6393,7 @@ function drawCreature(o) {
   // pets without arms hold it at their side
   if (wr.hand && (!chibi || has('birdwings') || mk('noarms'))) drawHeld(wr.hand, x + rx * 0.95, cy + ry * 0.3, R, t, 0);
   /* ---- face ---- */
-  if (back) { tailAt(); if (!chibi) shellAt(); wingsAt(); }
+  if (back) { tailAt(); if (!chibi) shellAt(); wingsAt(); drawMore('back', P); }
   // turned sideways the face slides round to the side and narrows; from behind it is hidden
   if (!back) { ctx.save(); ctx.translate(fx, 0); ctx.scale(faceSq, 1); ctx.translate(-fx, 0);
   drawFace(fx, fy, R, md, t, look, def.eye || 'dot', sp.iris || acc, col, hd);
@@ -5892,6 +6425,7 @@ function drawCreature(o) {
   ctx.restore(); }
 
   /* ---- on top ---- */
+  drawMore('front', P);
   if (has('cap')) {
     ctx.beginPath(); ctx.moveTo(x - R * 1.1, topY + R * 0.38);
     ctx.bezierCurveTo(x - R * 1.05, topY - R * 0.78, x + R * 1.05, topY - R * 0.78, x + R * 1.1, topY + R * 0.38);
@@ -8252,7 +8786,7 @@ function drawPet(t, dt) {
   if (ik > 0) sy *= 1 - 0.3 * ik * phys.impactK;
   const lift = GROUND - phys.y;
   hop += lift;
-  if ((def.shape || sp.shape) === 'ghost' || (def.extras || []).includes('tentacles')) hop += R * 0.3 + Math.sin(t * 2) * R * 0.06;
+  if ((def.shape || sp.shape) === 'ghost' || (def.extras || []).includes('tentacles') || sp.swim || def.swim) hop += R * 0.3 + Math.sin(t * 2) * R * 0.06;
   let grow = 1;
   if (anim && anim.type === 'evolve') { const p = animP(); grow = 1 + Math.sin(p * Math.PI) * 0.15; }
   const breath = s.asleep ? Math.sin(t * 1.6) * 0.045 : Math.sin(t * 4) * 0.025;
@@ -8702,7 +9236,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116123116';
+  const BUILD = '20261116133225';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
