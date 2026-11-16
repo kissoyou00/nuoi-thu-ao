@@ -142,6 +142,11 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 }
 .rpscard b { font-size: 16px; } .rpscard p { margin: 0; font-size: 14px; line-height: 1.4; }
 .rpscard .talk-act { justify-content: center; }
+.rpscard.bar { top: 44%; width: auto; padding: 6px 10px; animation: none; }   /* the emote bar during a duel: mid-screen, clear of the pets and the scoreboard */
+.duel-emo { display: flex; gap: 8px; justify-content: center; }
+.duel-emo button { font-size: 26px; line-height: 1; width: 52px; height: 44px; border: 0; border-radius: 12px; background: #fff; cursor: pointer; box-shadow: 0 3px 0 #e8a33d, 0 0 0 2px #f08c00 inset; }
+.duel-emo button:active { transform: translateY(2px); box-shadow: 0 1px 0 #e8a33d, 0 0 0 2px #f08c00 inset; }
+.duel-off { background: none; border: 0; color: #9a5b16; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; }
 .rps-hands { display: flex; gap: 10px; justify-content: center; }
 .rps-hands button { font-size: 34px; line-height: 1; width: 78px; padding: 8px 0 6px; border-radius: 16px; border: 0; cursor: pointer; background: #fff; box-shadow: 0 3px 0 #e8a33d, 0 0 0 2px #f08c00 inset; display: grid; gap: 4px; justify-items: center; }
 .rps-hands button small { font: 700 12px var(--body); color: #7a4a10; }
@@ -541,6 +546,7 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: v
         <button type="button" class="p-btn alt" id="authOffline">Chơi ngoại tuyến (không có hàng xóm)</button>
       </div>
       <div class="rpscard" id="rpsCard" hidden role="dialog" aria-live="polite"></div>
+      <div class="rpscard" id="duelCard" hidden role="dialog" aria-live="polite"></div>
       <div class="notepop" id="notePop" hidden role="dialog" aria-labelledby="npTitle">
         <div class="np-head"><b id="npTitle">✍️ Lời nhắn mới</b><span id="npCount"></span><button type="button" class="np-x" id="npClose" aria-label="Đóng lời nhắn">✕</button></div>
         <p id="npText"></p>
@@ -3020,6 +3026,7 @@ function act(a) {
   idle = null; bubble = null;
   if (talk && !['fortune', 'news', 'fact', 'joke', 'riddle', 'talk'].includes(a)) closeTalk();
   if (a === 'x-rand') { randomVisit(); return; }
+  if (a === 'x-duel') { Duel.call(); return; }
   // challenge someone who is here right now (the house owner first, when visiting)
   if (a === 'h-rps') { const opp = house && Live.others[house.username] ? house.username : Object.keys(Live.others)[0]; if (opp) Live.rpsInvite(opp); else say('Không còn ai ở đây để chơi cùng.', 3000); return; }
   if (a.startsWith('h-')) {
@@ -3051,7 +3058,7 @@ function act(a) {
     case 'back3': gameMenu = false; break;
     case 'more': moreMenu = true; say(Net.online ? 'Nhiệm vụ, cửa hàng, ghé nhà bất kỳ, kỹ năng, album, thẻ khoe và hàng xóm.' : 'Nhiệm vụ, cửa hàng, tủ đồ, ghé nhà bất kỳ, kỹ năng, album, thẻ khoe và thăm nhà bạn bè.', 3500); break;
     case 'back4': moreMenu = false; closePanel(); break;
-    case 'quit': if (game) endGame(true); break;
+    case 'quit': if (game) { if (game.type === 'duel') Duel.leave(); endGame(true); } break;
     case 'clean': startAnim('clean', Math.max(1600, s.poops.length * 1100), { spots: (s.poopPos || []).slice().sort((a, b) => a[0] - b[0]), done: [] }); say(`Xoẹt xoẹt! Cầm chổi quét dọn cho ${s.name}...`); break;
     case 'med':
       if (!s.sick) { s.happy = clamp(s.happy - 5); startAnim('no', 1200); setFace('angry', 1500); say(`${s.name} không ốm, không chịu uống thuốc.`); break; }
@@ -3093,7 +3100,7 @@ function startOver() {
 // every menu is a row of picture buttons; the label lives in title/aria-label and shows in the speech strip on hover
 const MENU_ICONS = {
   main: () => [['feed', 'm-feed'], ['play', 'm-play'], ['talk', 'm-talk'], ['clean', 'm-clean'], ['med', 'm-med'], ['sleep', 'm-sleep']].concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['more', 'm-more']]),
-  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-rand', 'x-rand'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-fish', 'x-fish'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit'], ['back4', 'back']],
+  more: () => [['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-rand', 'x-rand'], ['x-train', 'x-train'], ['x-album', 'x-album'], ['x-fish', 'x-fish'], ['x-share', 'x-share'], Net.online ? ['x-hood', 'x-hood'] : ['x-visit', 'x-visit']].concat(Net.online ? [['x-duel', 'x-duel']] : [], [['back4', 'back']]),
   trip: () => [['x-recall', 'x-recall'], ['x-quest', 'x-quest'], ['x-shop', 'x-shop'], ['x-closet', 'x-closet'], ['x-album', 'x-album']].concat(Net.online ? [['x-hood', 'x-hood']] : []),
   house: () => [['h-gift', 'h-gift'], ['h-steal', 'h-steal'], ['h-note', 'h-note']].concat(houseGarden(house) ? [['h-garden', 'h-garden']] : []).concat(Live.count() ? [['h-rps', 'h-rps']] : [], [['x-rand', 'x-rand'], ['h-home', 'h-home']]),
   talkmenu: () => [['fortune', 't-fortune'], ['news', 't-news'], ['fact', 't-fact'], ['joke', 't-joke'], ['riddle', 't-riddle'], ['back2', 'back']],
@@ -3308,6 +3315,8 @@ const QUESTS = {
   note: { text: 'Để lại hoặc trả lời 1 lời nhắn', goal: 1, coin: 8, online: true },
   water: { text: 'Tưới cây trong 🌳 Vườn 1 lần', goal: 1, coin: 6 },
   helpg: { text: 'Giúp bạn bè chăm cây 1 lần', goal: 1, coin: 8, online: true },
+  duel: { text: 'Đấu tay đôi 1 trận với người chơi khác (⚔️ trong menu ✨)', goal: 1, coin: 8, online: true },
+  duelwin: { text: 'Thắng 1 trận đấu tay đôi', goal: 1, coin: 12, online: true },
   harvest: { text: 'Cho bé hái 1 trái cây trong vườn', goal: 1, coin: 10, need: () => { const g = gardenState(); return !!g && g.p >= 1; } },
 };
 const WEEKLY = {
@@ -4921,6 +4930,7 @@ const Live = {
     if (!Net.online || !Net.sb || this.lobby) return;
     try {
       this.lobby = Net.sb.channel('thu-ao-lobby', { config: { presence: { key: Net.username } } });
+      this.lobby.on('broadcast', { event: 'duel' }, ({ payload }) => Duel.msg(payload));   // duel challenges and matches (20a)
       this.lobby.on('presence', { event: 'sync' }, () => { this.online = this.flat(this.lobby.presenceState()); if (panelKind === 'hood') renderPanel(); syncMode(true); })
         .subscribe(st => { if (st === 'SUBSCRIBED') this.lobby.track(this.info()); });
     } catch (e) { this.lobby = null; return; }
@@ -4961,6 +4971,7 @@ const Live = {
   // called every 100 ms: follow the player between rooms, keep the presence fresh, send my pet's position when it moves
   tick(T) {
     if (!this.lobby) return;
+    Duel.tick(T);
     const where = house ? house.code : Net.code;
     if (this.roomCode !== where) { this.joinRoom(where); try { this.lobby.track(this.info()); } catch (e) {} }
     if (this.room && T - this.lastTrack > 20000) {
@@ -5013,6 +5024,239 @@ const Live = {
     this.rpsEnd();
   },
   rpsEnd() { this.rps = null; rpsRender(); },
+};
+/* ---------- duel: a challenge sent to everyone online; the first to accept fights (plan: KE-HOACH-THU-MOI-VA-DAU.md) ----------
+   Messages go over the lobby channel (20-live) as 'duel' broadcasts: call / close / take / go / taken / lock / reveal /
+   emo / bye / again, addressed with `to` like rock-paper-scissors. Each round both pick a move in secret (lock), then both
+   reveal, and each side works out the same result. Ném bóng nước beats Chiêu hệ, Chiêu hệ beats Giơ khiên, Giơ khiên beats
+   Ném. The round winner takes 1 heart, 2 with a special whose ngũ hành beats the other pet's. Rarity gives no advantage.
+   The arena is a minigame (GAMES.duel): my pet on the left drawn as usual, theirs on the right. No free chat, 4 emotes. */
+const DUEL = { hearts: 5, rounds: 7, pick: 10000, wait: 30000, special: 2, win: 10, lose: 3, draw: 5, daily: 5, gone: 15000, callGap: 60000 };
+const DUEL_MOVE = { nem: { icon: '💦', name: 'Ném bóng nước' }, khien: { icon: '🛡️', name: 'Giơ khiên lá' }, chieu: { icon: '✨', name: 'Chiêu hệ' } };
+const DUEL_BEATS = { nem: 'chieu', chieu: 'khien', khien: 'nem' };
+const DUEL_EMO = ['👍', '😆', '😮', '🤝'];
+const HANH_COL = { Kim: '#fcc419', 'Mộc': '#51cf66', 'Thủy': '#4dabf7', 'Hỏa': '#ff6b6b', 'Thổ': '#c08a4a' };
+GAMES.duel = { name: 'Đấu tay đôi', rounds: 0, need: 1, coin: 0, petX: 380, hint: () => 'Chọn chiêu cho hiệp này!', next: '' };
+GAME_BUTTONS.duel = ['dnem', 'dkhien', 'dchieu'];
+Object.assign(ICON_LABEL, { dnem: 'Ném bóng nước (thắng Chiêu hệ)', dkhien: 'Giơ khiên lá (thắng Ném bóng)', dchieu: 'Chiêu hệ (thắng Giơ khiên)', 'x-duel': 'Đấu tay đôi với người đang online' });
+Object.assign(EMO_ICON, { dnem: '💦', dkhien: '🛡️', dchieu: '✨', 'x-duel': '⚔️' });
+const hanhOf = sp => HANH[sp.type] || 'Thổ';
+
+const Duel = {
+  cur: null, invite: null, lastCall: 0, goneAt: 0,
+  info() { const s = state, sp = curSp(); return { u: Net.username, name: s.name, sp: s.species, idx: s.stageIdx, variant: s.variant || '', wear: meta.wear || {}, hanh: hanhOf(sp) }; },
+  send(p) { try { if (Live.lobby) Live.lobby.send({ type: 'broadcast', event: 'duel', payload: { ...p, from: Net.username } }); } catch (e) {} },
+  free() { const s = state; return !!(s && s.hatched && s.alive && !s.asleep && !s.trip && !game && !house); },
+  // ⚔️ in the menu: send a challenge to everyone online
+  call() {
+    if (!Net.online || !Live.lobby) { say('Cần đăng nhập để đấu với người khác.', 3500); return; }
+    if (meta.noDuel) { meta.noDuel = false; saveMeta(); }   // sending one turns invitations back on
+    if (this.cur) return;
+    if (!this.free()) { say('Bé cần thức và đang ở nhà mới đấu được.', 3000); return; }
+    const T = now(); if (T - this.lastCall < DUEL.callGap) { say(`Đợi ${Math.ceil((DUEL.callGap - (T - this.lastCall)) / 1000)} giây nữa mới gửi lời thách tiếp được.`, 3000); return; }
+    if (!Object.keys(Live.online).length) { say('Chưa có ai khác đang online. Rủ bạn bè vào chơi nhé!', 3500); return; }
+    this.lastCall = T; this.invite = null; closePanel(); moreMenu = false; syncMode(true);
+    this.cur = { id: Math.random().toString(36).slice(2, 8), role: 'host', stage: 'wait', deadline: T + DUEL.wait };
+    this.send({ t: 'call', id: this.cur.id, info: this.info() }); Sound.play('ping'); duelRender();
+  },
+  cancel() { const c = this.cur; if (c && c.stage === 'wait') this.send({ t: 'close', id: c.id }); this.cur = null; duelRender(); },
+  accept() {
+    const v = this.invite; if (!v) return; this.invite = null;
+    if (!this.free()) { say('Bé cần thức và đang ở nhà mới đấu được.', 3000); duelRender(); return; }
+    this.cur = { id: v.id, role: 'guest', stage: 'joining', opp: v.from, oppInfo: v.info, deadline: now() + 8000 };
+    this.send({ t: 'take', id: v.id, to: v.from, info: this.info() }); duelRender();
+  },
+  msg(m) {
+    if (!m || (m.to && m.to !== Net.username) || m.from === Net.username) return;
+    const c = this.cur, T = now(), ok = info => info && typeof info === 'object' && SPECIES.some(s => s.id === info.sp);
+    if (m.t === 'call') { if (!c && !meta.noDuel && this.free() && ok(m.info)) { this.invite = { id: m.id, from: m.from, info: m.info, until: T + DUEL.wait }; Sound.play('ping'); duelRender(); } return; }
+    if (m.t === 'close') { if (this.invite && this.invite.id === m.id) { this.invite = null; duelRender(); } return; }
+    if (m.t === 'take') {
+      // the first to accept gets the match; anyone after them is told it is taken
+      if (c && c.id === m.id && c.role === 'host' && c.stage === 'wait' && ok(m.info) && this.free()) {
+        this.send({ t: 'go', id: c.id, to: m.from, info: this.info() }); this.send({ t: 'close', id: c.id });
+        this.begin(m.from, m.info);
+      } else this.send({ t: 'taken', id: m.id, to: m.from });
+      return;
+    }
+    if (!c || m.id !== c.id) return;
+    if (m.t === 'taken' && c.stage === 'joining') { this.cur = null; say('Có bạn khác nhận lời trước rồi, lần sau nhanh tay hơn nhé!', 3500); duelRender(); return; }
+    if (m.t === 'go' && c.stage === 'joining' && m.from === c.opp) { this.begin(m.from, ok(m.info) ? m.info : c.oppInfo); return; }
+    if (m.from !== c.opp || !game || game.type !== 'duel') return;
+    const d = game.d;
+    if (m.t === 'lock' && m.round === d.round) { d.oppLocked = true; this.maybeReveal(); }
+    if (m.t === 'reveal' && m.round === d.round && DUEL_MOVE[m.move] && !(m.move === 'chieu' && d.special[1] <= 0)) { d.oppMove = m.move; this.maybeResolve(); }
+    if (m.t === 'emo' && DUEL_EMO.includes(m.e)) d.oppEmo = { e: m.e, at: T };
+    if (m.t === 'bye' && !d.over) this.finish(1, true);
+    if (m.t === 'again' && d.over) { d.again = d.again || {}; d.again.opp = true; this.maybeAgain(); duelRender(); }
+  },
+  begin(opp, info) {
+    const c = this.cur; c.stage = 'fight'; c.opp = opp; c.oppInfo = info;
+    this.invite = null; closePanel(); moreMenu = false; idle = null; bubble = null; if (talk) closeTalk();
+    game = { type: 'duel', results: [], phase: 'ask', at: now(), d: { coins: 0 } };
+    this.reset(); Sound.play('win'); duelRender(); syncMode(true);
+  },
+  reset() {
+    const d = game.d, info = this.cur.oppInfo;
+    Object.assign(d, { hearts: [DUEL.hearts, DUEL.hearts], special: [DUEL.special, DUEL.special], round: 1, myMove: '', oppMove: '', oppLocked: false, revealed: false, over: false, res: 0, again: null, last: null,
+      myHanh: hanhOf(curSp()), oppHanh: hanhOf(spById(info.sp)), deadline: now() + DUEL.pick + 2500, introAt: now() });
+    game.phase = 'ask'; game.at = now();
+    const adv = HANH_BEATS[d.myHanh] === d.oppHanh ? `${d.myHanh} khắc ${d.oppHanh}: chiêu hệ của ${state.name} mạnh gấp đôi!`
+      : HANH_BEATS[d.oppHanh] === d.myHanh ? `${d.oppHanh} khắc ${d.myHanh}: cẩn thận chiêu hệ của bé nhà @${this.cur.opp}!` : 'Hai bé không khắc hành nhau, ai đoán giỏi hơn sẽ thắng!';
+    say(`Đấu với @${this.cur.opp}! ${adv}`, 1e9);
+  },
+  pick(move) {
+    const d = game && game.type === 'duel' && game.d; if (!d || d.over || d.myMove || game.phase !== 'ask' || !DUEL_MOVE[move]) return;
+    if (move === 'chieu' && d.special[0] <= 0) { say('Hết chiêu hệ rồi, chọn ném bóng hoặc giơ khiên nhé!', 2500); return; }
+    d.myMove = move; Sound.play('click');
+    this.send({ t: 'lock', id: this.cur.id, to: this.cur.opp, round: d.round });
+    if (!d.oppLocked) say(`Đã chọn ${DUEL_MOVE[move].name.toLowerCase()}. Chờ @${this.cur.opp} chọn...`, 1e9);
+    this.maybeReveal(); syncMode(true);
+  },
+  // reveal only once both have locked a move, so neither can wait and react
+  maybeReveal() { const d = game.d; if (d.myMove && d.oppLocked && !d.revealed) { d.revealed = true; this.send({ t: 'reveal', id: this.cur.id, to: this.cur.opp, round: d.round, move: d.myMove }); this.maybeResolve(); } },
+  maybeResolve() {
+    const d = game.d; if (!d.revealed || !d.oppMove || game.phase !== 'ask') return;
+    const a = d.myMove, b = d.oppMove; let win = 0, dmg = 0;
+    if (a === 'chieu') d.special[0]--; if (b === 'chieu') d.special[1]--;
+    if (a !== b) {
+      win = DUEL_BEATS[a] === b ? 1 : -1;
+      const w = win > 0 ? a : b, wh = win > 0 ? d.myHanh : d.oppHanh, lh = win > 0 ? d.oppHanh : d.myHanh;
+      dmg = w === 'chieu' && HANH_BEATS[wh] === lh ? 2 : 1;
+      d.hearts[win > 0 ? 1 : 0] = Math.max(0, d.hearts[win > 0 ? 1 : 0] - dmg);
+    }
+    d.last = { a, b, win, dmg, at: now() }; game.phase = 'anim'; game.at = now();
+    Sound.play(win > 0 ? 'happy' : win < 0 ? 'lose' : 'boing');
+    if (win > 0) setFace('laugh', 1500); else if (win < 0) setFace('surprised', 1500);
+    const opp = `@${this.cur.opp}`;
+    say(win > 0 ? `${DUEL_MOVE[a].name} thắng ${DUEL_MOVE[b].name.toLowerCase()}! Bé nhà ${opp} mất ${dmg} tim.`
+      : win < 0 ? `${DUEL_MOVE[b].name} của bé nhà ${opp} thắng ${DUEL_MOVE[a].name.toLowerCase()}! ${state.name} mất ${dmg} tim.`
+      : `Cả hai cùng ${DUEL_MOVE[a].name.toLowerCase()}, hòa hiệp này!`, 1e9);
+    syncMode(true);
+  },
+  // the match is over: res 1 won, -1 lost, 0 draw; byForfeit = the other player left (a small prize, so nobody farms it)
+  finish(res, byForfeit) {
+    const d = game.d; d.over = true; d.res = res; game.phase = 'reveal'; game.at = now();
+    const day = dayKey(); if (!meta.duels || meta.duels.day !== day) meta.duels = { day, n: 0 };
+    const pay = byForfeit ? DUEL.lose : res > 0 ? DUEL.win : res < 0 ? DUEL.lose : DUEL.draw;
+    d.paid = meta.duels.n < DUEL.daily ? pay : 0; if (d.paid) meta.duels.n++;
+    d.coins += d.paid; game.results.push(res > 0 ? true : res < 0 ? false : null); saveMeta();
+    quest('duel'); if (res > 0) { quest('duelwin'); quest('win'); }
+    if (res > 0) { Sound.play('win'); setFace('laugh', 3000); for (let i = 0; i < 16; i++) spawn('spark', 380 + (Math.random() - 0.5) * 300, GROUND - 200, { vx: (Math.random() - 0.5) * 400, vy: -200 - Math.random() * 250, max: 1.4, color: pick(['#ffd43b', '#ff8fab', '#74c0fc', '#69db7c']) }); }
+    else if (res < 0) { Sound.play('lose'); setFace('sad', 2500); }
+    const opp = `@${this.cur.opp}`, xu = d.paid ? ` +${d.paid} xu.` : ' (Hôm nay đã hết 5 trận có thưởng.)';
+    say(byForfeit ? `${opp} đã rời trận, bạn thắng!${xu}` : res > 0 ? `Bạn thắng ${opp}!${xu}` : res < 0 ? `${opp} thắng rồi. Thua vẫn có quà:${xu}` : `Hòa với ${opp}!${xu}`, 1e9);
+    if (!byForfeit) snapshot(`Trận đấu với ${opp}`);
+    this.goneAt = 0; duelRender(); syncMode(true);
+  },
+  again() { const d = game && game.type === 'duel' && game.d; if (!d || !d.over) return; d.again = d.again || {}; d.again.me = true; this.send({ t: 'again', id: this.cur.id, to: this.cur.opp }); this.maybeAgain(); duelRender(); },
+  maybeAgain() { const d = game.d; if (d.again && d.again.me && d.again.opp) { this.reset(); duelRender(); syncMode(true); } },
+  // leaving mid-match tells the other side, which wins
+  leave() { const c = this.cur; if (c && c.stage === 'fight' && game && game.type === 'duel' && !game.d.over) this.send({ t: 'bye', id: c.id, to: c.opp }); this.cur = null; duelRender(); },
+  // every 100 ms (from Live.tick): invitations and waiting run out, the other player may be gone, rounds move on
+  tick(T) {
+    const c = this.cur, v = this.invite;
+    if (v && (T > v.until || !this.free())) { this.invite = null; duelRender(); }
+    if (!c) return;
+    if (c.stage === 'wait' && T > c.deadline) { this.cancel(); say('Chưa có ai rảnh nhận lời, thử lại sau nhé.', 3500); return; }
+    if (c.stage === 'joining' && T > c.deadline) { this.cur = null; say('Không vào được trận đấu, thử lại sau nhé.', 3000); duelRender(); return; }
+    if (c.stage !== 'fight') return;
+    if (!game || game.type !== 'duel') { this.cur = null; duelRender(); return; }   // the game was closed some other way
+    const d = game.d;
+    if (!d.over) { if (Live.online[c.opp]) this.goneAt = 0; else if (!this.goneAt) this.goneAt = T; else if (T - this.goneAt > DUEL.gone) { this.finish(1, true); return; } }
+    if (game.phase === 'ask' && !d.myMove && T > d.deadline) this.pick(d.special[0] > 0 ? pick(['nem', 'khien', 'chieu']) : pick(['nem', 'khien']));   // too slow: a random move
+    if (game.phase === 'anim' && T - game.at > 1900) {
+      const [h0, h1] = d.hearts;
+      if (h0 <= 0 || h1 <= 0 || d.round >= DUEL.rounds) this.finish(h0 > h1 ? 1 : h0 < h1 ? -1 : 0, false);
+      else { d.round++; d.myMove = ''; d.oppMove = ''; d.oppLocked = false; d.revealed = false; d.deadline = T + DUEL.pick; game.phase = 'ask'; game.at = T; say(`Hiệp ${d.round}: chọn chiêu nào?`, 1e9); syncMode(true); }
+    }
+    if (game.phase === 'reveal' && T - game.at > 30000) { this.cur = null; endGame(false); duelRender(); syncMode(true); }   // nobody chose: back home
+  },
+};
+GAMES.duel.input = id => Duel.pick({ dnem: 'nem', dkhien: 'khien', dchieu: 'chieu' }[id]);
+GAMES.duel.tick = () => true;   // (Duel.tick runs from Live.tick)
+GAMES.duel.coins = g => g.d.coins || 0;
+GAMES.duel.score = g => { const w = g.results.filter(r => r === true).length; return `thắng ${w}/${g.results.length} trận`; };
+
+// the card above the game: waiting, an invitation, the emote bar during a match, the result
+function duelRender() {
+  const el = $('duelCard'), c = Duel.cur, v = Duel.invite; if (!el) return;
+  let h = '', bar = false;
+  if (c && c.stage === 'wait') h = `<b>⚔️ Đã gửi lời thách đấu</b><p>Đang chờ người nhận lời... (${Math.max(0, Math.ceil((c.deadline - now()) / 1000))}s)</p><div class="talk-act"><button type="button" class="alt" data-duel="cancel">Hủy</button></div>`;
+  else if (c && c.stage === 'joining') h = '<b>⚔️ Đang vào đấu trường...</b>';
+  else if (c && c.stage === 'fight' && game && game.type === 'duel') {
+    const d = game.d, ag = d.again || {};
+    if (d.over) h = `<b>${d.res > 0 ? '🎉 Bạn thắng!' : d.res < 0 ? '😵 Bạn thua rồi!' : '🤝 Hòa!'}</b><p>${d.paid ? `+${d.paid} xu` : 'Hôm nay đã hết 5 trận có thưởng.'}</p>` +
+      `<div class="talk-act"><button type="button" class="alt" data-duel="home">Về nhà</button><button type="button" data-duel="again"${ag.me ? ' disabled' : ''}>${ag.me ? 'Chờ bạn ấy...' : ag.opp ? 'Đấu lại (bạn ấy muốn!)' : 'Đấu lại'}</button></div>`;
+    else { bar = true; h = `<div class="duel-emo">${DUEL_EMO.map(e => `<button type="button" data-duel="emo:${e}" aria-label="Gửi biểu cảm ${e}">${e}</button>`).join('')}</div>`; }
+  } else if (v) {
+    const sp = spById(v.info.sp), st = sp.stages[Math.min(v.info.idx || 0, sp.stages.length - 1)];
+    h = `<b>⚔️ @${esc(v.from)} muốn đấu!</b><p>${esc(String(v.info.name || '').slice(0, 12))} · ${esc(st.name)} · hệ ${esc(sp.type)} (hành ${esc(hanhOf(sp))})</p>` +
+      `<div class="talk-act"><button type="button" class="alt" data-duel="no">Bỏ qua</button><button type="button" data-duel="yes">Nhận lời</button></div><button type="button" class="duel-off" data-duel="off">Không nhận lời mời đấu nữa</button>`;
+  }
+  el.classList.toggle('bar', bar); el.innerHTML = h; el.hidden = !h;
+}
+$('duelCard').addEventListener('click', e => {
+  const b = e.target.closest('[data-duel]'); if (!b) return;
+  const [k, x] = b.dataset.duel.split(':'); Sound.play('click');
+  if (k === 'yes') Duel.accept();
+  if (k === 'no') { Duel.invite = null; duelRender(); }
+  if (k === 'off') { meta.noDuel = true; saveMeta(); Duel.invite = null; duelRender(); say('Đã tắt lời mời đấu. Gửi một lời thách ở ⚔️ là bật lại.', 4000); }
+  if (k === 'cancel') Duel.cancel();
+  if (k === 'again') Duel.again();
+  if (k === 'home') { Duel.cur = null; if (game && game.type === 'duel') endGame(false); duelRender(); syncMode(true); }
+  if (k === 'emo' && Duel.cur && game && game.type === 'duel' && DUEL_EMO.includes(x)) { game.d.myEmo = { e: x, at: now() }; Duel.send({ t: 'emo', id: Duel.cur.id, to: Duel.cur.opp, e: x }); }
+});
+setInterval(() => { if (Duel.cur && Duel.cur.stage === 'wait') duelRender(); }, 1000);
+
+/* ---------- the arena ---------- */
+const DUEL_X = [380, 900];
+// one side of the scoreboard: the pet's name, its hearts, and the specials it has left
+function duelHearts(cx, y, n, sp, name) {
+  const txt = (s, yy, font, col) => { ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(20,20,40,.6)'; ctx.strokeText(s, cx, yy); ctx.fillStyle = col; ctx.fillText(s, cx, yy); };
+  txt(name, y - 4, '800 17px "Be Vietnam Pro", sans-serif', '#ffffff');
+  for (let i = 0; i < DUEL.hearts; i++) { const x = cx + (i - (DUEL.hearts - 1) / 2) * 26; heartPath(x, y + 30, 11); ctx.fillStyle = i < n ? '#ff4d6d' : 'rgba(255,255,255,.45)'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke(); }
+  txt(`✨ còn ${sp}`, y + 62, '700 14px "Be Vietnam Pro", sans-serif', '#fff3bf');
+}
+GAMES.duel.draw = t => {
+  const g = game, d = g.d, c = Duel.cur, T = now(); if (!c || !c.oppInfo || !d.hearts) return;
+  const oi = c.oppInfo, osp = spById(oi.sp), oidx = Math.min(oi.idx || 0, osp.stages.length - 1), OX = DUEL_X[1];
+  const L = d.last && T - d.last.at < 1900 ? d.last : null, k = L ? (T - L.at) / 1900 : 0;
+  // their pet: shakes when it is hit, hops when it wins the round, cries or cheers at the end
+  const hit = L && L.win > 0 && k > 0.3 && k < 0.65, shake = hit ? Math.sin(T / 28) * 9 : 0, hop = L && L.win < 0 ? Math.max(0, Math.sin(k * Math.PI * 2)) * 34 : 0;
+  const md = d.over ? (d.res > 0 ? 'cry' : d.res < 0 ? 'laugh' : 'happy') : hit ? 'surprised' : 'happy';
+  const b = drawCreatureAt(osp, oidx, OX + shake, osp.stages[oidx].R, t, md, -1, oi.wear, oi.variant, hop, 0);
+  pillLabel(`@${String(oi.u || c.opp).slice(0, 16)} · ${String(oi.name || '').slice(0, 12)}`, OX, b.cy - b.ry - b.R * 0.75);
+  // what each played this round, with the effect flying across
+  if (L) {
+    const pop = easeOut(Math.min(1, k * 3)), yy = GROUND - 330;
+    [[L.a, DUEL_X[0], d.myHanh], [L.b, OX, d.oppHanh]].forEach(([mv, x]) => { ctx.save(); ctx.translate(x, yy); ctx.scale(pop, pop); ell(0, 0, 48, 48, 'rgba(255,255,255,.9)'); ctx.font = '56px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(DUEL_MOVE[mv].icon, 0, 4); ctx.restore(); });
+    if (L.win && k < 0.6) {
+      const from = L.win > 0 ? 0 : 1, to = 1 - from, mv = L.win > 0 ? L.a : L.b, hanh = L.win > 0 ? d.myHanh : d.oppHanh, p = Math.min(1, k / 0.4);
+      const x = DUEL_X[from] + (DUEL_X[to] - DUEL_X[from]) * easeOut(p), y = GROUND - 140 - Math.sin(p * Math.PI) * 120;
+      if (mv === 'nem') { tdBall(x, y, 22, '#a5d8ff', '#1c7ed6'); ell(x - 7, y - 8, 7, 5, 'rgba(255,255,255,.8)'); }
+      else if (mv === 'chieu') { glow(x, y, 90, HANH_COL[hanh], 0.6); starPath(x, y, 30, 0.45); ctx.fillStyle = HANH_COL[hanh]; ctx.fill(); }
+      else { ell(DUEL_X[from] + (to ? 90 : -90), GROUND - 120, 26, 70, '#69db7c'); ell(DUEL_X[from] + (to ? 90 : -90), GROUND - 120, 12, 52, '#40c057'); }   // the shield knocks the ball back
+    }
+    if (L.win && k > 0.4) { const x = DUEL_X[L.win > 0 ? 1 : 0], fy = GROUND - 250 - (k - 0.4) * 120; ctx.save(); ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.font = '800 44px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 7; ctx.strokeStyle = '#ffffff'; ctx.strokeText(`-${L.dmg} ❤`, x, fy); ctx.fillStyle = '#e03131'; ctx.fillText(`-${L.dmg} ❤`, x, fy); ctx.restore(); }
+  }
+  // emotes float above whoever sent them
+  [[d.myEmo, DUEL_X[0]], [d.oppEmo, OX]].forEach(([em, x]) => { if (em && T - em.at < 2200) { const e = (T - em.at) / 2200, y = GROUND - 300 - e * 60; ctx.save(); ctx.globalAlpha = Math.min(1, (1 - e) * 3); ell(x + 70, y, 34, 32, 'rgba(255,255,255,.95)'); ctx.font = '40px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(em.e, x + 70, y + 2); ctx.restore(); } });
+  // the scoreboard in one box, scaled up (phones: in the middle of the sky band above the arena): my hearts on the left,
+  // theirs on the right, the round, the elements and the time left in the middle
+  const lift = gameLift(), K = lift > 0 ? 2.25 : 1.5;
+  ctx.save(); ctx.translate(640, lift > 0 ? -lift - 300 : 72); ctx.scale(K, K);   // (on phones above the game's name tag)
+  rr(-270, -34, 540, 150, 26, 'rgba(15,20,35,.45)');
+  duelHearts(-170, -4, d.hearts[0], d.special[0], state.name); duelHearts(170, -4, d.hearts[1], d.special[1], String(oi.name || c.opp).slice(0, 12));
+  const label = (txt, y, font, col) => { ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(20,20,40,.6)'; ctx.strokeText(txt, 0, y); ctx.fillStyle = col; ctx.fillText(txt, 0, y); };
+  label(d.over ? 'Hết trận' : `Hiệp ${d.round}/${DUEL.rounds}`, -6, '800 26px "Baloo 2", sans-serif', '#ffffff');
+  label(`${d.myHanh} ⚔ ${d.oppHanh}`, 24, '700 16px "Be Vietnam Pro", sans-serif', '#fff3bf');
+  if (g.phase === 'ask' && !d.over) {
+    const p = Math.max(0, Math.min(1, (d.deadline - T) / DUEL.pick)), w = 150;
+    rr(-w / 2, 46, w, 10, 5, 'rgba(255,255,255,.5)'); rr(-w / 2, 46, Math.max(10, w * p), 10, 5, p > 0.3 ? '#51cf66' : '#ff6b6b');
+    label(d.myMove ? (d.oppLocked ? 'Lật chiêu!' : 'Chờ bạn ấy chọn...') : d.oppLocked ? 'Bạn ấy chọn xong rồi!' : 'Chọn chiêu ở dưới!', 82, '700 16px "Be Vietnam Pro", sans-serif', '#ffffff');
+  }
+  ctx.restore();  if (d.over && T - g.at < 2500) bigText(d.res > 0 ? 'Chiến thắng!' : d.res < 0 ? 'Thua rồi!' : 'Hòa!', d.res > 0 ? '#2f9e57' : d.res < 0 ? '#d6463a' : '#495057', 300);
 };
 // my pet while visiting: it wanders about their house (and the hosts see it move)
 const houseMe = { x: 440, tx: 440, next: 0 };
@@ -8732,7 +8976,7 @@ function drawPet(t, dt) {
     hop = Math.sin(Math.min(1, e / 0.5) * Math.PI) * 70; sy = hop > 5 ? 1.08 : 0.9;
   }
   if (game && game.type !== 'dir' && !pet.walking) {
-    look = game.type === 'fish' ? 0.8 : -0.8; lookY = 0.3;
+    look = game.type === 'fish' || game.type === 'duel' ? 0.8 : -0.8; lookY = 0.3;
     if (game.phase === 'reveal') { const e = (T - game.at) / 1000; hop = game.results[game.results.length - 1] === true ? Math.abs(Math.sin(e * 9)) * 40 * Math.max(0, 1 - e / 1.2) : 0; }
   }
   if (anim && anim.type === 'heart') { hop = Math.abs(Math.sin((T - anim.start) / 1000 * Math.PI * 3)) * 40; sy = hop < 6 ? 0.88 : 1.06; }
@@ -9236,7 +9480,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116133225';
+  const BUILD = '20261116140209';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
