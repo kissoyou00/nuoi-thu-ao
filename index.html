@@ -3900,7 +3900,7 @@ ACC_FX.gradcap = t => twinkle(0, -28, 7, t, 0.4);
 // flowers clipped to the body, a mandarin collar, the opening across to the right side, and the long panels that hang
 // below the body and swing as the pet walks
 function drawOutfit(id, x, by, brx, bry, R, t, yS, back, floorY, panels) {
-  if (OUTFITS[id]) { OUTFITS[id](x, by, brx, bry, R, t, yS, back); return; }   // other clothes (15b-teacher-set.js)
+  if (OUTFITS[id]) { OUTFITS[id](x, by, brx, bry, R, t, yS, back, floorY, panels); return; }   // other clothes (15b, 15c)
   if (id !== 'aodai') return;
   ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx * 1.02, bry * 1.02, 0, 0, TAU); ctx.clip();
   const g = ctx.createLinearGradient(x - brx, by - bry, x + brx, by + bry); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#d6ecff');
@@ -4072,6 +4072,189 @@ const TEACHER_DECOR = {
     ctx.strokeStyle = '#c4a26b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, cy, 40, Math.PI * 0.55, Math.PI * 1.75); ctx.stroke();
   },
 };
+/* ---------- ten outfits for the body slot, each with its own moving effect ----------
+   The body under a pet's big head is small, so every outfit also reaches beyond it (a gown or robe down to the floor, a
+   cape at the sides, shoulder plates, a garland, a sash...) to read clearly when worn. Drawn by drawOutfit (15a) right
+   after the body, before the arms: (x, by) is the body's centre, brx/bry its radii, floorY where the feet are, panels =
+   it stands on feet (long hems only then). The shop and closet picture is the same drawing on a plain body. */
+SHOP.push(
+  { id: 'aotet', name: 'Áo dài Tết đỏ', slot: 'body', tier: 2 },
+  { id: 'ninja', name: 'Áo ninja', slot: 'body', tier: 2 },
+  { id: 'hawai', name: 'Áo hoa mùa hè', slot: 'body', tier: 2 },
+  { id: 'sieunhan', name: 'Áo siêu nhân', slot: 'body', tier: 3 },
+  { id: 'phuthuy', name: 'Áo choàng phù thủy', slot: 'body', tier: 3 },
+  { id: 'aolen', name: 'Áo len Giáng Sinh', slot: 'body', tier: 3 },
+  { id: 'hoalong', name: 'Giáp Hỏa Long', slot: 'body', tier: 3 },
+  { id: 'congchua', name: 'Váy công chúa', slot: 'body', tier: 4 },
+  { id: 'hiepsi', name: 'Giáp hiệp sĩ', slot: 'body', tier: 4 },
+  { id: 'phihanh', name: 'Bộ phi hành gia', slot: 'body', tier: 4 },
+);
+// fill the body with fn's painting (clipped to it), then the usual soft light over it
+function inBody(x, by, brx, bry, fn) {
+  ctx.save(); ctx.beginPath(); ctx.ellipse(x, by, brx * 1.03, bry * 1.03, 0, 0, TAU); ctx.clip(); fn(); ctx.restore();
+  ctx.beginPath(); ctx.ellipse(x, by, brx * 1.03, bry * 1.03, 0, 0, TAU); soft3D(x, by, brx, bry);
+}
+const fillBody = (x, by, brx, bry, c0, c1) => { const g = ctx.createLinearGradient(x - brx, by - bry, x + brx, by + bry); g.addColorStop(0, c0); g.addColorStop(1, c1); ctx.fillStyle = g; ctx.fillRect(x - brx * 1.2, by - bry * 1.2, brx * 2.4, bry * 2.4); };
+// a long hem from the waist to the floor that flares out and sways with the walk
+function longHem(x, by, brx, bry, R, t, floorY, top, flare, c0, c1, edge) {
+  const sway = Math.sin(t * 3) * R * 0.02 + POSE.stride * Math.sin(POSE.step) * R * 0.06, y0 = by + bry * top, y1 = Math.max(y0 + R * 0.1, floorY - R * 0.06);
+  ctx.beginPath(); ctx.moveTo(x - brx * 0.72, y0); ctx.lineTo(x + brx * 0.72, y0);
+  ctx.quadraticCurveTo(x + brx * flare * 0.9 + sway, (y0 + y1) / 2, x + brx * flare + sway, y1);
+  for (let i = 0; i < 6; i++) { const xa = x + brx * flare * (1 - (i + 0.5) / 3) + sway, xb = x + brx * flare * (1 - (i + 1) / 3) + sway; ctx.quadraticCurveTo(xa, y1 + R * 0.06, xb, y1); }
+  ctx.quadraticCurveTo(x - brx * flare * 0.9 + sway, (y0 + y1) / 2, x - brx * 0.72, y0); ctx.closePath();
+  const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, c0); g.addColorStop(1, c1); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = edge; ctx.lineWidth = R * 0.02; ctx.stroke();
+  return { y0, y1, sway };
+}
+const sparkleAt = (px, py, r, t, i, col = '#fff6c0') => { const s = Math.sin(t * 4 + i * 1.9); if (s > 0) { starPath(px, py, r * (0.5 + s * 0.6), 0.4); ctx.fillStyle = col; ctx.fill(); } };
+
+Object.assign(OUTFITS, {
+  // red áo dài for Tết, gold apricot blossoms, a long front panel, mai petals drifting down
+  aotet(x, by, brx, bry, R, t, yS, back, floorY, panels) {
+    if (panels) { const h = longHem(x, by, brx * 0.55, bry, R, t, floorY, 0.5, 1.15, '#f03e3e', '#c92a2a', '#a61e1e'); for (let i = 0; i < 3; i++) flower5(x + h.sway * 0.6 + (i - 1) * brx * 0.2, h.y0 + (h.y1 - h.y0) * (0.35 + i * 0.2), R * 0.04, '#ffd43b'); }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#ff4d4d', '#c92a2a');
+      [[-0.5, 0.1], [0.4, 0.4], [-0.15, 0.68], [0.55, -0.2], [-0.3, -0.45]].forEach(([a, b]) => { flower5(x + (a + yS * 0.2) * brx, by + b * bry, R * 0.055, '#ffd43b'); ell(x + (a + yS * 0.2) * brx, by + b * bry, R * 0.016, R * 0.016, '#e8590c'); });
+      if (!back) { ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.moveTo(x + yS * brx * 0.3, by - bry * 0.95); ctx.quadraticCurveTo(x + brx * 0.45, by - bry * 0.78, x + brx * 0.85, by - bry * 0.3); ctx.stroke(); }
+    });
+    rr(x - brx * 0.3 + yS * brx * 0.2, by - bry * 1.08, brx * 0.6, bry * 0.22, bry * 0.08, '#ffd43b');
+    for (let i = 0; i < 4; i++) { const ph = (t * 0.35 + i * 0.25) % 1, px = x + (rnd(i + 3) - 0.5) * brx * 3 + Math.sin(t * 2 + i) * R * 0.08; ctx.globalAlpha *= 1; flower5(px, by - bry * 1.6 + ph * (floorY - by + bry * 1.6), R * 0.03, '#ffe066'); }
+  },
+  // a ninja's dark wrap, a red belt with its ribbon ends flying out, puffs of smoke at the feet
+  ninja(x, by, brx, bry, R, t, yS, back, floorY) {
+    for (let i = 0; i < 3; i++) { const ph = (t * 0.5 + i / 3) % 1; ctx.save(); ctx.globalAlpha *= (1 - ph) * 0.5; ell(x + (i - 1) * brx * 0.9 + ph * R * 0.2, floorY - R * 0.05 - ph * R * 0.25, R * (0.08 + ph * 0.12), R * (0.06 + ph * 0.08), '#adb5bd'); ctx.restore(); }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#495057', '#212529');
+      ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = R * 0.03; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + sd * brx * 0.1, by - bry); ctx.lineTo(x - sd * brx * 0.6, by + bry * 0.3); ctx.stroke(); }
+      rr(x - brx * 1.1, by + bry * 0.18, brx * 2.2, bry * 0.26, 2, '#e03131'); rr(x - brx * 1.1, by + bry * 0.18, brx * 2.2, bry * 0.08, 2, '#ff6b6b');
+    });
+    const kx = x + brx * 0.55, ky = by + bry * 0.31, fl = Math.sin(t * 9) * 0.25;
+    ell(kx, ky, R * 0.07, R * 0.06, '#c92a2a');
+    for (const k of [0, 1]) { ctx.save(); ctx.translate(kx, ky); ctx.rotate(0.3 + k * 0.5 + fl * (k ? -1 : 1)); rr(0, -R * 0.035, R * (0.45 - k * 0.1), R * 0.07, R * 0.03, k ? '#c92a2a' : '#e03131'); ctx.restore(); }
+    if (!back) { starPath(x - brx * 0.35 + yS * brx * 0.2, by - bry * 0.3, R * 0.07, 0.35); ctx.fillStyle = '#ced4da'; ctx.fill(); }
+  },
+  // a summer shirt covered in hibiscus, a flower garland round the neck, petals floating up
+  hawai(x, by, brx, bry, R, t, yS, back) {
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#3bc9db', '#1098ad');
+      [[-0.55, -0.1], [0.45, 0.25], [-0.1, 0.65], [0.6, -0.5], [-0.4, 0.55], [0.1, -0.35]].forEach(([a, b], i) => {
+        const fx = x + (a + yS * 0.2) * brx, fy = by + b * bry;
+        ell(fx + R * 0.06, fy + R * 0.04, R * 0.07, R * 0.03, '#2b8a3e', 0.6);
+        for (let p = 0; p < 5; p++) { const an = p / 5 * TAU + i; ell(fx + Math.cos(an) * R * 0.05, fy + Math.sin(an) * R * 0.05, R * 0.05, R * 0.035, i % 2 ? '#ff6b6b' : '#fff0f6', an); }
+        ell(fx, fy, R * 0.018, R * 0.018, '#ffd43b');
+      });
+    });
+    // the garland sits on the shoulders, wider than the body
+    for (let i = 0; i <= 10; i++) { const a = Math.PI * (0.05 + i * 0.09), px = x + Math.cos(a) * brx * 1.12, py = by - bry * 0.5 + Math.sin(a) * bry * 0.5; tdBall(px, py, R * 0.09, ['#ffa8a8', '#ffe066', '#ffffff', '#ff8787', '#b197fc'][i % 5], ['#e03131', '#f59f00', '#ced4da', '#c92a2a', '#7048e8'][i % 5]); }
+    for (let i = 0; i < 3; i++) { const ph = (t * 0.4 + i / 3) % 1; ctx.save(); ctx.globalAlpha *= 1 - ph; ell(x + (i - 1) * brx * 1.4 + Math.sin(t * 2 + i) * R * 0.06, by - ph * R * 1.2, R * 0.04, R * 0.025, '#ff8787', t + i); ctx.restore(); }
+  },
+  // a hero's red suit with a gold emblem and a cape flapping out at both sides, a flash of speed
+  sieunhan(x, by, brx, bry, R, t, yS, back) {
+    for (const sd of [-1, 1]) {
+      const fl = Math.sin(t * 6 + sd) * R * 0.06;
+      ctx.beginPath(); ctx.moveTo(x + sd * brx * 0.75, by - bry * 0.85);
+      ctx.quadraticCurveTo(x + sd * (brx * 1.5 + fl), by - bry * 0.2, x + sd * (brx * 1.65 + fl), by + bry * 1.05);
+      ctx.quadraticCurveTo(x + sd * brx * 1.2, by + bry * 0.95, x + sd * brx * 0.85, by + bry * 1.0); ctx.closePath();
+      const g = ctx.createLinearGradient(x, 0, x + sd * brx * 1.6, 0); g.addColorStop(0, '#c92a2a'); g.addColorStop(1, '#ff6b6b'); ctx.fillStyle = g; ctx.fill(); soft3D(x + sd * brx * 1.25, by + bry * 0.2, brx * 0.4, bry * 0.8);
+    }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#4263eb', '#2541b2');
+      rr(x - brx * 1.1, by + bry * 0.35, brx * 2.2, bry * 0.22, 2, '#ffd43b');
+    });
+    if (!back) {
+      const ex = x + yS * brx * 0.25, ey = by - bry * 0.25, s = R * 0.2;
+      ctx.beginPath(); ctx.moveTo(ex, ey - s); ctx.lineTo(ex + s * 1.1, ey - s * 0.2); ctx.lineTo(ex, ey + s); ctx.lineTo(ex - s * 1.1, ey - s * 0.2); ctx.closePath(); ctx.fillStyle = '#ffd43b'; ctx.fill(); ctx.strokeStyle = '#c92a2a'; ctx.lineWidth = R * 0.025; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex + s * 0.15, ey - s * 0.7); ctx.lineTo(ex - s * 0.3, ey + s * 0.05); ctx.lineTo(ex + s * 0.05, ey + s * 0.05); ctx.lineTo(ex - s * 0.15, ey + s * 0.7); ctx.lineTo(ex + s * 0.35, ey - s * 0.1); ctx.lineTo(ex, ey - s * 0.1); ctx.closePath(); ctx.fillStyle = '#e03131'; ctx.fill();
+    }
+    for (let i = 0; i < 3; i++) sparkleAt(x + (i - 1) * brx * 1.9, by - bry * (0.6 - i * 0.4), R * 0.08, t, i, '#ffe066');
+  },
+  // a wizard's purple robe down to the floor, printed with stars and a moon, little stars circling
+  phuthuy(x, by, brx, bry, R, t, yS, back, floorY, panels) {
+    if (panels) { const h = longHem(x, by, brx, bry, R, t, floorY, 0.2, 1.4, '#7048e8', '#3b1f8c', '#2c1670'); for (let i = 0; i < 6; i++) { starPath(x + h.sway + (rnd(i + 11) - 0.5) * brx * 2.2, h.y0 + (h.y1 - h.y0) * rnd(i + 21) * 0.85 + R * 0.04, R * 0.035, 0.45); ctx.fillStyle = '#ffe066'; ctx.fill(); } }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#845ef7', '#5f3dc4');
+      for (let i = 0; i < 6; i++) { starPath(x + (rnd(i + 1) - 0.5 + yS * 0.2) * brx * 1.8, by + (rnd(i + 5) - 0.5) * bry * 1.7, R * 0.04, 0.45); ctx.fillStyle = '#ffe066'; ctx.fill(); }
+      if (!back) { ell(x + brx * 0.3, by - bry * 0.2, R * 0.08, R * 0.08, '#ffe066'); ell(x + brx * 0.35, by - bry * 0.25, R * 0.07, R * 0.07, '#7048e8'); }
+    });
+    ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = R * 0.035; ctx.beginPath(); ctx.ellipse(x, by - bry * 0.9, brx * 0.6, bry * 0.18, 0, 0, Math.PI); ctx.stroke();
+    for (let i = 0; i < 4; i++) { const a = t * 1.4 + i * TAU / 4; sparkleAt(x + Math.cos(a) * brx * 1.6, by + Math.sin(a) * bry * 0.6 - bry * 0.3, R * 0.07, t, i); }
+  },
+  // a red Christmas jumper with a snowflake band and white fur trim, snow falling round it
+  aolen(x, by, brx, bry, R, t, yS, back, floorY) {
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#f03e3e', '#c92a2a');
+      rr(x - brx * 1.1, by - bry * 0.12, brx * 2.2, bry * 0.42, 2, '#ffffff');
+      ctx.strokeStyle = '#2f9e44'; ctx.lineWidth = R * 0.025; ctx.beginPath(); for (let i = 0; i <= 12; i++) { const xx = x - brx * 1.1 + i * brx * 2.2 / 12, yy = by + (i % 2 ? -0.02 : 0.2) * bry; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
+      for (let i = 0; i < 4; i++) { const sx = x + (i - 1.5) * brx * 0.55 + yS * brx * 0.2, sy = by - bry * 0.5; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = R * 0.018; for (let k = 0; k < 3; k++) { const an = k * Math.PI / 3; ctx.beginPath(); ctx.moveTo(sx - Math.cos(an) * R * 0.06, sy - Math.sin(an) * R * 0.06); ctx.lineTo(sx + Math.cos(an) * R * 0.06, sy + Math.sin(an) * R * 0.06); ctx.stroke(); } }
+    });
+    for (let i = 0; i < 9; i++) { const a = Math.PI * (0.06 + i * 0.11); ell(x + Math.cos(a) * brx * 0.95, by - bry * 0.55 + Math.sin(a) * bry * 0.28, R * 0.08, R * 0.07, '#ffffff'); }   // the fur collar, under the chin
+    for (let i = 0; i < 7; i++) ell(x + (i - 3) * brx * 0.32, by + bry * 0.95, R * 0.07, R * 0.06, '#f8f9fa');   // and hem
+    for (let i = 0; i < 5; i++) { const ph = (t * 0.3 + i / 5) % 1; snowflake(x + (rnd(i + 31) - 0.5) * brx * 3.2 + Math.sin(t + i) * R * 0.05, by - bry * 2 + ph * (floorY - by + bry * 2), R * 0.05, t + i); }
+  },
+  // fire-dragon armour: orange scales with dark edges and flames licking up round it
+  hoalong(x, by, brx, bry, R, t, yS, back) {
+    for (let i = 0; i < 6; i++) { const a = Math.PI * (0.05 + i * 0.18); flame(x + Math.cos(a) * brx * 1.15 * (i % 2 ? 1 : -1), by + bry * 0.75 - Math.sin(a) * bry * 0.7, R * (0.15 + (i % 3) * 0.03), t * 1.2 + i); }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#ff922b', '#d9480f');
+      ctx.strokeStyle = 'rgba(120,30,0,.45)'; ctx.lineWidth = R * 0.02;
+      for (let row = 0; row < 5; row++) for (let i = 0; i < 6; i++) { const sx = x - brx + i * brx * 0.4 + (row % 2) * brx * 0.2, sy = by - bry * 0.8 + row * bry * 0.38; ctx.beginPath(); ctx.arc(sx, sy, R * 0.09, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke(); }
+      glow(x, by + bry * 0.2, brx, '#ffd43b', 0.25 + Math.sin(t * 5) * 0.08);
+    });
+    if (!back) { const gx = x + yS * brx * 0.25, gy = by - bry * 0.25; ell(gx, gy, R * 0.12, R * 0.12, '#ffd43b'); flame(gx, gy + R * 0.04, R * 0.07, t * 1.5, ['#e8590c', '#ff922b', '#fff3bf']); }
+  },
+  // a princess's ball gown: a pink bodice with a jewel and a big ruffled skirt to the floor, glitter all round
+  congchua(x, by, brx, bry, R, t, yS, back, floorY, panels) {
+    if (panels) {
+      const h = longHem(x, by, brx, bry, R, t, floorY, 0.3, 1.75, '#ffc9e3', '#f06595', '#d6336c');
+      ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = R * 0.025; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * brx * 0.25, h.y0); ctx.quadraticCurveTo(x + i * brx * 0.45 + h.sway, (h.y0 + h.y1) / 2, x + i * brx * 0.62 + h.sway, h.y1); ctx.stroke(); }
+      for (let i = 0; i < 7; i++) ell(x + h.sway + (i - 3) * brx * 0.45, h.y1 - R * 0.02, R * 0.03, R * 0.03, '#ffffff');
+    }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#f783ac', '#d6336c');
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = R * 0.02; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + sd * brx * 0.9, by - bry * 0.5); ctx.quadraticCurveTo(x, by + bry * 0.1, x - sd * brx * 0.2, by + bry); ctx.stroke(); }
+    });
+    if (!back) { const jx = x + yS * brx * 0.25, jy = by - bry * 0.55; ctx.beginPath(); ctx.moveTo(jx, jy - R * 0.08); ctx.lineTo(jx + R * 0.07, jy); ctx.lineTo(jx, jy + R * 0.08); ctx.lineTo(jx - R * 0.07, jy); ctx.closePath(); ctx.fillStyle = '#74c0fc'; ctx.fill(); ell(jx - R * 0.02, jy - R * 0.02, R * 0.02, R * 0.015, '#fff'); }
+    for (const sd of [-1, 1]) tdBall(x + sd * brx * 0.88, by - bry * 0.7, R * 0.11, '#ffdeeb', '#f06595');   // puffed sleeves
+    for (let i = 0; i < 7; i++) sparkleAt(x + (rnd(i + 41) - 0.5) * brx * 3.6, by - bry + rnd(i + 51) * (floorY - by + bry), R * 0.07, t, i, i % 2 ? '#ffffff' : '#ffe066');
+  },
+  // a knight's armour: silver plates with rivets, a gold cross, round shoulder plates, a glint sweeping across
+  hiepsi(x, by, brx, bry, R, t, yS, back) {
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#e9ecef', '#868e96');
+      for (let i = 0; i < 4; i++) { const yy = by - bry * 0.55 + i * bry * 0.42; ctx.fillStyle = 'rgba(52,58,64,.25)'; ctx.fillRect(x - brx * 1.1, yy, brx * 2.2, R * 0.025); for (let k = -2; k <= 2; k++) ell(x + k * brx * 0.42, yy + R * 0.06, R * 0.018, R * 0.018, '#495057'); }
+      if (!back) { const cx = x + yS * brx * 0.25; rr(cx - R * 0.04, by - bry * 0.6, R * 0.08, bry * 1.1, R * 0.02, '#fcc419'); rr(cx - R * 0.17, by - bry * 0.25, R * 0.34, R * 0.08, R * 0.02, '#fcc419'); }
+      const sx = x - brx * 1.6 + ((t * 0.5) % 1.6) * brx * 2.4;   // the glint
+      ctx.save(); ctx.translate(sx, by); ctx.rotate(0.5); ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-R * 0.05, -bry * 1.6, R * 0.1, bry * 3.2); ctx.restore();
+    });
+    for (const sd of [-1, 1]) {
+      const px = x + sd * brx * 1.12, py = by - bry * 0.3;
+      ctx.beginPath(); ctx.ellipse(px, py, R * 0.26, R * 0.2, sd * 0.4, Math.PI, 0); ctx.closePath();
+      const g = ctx.createLinearGradient(px, py - R * 0.15, px, py); g.addColorStop(0, '#f8f9fa'); g.addColorStop(1, '#adb5bd'); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = '#fcc419'; ctx.lineWidth = R * 0.03; ctx.stroke(); ell(px - sd * R * 0.06, py - R * 0.08, R * 0.04, R * 0.02, 'rgba(255,255,255,.8)', -0.4);
+    }
+  },
+  // an astronaut's suit: white with grey seams, a control panel of blinking lights, a helmet ring, air tanks at the sides
+  phihanh(x, by, brx, bry, R, t, yS, back) {
+    for (const sd of [-1, 1]) { rr(x + sd * brx * 1.0 - R * 0.09, by - bry * 0.6, R * 0.18, bry * 1.3, R * 0.08, '#ced4da'); rr(x + sd * brx * 1.0 - R * 0.09, by - bry * 0.6, R * 0.07, bry * 1.3, R * 0.04, '#f1f3f5'); }
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#ffffff', '#dee2e6');
+      ctx.strokeStyle = 'rgba(134,142,150,.6)'; ctx.lineWidth = R * 0.02; ctx.beginPath(); ctx.moveTo(x - brx, by + bry * 0.3); ctx.lineTo(x + brx, by + bry * 0.3); ctx.stroke();
+      if (!back) {
+        const px = x - brx * 0.38 + yS * brx * 0.25, py = by - bry * 0.45; rr(px, py, brx * 0.76, bry * 0.55, R * 0.03, '#343a40');
+        ['#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7'].forEach((c, i) => ell(px + brx * (0.14 + i * 0.16), py + bry * 0.18, R * 0.025, R * 0.025, Math.sin(t * 6 + i * 1.7) > 0 ? c : '#495057'));
+        rr(px + brx * 0.1, py + bry * 0.33, brx * 0.56, bry * 0.08, 2, '#4dabf7');
+        ell(x + brx * 0.55 + yS * brx * 0.2, by + bry * 0.55, R * 0.07, R * 0.07, '#1c7ed6'); starPath(x + brx * 0.55 + yS * brx * 0.2, by + bry * 0.55, R * 0.04, 0.45); ctx.fillStyle = '#fff'; ctx.fill();
+      }
+    });
+    ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = R * 0.08; ctx.beginPath(); ctx.ellipse(x, by - bry * 0.62, brx * 0.95, bry * 0.28, 0, 0, Math.PI); ctx.stroke();   // the helmet ring, below the chin so it shows
+    ctx.strokeStyle = '#f1f3f5'; ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.ellipse(x, by - bry * 0.64, brx * 0.95, bry * 0.28, 0, 0, Math.PI); ctx.stroke();
+    for (let i = 0; i < 4; i++) sparkleAt(x + (i - 1.5) * brx * 1.1, by - bry * 1.4 + (i % 2) * bry * 0.5, R * 0.06, t, i, '#ffffff');
+  },
+});
+// the shop and closet picture: the outfit on a plain body
+['aotet', 'ninja', 'hawai', 'sieunhan', 'phuthuy', 'aolen', 'hoalong', 'congchua', 'hiepsi', 'phihanh'].forEach(id => {
+  TEACHER_ART[id] = t => { ell(0, 6, 46, 44, '#f1e3d3'); OUTFITS[id](0, 6, 46, 44, 90, t || 0.6, 0, false, 92, true); };
+});
 // where each decoration stands in the yard (the ball moves, this is just where it starts)
 const DECOR_X = { house: 140, lamp: 290, bed: 420, plant: 530, balloon: 610, rug: 660, ball: 700, teddy: 780, blocks: 880, duck: 990, aquarium: 1100, blackboard: 760, flowervase: 470, globe: 1130 };
 // and how far back (its depth in the top-down yard): the tall things at the back, the small toys in front
@@ -5443,7 +5626,7 @@ const ACC_FIT = { aodai: [0.58, 58], uniform: [0.62, 60], bouquet: [0.95, 98], p
 function drawItemPicture(c, id) {
   const it = shopItem(id); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 128, 128);
   if (it.slot === 'decor') { const [k, off] = DECOR_FIT[id] || [0.6, 40]; c.setTransform(k, 0, 0, k, 64, 64 + off * k); drawDecorItem(id, 0, 0, 0); }
-  else if (ACC_FIT[id]) { const [k, y] = ACC_FIT[id]; c.setTransform(k, 0, 0, k, 64, y); drawAccessory(id, 0); }
+  else if (ACC_FIT[id] || it.slot === 'body') { const [k, y] = ACC_FIT[id] || [0.62, 54]; c.setTransform(k, 0, 0, k, 64, y); drawAccessory(id, 0); }   // (outfits: the picture is the outfit on a plain body)
   else { const k = id === 'cape' ? 0.52 : 0.72; c.setTransform(k, 0, 0, k, ACC_X[id] || 64, it.slot === 'head' ? 88 : it.slot === 'neck' ? (id === 'cape' ? 36 : 48) : 64); drawAccessory(id, 0); }
 }
 // a closed secret box in its tier's colours
@@ -9775,7 +9958,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116152028';
+  const BUILD = '20261116153020';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
