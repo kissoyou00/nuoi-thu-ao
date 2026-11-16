@@ -1030,7 +1030,7 @@ function makeTalk(kind) {
 // per-species markings (patterns) and their colors, shared by every evolution stage
 const MARKINGS = {
   tho: { marks: ['hearts', 'tuft'], markCol: '#ff8fb8', collar: '#ffffff' },
-  ti: { marks: ['zigzag', 'cheeks', 'tuft'], cheek: '#ff6b6b' },
+  ti: { marks: ['zigzag', 'tuft'] },
   ech: { marks: ['leafvein', 'dots'] },
   heo: { marks: ['patch', 'socks', 'dots'], sock: '#b07a5a' },
   chim: { marks: ['chevron', 'noarms'], markCol: '#ffffff' },
@@ -1688,6 +1688,7 @@ function tapPet(p) {
   if (petTaps.length >= 7) { petTaps = []; Sound.play('lose'); setFace('dizzy', 2200); setEmote('vein', 2200); say(`Vuốt nhiều quá, ${s.name} chóng mặt rồi!`, 3000); return; }
   setFace('love', 1400); setEmote('heart', 1400); Sound.play('love');
   for (let i = 0; i < 2; i++) spawn('heart', pet.x + (Math.random() - 0.5) * 60, petTop(), { max: 1.3, size: 0.7 });
+  for (let i = 0; i < 3; i++) spawn('spark', pet.x + (Math.random() - 0.5) * petR() * 1.6, petTop() + Math.random() * petR(), { vx: (Math.random() - 0.5) * 60, vy: -70, max: 0.7, size: 0.5, color: '#fff3bf' });
   if (T - (s.lastPet || 0) > 2000) { s.happy = clamp(s.happy + 2 * (trait('petJoy') || 1)); s.lastPet = T; quest('pet'); renderSide(); }
   say(`${s.name} thích được vuốt ve lắm!`, 2500);
 }
@@ -1700,7 +1701,7 @@ function walkTo(p) {
   idle = null; pet.errand = null;
   pet.tx = Math.max(130 + R, Math.min(Math.max(130 + R, maxPetX()), p.x)); pet.td = Math.max(D_BACK, Math.min(D_FRONT, p.y));
   pet.nextMove = T + 7000; pet.nextIdle = T + 2500;
-  spawn('spark', p.x, p.y, { vx: 0, vy: -40, max: 0.6, size: 0.6, color: '#ffffff', at: { ax: 0, d: null } });
+  spawn('ring', p.x, p.y, { vx: 0, vy: 0, max: 0.5, color: '#ffffff', at: { ax: 0, d: null } });
 }
 cv.addEventListener('pointerdown', e => {
   const p = toLogical(e); pointer = { ...p, t: now() };
@@ -5256,21 +5257,21 @@ const SHADE3D_CACHE = new Map();   // colour stops per body colour, so the colou
 function shade3D(cx, cy, rx, ry, col, R) {
   const m = Math.max(rx, ry), oval = () => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); };
   let st = SHADE3D_CACHE.get(col);
-  if (!st) { st = [rgba(shade(col, -0.4), 0.32), rgba(shade(col, -0.6), 0.6), rgba(shade(col, -0.7), 0.72)]; SHADE3D_CACHE.set(col, st); }
+  // (soft plush rather than glass: gentle form shadow, a faint rim, a small soft highlight)
+  if (!st) { st = [rgba(shade(col, -0.4), 0.22), rgba(shade(col, -0.55), 0.42), rgba(shade(col, -0.65), 0.52)]; SHADE3D_CACHE.set(col, st); }
   // one gradient: broad sheen near the light, clear in the middle, form shadow towards the far edge
   let g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.45, 0, cx - rx * 0.08, cy - ry * 0.05, m * 1.18);
-  g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(0.24, 'rgba(255,255,255,.14)'); g.addColorStop(0.42, 'rgba(0,0,0,0)');
-  g.addColorStop(0.7, st[0]); g.addColorStop(0.9, st[1]); g.addColorStop(1, st[2]);
+  g.addColorStop(0, 'rgba(255,255,255,.36)'); g.addColorStop(0.24, 'rgba(255,255,255,.1)'); g.addColorStop(0.45, 'rgba(0,0,0,0)');
+  g.addColorStop(0.74, st[0]); g.addColorStop(0.92, st[1]); g.addColorStop(1, st[2]);
   oval(); ctx.fillStyle = g; ctx.fill();
   g = ctx.createRadialGradient(cx + rx * 0.1, cy + ry * 1.3, 0, cx + rx * 0.1, cy + ry * 1.3, m * 0.9);
   g.addColorStop(0, 'rgba(255,236,210,.6)'); g.addColorStop(1, 'rgba(255,236,210,0)');
   ctx.fillStyle = g; ctx.fillRect(cx - rx, cy + ry * 0.25, rx * 2, ry * 0.75);
   // (a wide faint stroke under a thin brighter one reads as a soft glow; shadowBlur would be far too slow every frame)
   ctx.save(); ctx.lineCap = 'round'; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.95, ry * 0.95, 0, -0.12 * Math.PI, 0.32 * Math.PI);
-  ctx.strokeStyle = 'rgba(226,238,255,.22)'; ctx.lineWidth = R * 0.1; ctx.stroke();
-  ctx.strokeStyle = 'rgba(232,242,255,.55)'; ctx.lineWidth = R * 0.035; ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = 'rgba(240,246,255,.16)'; ctx.lineWidth = R * 0.1; ctx.stroke(); ctx.restore();
   ctx.save(); ctx.translate(cx - rx * 0.42, cy - ry * 0.56); ctx.rotate(-0.55); ctx.scale(1, 0.6);
-  g = ctx.createRadialGradient(0, 0, 0, 0, 0, m * 0.17); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.45, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  g = ctx.createRadialGradient(0, 0, 0, 0, 0, m * 0.17); g.addColorStop(0, 'rgba(255,255,255,.7)'); g.addColorStop(0.45, 'rgba(255,255,255,.3)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(-m * 0.2, -m * 0.2, m * 0.4, m * 0.4); ctx.restore();
 }
 // the same light on a small part (ear, tail, fin, wing, horn...): call right after filling it, while its path is still the
@@ -5343,7 +5344,7 @@ function drawEars(type, x, cy, rx, ry, R, col, acc, t, asleep, hd = false, line 
       }
       tri(-R * w, R * 0.22, 0, -R * h, R * w, R * 0.22, col, 16); soft3D(0, -R * h * 0.35, R * w, R * h * 0.6);
       if (type === 'cat') tri(-R * 0.15, R * 0.12, 0, -R * 0.28, R * 0.15, R * 0.12, '#ffb3c1');
-      else tri(-R * w * 0.5, -R * h * 0.5, 0, -R * h, R * w * 0.5, -R * h * 0.5, type === 'pointy' ? '#2a1d24' : acc, 8);
+      else tri(-R * w * 0.5, -R * h * 0.5, 0, -R * h, R * w * 0.5, -R * h * 0.5, type === 'pointy' ? '#ff9f1c' : acc, 8);
     } else if (type === 'long') {
       ctx.translate(x + sd * rx * 0.35, cy - ry * 0.8);
       // long ears flop the most: they lag behind every bounce and bob with each step
@@ -5540,9 +5541,10 @@ function drawCreature(o) {
   const topY = cy - ry * (shape === 'drop' ? 1.12 : 1);
   // chibi build: a big head on a small body (with arms) instead of one round blob
   const chibi = ['round', 'tall', 'wide', 'pear'].includes(shape);
-  const hy = chibi ? cy - ry * 0.32 : cy, hrx = chibi ? rx * 0.86 : rx, hry = chibi ? ry * 0.68 : ry;
-  const by = cy + ry * 0.5, brx = rx * (shape === 'wide' || shape === 'pear' ? 0.8 : 0.66), bry = ry * 0.5;
-  const fx = x + (back ? 0 : look * R * 0.18 * Math.max(0, yC) + yS * R * 0.42), fy = (chibi ? hy + hry * 0.1 : cy - ry * 0.05) + (o.lookY || 0) * R * 0.07, my = fy + R * 0.2;
+  // (a bigger head on a smaller body reads as younger and cuter; the head rides the ear spring, so it bobs after each bounce)
+  const hy = chibi ? cy - ry * 0.3 + (POSE.ear || 0) * R * 0.05 : cy, hrx = chibi ? rx * 0.93 : rx, hry = chibi ? ry * 0.72 : ry;
+  const by = cy + ry * 0.54, brx = rx * (shape === 'wide' || shape === 'pear' ? 0.76 : 0.61), bry = ry * 0.46;
+  const fx = x + (back ? 0 : look * R * 0.18 * Math.max(0, yC) + yS * R * 0.42), fy = (chibi ? hy + hry * 0.13 : cy - ry * 0.05) + (o.lookY || 0) * R * 0.07, my = fy + R * 0.24;
   faceAt = { x: fx, y: fy, R, back, sq: faceSq };
   const floating = shape === 'ghost' || has('tentacles');
 
@@ -5793,7 +5795,6 @@ function drawCreature(o) {
         for (const sd of [-1, 1]) { const mg = ctx.createRadialGradient(fx + sd * R * 0.1, fy + R * 0.12, 0, fx + sd * R * 0.11, fy + R * 0.16, R * 0.15); mg.addColorStop(0, '#ffffff'); mg.addColorStop(1, mz); ell(fx + sd * R * 0.11, fy + R * 0.16, R * 0.135, R * 0.1, mg); }
         for (const sd of [-1, 1]) [[0.17, 0.13], [0.2, 0.18], [0.14, 0.19]].forEach(([a, b]) => ell(fx + sd * R * a, fy + R * b, R * 0.011, R * 0.011, rgba(shade(col, -0.5), 0.6)));
       }
-      if (!back) for (const sd of [-1, 1]) { const cg2 = ctx.createRadialGradient(fx + sd * R * 0.5, fy + R * 0.12, 0, fx + sd * R * 0.5, fy + R * 0.12, R * 0.16); cg2.addColorStop(0, 'rgba(255,110,130,.45)'); cg2.addColorStop(1, 'rgba(255,110,130,0)'); ctx.fillStyle = cg2; ctx.fillRect(fx + sd * R * 0.5 - R * 0.2, fy - R * 0.08, R * 0.4, R * 0.4); }
     } else {
       ell(x + hrx * 0.45, hy + hry * 0.55, hrx * 0.9, hry * 0.5, 'rgba(0,0,0,.07)');
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = R * 0.05; ctx.lineCap = 'round';
@@ -5959,7 +5960,7 @@ function drop(x, y, s, c) {
 }
 function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24', col = '#ffffff', hd = false) {
   const [eyes, mouth] = FACES[md] || FACES.neutral;
-  const ex = R * 0.34, ey = fy - R * 0.08, er = R * 0.12, ink = '#2a1d24', lip = '#7a2335';
+  const ex = R * 0.36, ey = fy - R * 0.08, er = R * 0.15, ink = '#2a1d24', lip = '#7a2335';
   const c11 = t % 11.3, canBlink = eyes === 'open' || eyes === 'sad' || eyes === 'angry';
   // a blink squeezes the eyes shut and open again over ~0.15 s (now and then twice); only the shut moment is drawn as a line
   const bw = (ph, len) => ph >= 0 && ph < len ? Math.sin(ph / len * Math.PI) : 0;
@@ -6010,11 +6011,11 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
           ctx.fillStyle = lg; ctx.fillRect(cx - ew * 1.2, ey - eh * 1.1, ew * 2.4, eh);
           if (sharp) { ctx.fillStyle = shade(col, -0.05); ctx.beginPath(); ctx.moveTo(cx - er * 1.4, ey - er * 1.5); ctx.lineTo(cx + er * 1.4, ey - er * 1.5); ctx.lineTo(cx + er * 1.4, ey - er * (sd > 0 ? 0.72 : 0.2)); ctx.lineTo(cx - er * 1.4, ey - er * (sd > 0 ? 0.2 : 0.72)); ctx.closePath(); ctx.fill(); }
           ctx.restore();
-          ell(cx + il - er * 0.32, ey - er * 0.32, er * 0.3, er * 0.34, '#ffffff');
-          ell(cx + il + er * 0.3, ey + er * 0.42, er * 0.13, er * 0.13, 'rgba(255,255,255,.9)');
-          starPath(cx + il - er * 0.05, ey - er * 0.62, er * 0.12, 0.35); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill();
+          // two clean catchlights: a big one up towards the light, a small one opposite
+          ell(cx + il - er * 0.3, ey - er * 0.38, er * 0.36, er * 0.4, '#ffffff', -0.3);
+          ell(cx + il + er * 0.32, ey + er * 0.46, er * 0.15, er * 0.15, 'rgba(255,255,255,.9)');
           // upper lid with a little outer flick
-          ctx.save(); ctx.lineWidth = R * 0.045; ctx.beginPath();
+          ctx.save(); ctx.lineWidth = R * 0.036; ctx.beginPath();
           if (sharp) { ctx.moveTo(cx - er * 1.15, ey - er * (sd > 0 ? 0.1 : 0.7)); ctx.lineTo(cx + er * 1.15, ey - er * (sd > 0 ? 0.7 : 0.1)); }
           else { ctx.ellipse(cx, ey, ew * 1.04, eh * 1.02, 0, Math.PI * 1.08, Math.PI * 1.92); }
           ctx.stroke();
@@ -6059,9 +6060,13 @@ function drawFace(fx, fy, R, md, t, look = 0, eyeStyle = 'dot', iris = '#2a1d24'
   }
   const cheek = md === 'angry' ? 'rgba(235,60,60,.55)' : md === 'stinky' ? 'rgba(120,180,80,.55)' : md === 'love' || md === 'laugh' || md === 'shy' ? 'rgba(255,90,120,.65)' : 'rgba(255,105,135,.45)';
   const cs = md === 'shy' ? 1.45 : md === 'love' ? 1.25 : 1;
-  ell(fx - R * 0.56, fy + R * 0.14, R * 0.13 * cs, R * 0.08 * cs, cheek);
-  ell(fx + R * 0.56, fy + R * 0.14, R * 0.13 * cs, R * 0.08 * cs, cheek);
-  const my = fy + R * 0.2;
+  // a soft round blush that fades out at the edge
+  for (const sd of [-1, 1]) {
+    const bx = fx + sd * R * 0.6, byy = fy + R * 0.17, br = R * 0.17 * cs, bg = ctx.createRadialGradient(bx, byy, 0, bx, byy, br);
+    bg.addColorStop(0, cheek); bg.addColorStop(0.45, cheek); bg.addColorStop(1, cheek.replace(/[\d.]+\)$/, '0)'));
+    ctx.save(); ctx.translate(bx, byy); ctx.scale(1, 0.7); ctx.translate(-bx, -byy); ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, byy, br, 0, TAU); ctx.fill(); ctx.restore();
+  }
+  const my = fy + R * 0.24;
   switch (mouth) {
     case 'open':
       ctx.beginPath(); ctx.moveTo(fx - R * 0.16, my); ctx.quadraticCurveTo(fx, my + R * 0.3, fx + R * 0.16, my); ctx.closePath();
@@ -7240,7 +7245,7 @@ const GROUND_LOOK = {
   meadow: { g: ['#7cc257', '#68b04a'], patch: ['#ecce96', '#c99f63'], tuft: ['#4e9636', '#9ad670'], flowers: 1, props: ['tree', 'tree', 'bush', 'rock', 'bush'], pond: 'water', gap: 0.45 },
   forest: { g: ['#58a04a', '#3f873a'], patch: ['#c9a66d', '#9a7748'], tuft: ['#2f7030', '#7cc35a'], props: ['tree', 'tree', 'pine', 'tree', 'log', 'shroom', 'bush'], gap: 0.15, tree: ['#6cbf55', '#2e6e2e'] },
   fairy: { g: ['#a7e08f', '#8dd07f'], patch: ['#f8e9c8', '#e2c79a'], tuft: ['#6fb85a', '#c8f0a8'], flowers: 1, props: ['shroom', 'shroom', 'tree', 'bush'], pond: 'water', sparkle: '#fff3a8', gap: 0.4, tree: ['#b9e98f', '#5aa65a'], cap: ['#ff8fb8', '#e8457a'] },
-  canyon: { g: ['#e2a56a', '#cf8a52'], patch: ['#f5d29f', '#dfa86e'], tuft: ['#a8763f', '#d9a35f'], props: ['mesa', 'cactus', 'rock', 'cactus', 'mesa'], speck: '#b06a3a', gap: 0.5, rock: ['#d98a5a', '#9c5432'] },
+  canyon: { g: ['#ecc394', '#e0ad80'], patch: ['#f5d29f', '#dfa86e'], tuft: ['#a8763f', '#d9a35f'], props: ['mesa', 'cactus', 'rock', 'cactus', 'mesa'], speck: '#b06a3a', gap: 0.5, rock: ['#dfa580', '#b77a58'] },
   sky: { g: ['#f6f9ff', '#d9e5f7'], patch: ['#fff4d2', '#f1dca6'], props: ['cloud', 'cloud', 'pillar', 'cloud'], sparkle: '#ffffff', gap: 0.35, puffs: 1 },
   storm: { g: ['#5f8d55', '#4a7444'], patch: ['#a8926d', '#7f6a4a'], tuft: ['#355f30', '#7aa86a'], props: ['tree', 'rock', 'bush', 'rock'], pond: 'puddle', gap: 0.45, tree: ['#5f9a55', '#2c5a2e'] },
   volcano: { g: ['#4d3f3c', '#382d2c'], patch: ['#857469', '#5f504a'], props: ['rock', 'vent', 'rock', 'rock'], pond: 'lava', cracks: 1, speck: '#2a2020', gap: 0.5, rock: ['#6b5d5a', '#2f2626'] },
@@ -7263,7 +7268,7 @@ function patchPath(grow = 0) {
 const inPatch = (x, y) => ((x - PATCH.x) / PATCH.rx) ** 2 + ((y - PATCH.y) / PATCH.ry) ** 2 < 1.08;
 
 // scenery seen from above at a slant, lit from the upper left like the pets; (x, y) is where it touches the ground
-const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(12,18,6,${Math.min(0.6, a * 1.55)})`);
+const tdShadow = (x, y, rx, ry, a = 0.22) => ell(x, y, rx, ry, `rgba(12,18,6,${Math.min(0.45, a * 1.1)})`);
 function tdBall(x, y, r, light, dark) {
   const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
   g.addColorStop(0, light); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
@@ -7320,9 +7325,9 @@ const TD_PROP = {
   },
   mesa(x, y, s) {
     tdShadow(x + 14 * s, y + 4, 80 * s, 18 * s, 0.28);
-    ctx.beginPath(); ctx.moveTo(x - 70 * s, y); ctx.lineTo(x - 60 * s, y - 70 * s); ctx.lineTo(x + 62 * s, y - 74 * s); ctx.lineTo(x + 72 * s, y); ctx.closePath(); ctx.fillStyle = '#b8603a'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 70 * s, y); ctx.lineTo(x - 60 * s, y - 70 * s); ctx.lineTo(x + 62 * s, y - 74 * s); ctx.lineTo(x + 72 * s, y); ctx.closePath(); ctx.fillStyle = '#c98a66'; ctx.fill();
     for (let i = 1; i < 4; i++) { ctx.fillStyle = 'rgba(80,30,10,.18)'; ctx.fillRect(x - 68 * s + i * 2 * s, y - i * 18 * s, 136 * s, 4 * s); }
-    ell(x, y - 72 * s, 62 * s, 16 * s, '#e09a66'); ell(x - 14 * s, y - 75 * s, 34 * s, 8 * s, '#f0b480');
+    ell(x, y - 72 * s, 62 * s, 16 * s, '#e8b48a'); ell(x - 14 * s, y - 75 * s, 34 * s, 8 * s, '#f5caa2');
   },
   cloud(x, y, s) {
     tdShadow(x + 10 * s, y + 6, 70 * s, 14 * s, 0.1);
@@ -7414,7 +7419,7 @@ function bakeGround(theme, tod, w) {
     pg.addColorStop(0, shade(L.patch[0], 0.08)); pg.addColorStop(0.7, L.patch[0]); pg.addColorStop(1, L.patch[1]); ctx.fillStyle = pg; ctx.fill();
     ctx.save(); patchPath(); ctx.clip();
     ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(60,40,20,.14)'; patchPath(); ctx.stroke();
-    for (let i = 0; i < 320; i++) {
+    for (let i = 0; i < 170; i++) {
       const x = PATCH.x + (r() - 0.5) * PATCH.rx * 2, y = PATCH.y + (r() - 0.5) * PATCH.ry * 2, rad = 1 + r() * 3.4;
       ell(x, y, rad, rad * 0.7, r() < 0.5 ? rgba(L.speck || shade(L.patch[1], -0.3), 0.45) : 'rgba(255,250,235,.5)');
     }
@@ -7426,12 +7431,12 @@ function bakeGround(theme, tod, w) {
       [[-5, -9], [0, -13], [5, -9]].forEach(([dx, dy]) => { ctx.strokeStyle = L.tuft[0]; ctx.lineWidth = 2.6 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * 0.4 * s, y + dy * 0.5 * s, x + dx * s, y + dy * s); ctx.stroke(); });
       ctx.strokeStyle = L.tuft[1]; ctx.lineWidth = 1.4 * s; ctx.beginPath(); ctx.moveTo(x, y - 1); ctx.lineTo(x, y - 11 * s); ctx.stroke();
     };
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < 150; i++) {
       const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
       if (L.tuft) tuft(x, y, 0.8 + r() * 0.7);
       else ell(x, y, 2 + r() * 3, 1.5 + r() * 2, rgba(L.speck || shade(L.g[1], -0.25), 0.35));
     }
-    if (L.flowers) for (let i = 0; i < 90; i++) {
+    if (L.flowers) for (let i = 0; i < 55; i++) {
       const x = r() * LW, y = top + r() * H; if (inPatch(x, y)) continue;
       const col = ['#fff6d8', '#ffd84a', '#ff9eb5', '#c9b6ff'][Math.floor(r() * 4)];
       for (let p = 0; p < 5; p++) { const a = p / 5 * TAU; ell(x + Math.cos(a) * 3.4, y + Math.sin(a) * 2.4, 2.6, 2, col); }
@@ -7461,16 +7466,16 @@ function bakeGround(theme, tod, w) {
     // the scenery: rows of props at the back, smaller and denser further away, drawn back to front
     const props = [];
     for (let y = top + 30; y < 395; y += 64) for (let x = -30; x < LW + 40; x += 150) {
-      if (r() < L.gap) continue;
+      if (r() < L.gap + 0.15) continue;   // fewer props: a calmer backdrop behind the pet
       const px = x + (r() - 0.5) * 110, py = y + (r() - 0.5) * 40;
       if (pond && ((px - pond.x) / (pond.rx + 50)) ** 2 + ((py - pond.y) / (pond.ry + 60)) ** 2 < 1) continue;
       if (py > 330 && inPatch(px, py + 40)) continue;
       props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
     }
     props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
-    { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.5)'); sh.addColorStop(0.6, 'rgba(8,14,4,.18)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
-      const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.5)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
-    vividCanvas(out);   // brighter, fresher colours with more contrast (before the sea tint and the dusk or night tint)
+    { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.3)'); sh.addColorStop(0.6, 'rgba(8,14,4,.1)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
+      const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.28)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
+    vividCanvas(out, 1.12, 1.03, 1.1);   // a little brighter, fresher colours with more contrast (before the sea tint and the dusk or night tint)
     if (L.tint) { ctx.fillStyle = L.tint; ctx.fillRect(0, top, LW, H); }
     if (OUTDOOR.includes(theme) && tod !== 'day') { ctx.fillStyle = tod === 'night' ? 'rgba(10,18,60,.5)' : 'rgba(110,45,70,.2)'; ctx.fillRect(0, top, LW, H); }
     if (theme === 'haunted' || theme === 'crystal' || theme === 'space') { ctx.fillStyle = 'rgba(10,8,30,.12)'; ctx.fillRect(0, top, LW, H); }
@@ -8257,6 +8262,11 @@ function drawPet(t, dt) {
   const pose = { step: mo.step, stride: mo.stride, ear: mo.ear, arm, wave: it === 'wave' ? pet.dir : 0, lookY, yaw: mo.yaw };
   ctx.save();
   if (!idle && !game && !flying && !s.asleep) tilt -= weather.gust * 0.06;
+  // standing about it sways a little; squash, stretch and lean ease into each new pose instead of snapping to it
+  if (!pet.walking && !idle && !anim && !flying && !s.asleep) tilt += Math.sin(t * 1.7) * 0.018;
+  if (mo.sy == null) { mo.sy = sy; mo.tilt = tilt; }
+  const ease = flying ? 1 : Math.min(1, dt * 16);
+  mo.sy += (sy - mo.sy) * ease; mo.tilt += (tilt - mo.tilt) * ease; sy = mo.sy; tilt = mo.tilt;
   const pivY = phys.held ? cy - ry : phys.air || Math.abs(phys.rot) > 0.05 || (idle && idle.type === 'roll') ? cy : GROUND - hop;
   ctx.translate(x, pivY); ctx.rotate(tilt); ctx.scale(sx * (2 - sy) * shrink, sy * shrink); ctx.translate(-x, -pivY);
   ctx.globalAlpha = fade;
@@ -8398,18 +8408,41 @@ function drawParticles(dt) {
     if (p.life >= p.max) { parts.splice(i, 1); continue; }
     if (p.type === 'spark') p.vy += 260 * dt;
     p.x += p.vx * dt; p.y += p.vy * dt;
-    ctx.globalAlpha = 1 - p.life / p.max;
+    // particles pop in with a little overshoot, stay bright, and fade only over the last third of their life
+    const q = p.life / p.max, pin = Math.min(1, p.life / 0.14), pop = pin < 1 ? pin * (1 + 0.35 * Math.sin(pin * Math.PI)) : 1;
+    ctx.globalAlpha = Math.min(1, (1 - q) / 0.35);
     // a particle from something standing in the yard moves in that thing's side-view space
     if (p.d != null) { const k = depthK(p.d); ctx.save(); ctx.translate(p.ax, p.d); ctx.scale(k, k); ctx.translate(-p.ax, -GROUND); }
-    if (p.type === 'heart') { heartPath(p.x + Math.sin(p.life * 6) * 8, p.y, 20 * p.size); ctx.fillStyle = '#ff5d7a'; ctx.fill(); }
-    else if (p.type === 'spark') { starPath(p.x, p.y, 12 * p.size); ctx.fillStyle = p.color; ctx.fill(); }
-    else if (p.type === 'bubble') { ctx.beginPath(); ctx.arc(p.x, p.y, 14 * p.size, 0, TAU); ctx.fillStyle = 'rgba(220,245,255,.45)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke(); }
+    if (p.type === 'heart') {
+      // a plump heart that sways as it rises: white rim, rosy body, a shine
+      const hx = p.x + Math.sin(p.life * 5) * 9, s = 20 * p.size * pop;
+      ctx.save(); ctx.translate(hx, p.y); ctx.rotate(Math.sin(p.life * 5 + 1) * 0.22);
+      heartPath(0, 0, s * 1.16); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill();
+      heartPath(0, 0, s); ctx.fillStyle = '#ff5d7a'; ctx.fill();
+      heartPath(0, s * 0.06, s * 0.72); ctx.fillStyle = '#ff8fa3'; ctx.fill();
+      ell(-s * 0.36, -s * 0.42, s * 0.2, s * 0.12, 'rgba(255,255,255,.85)', -0.6);
+      ctx.restore();
+    }
+    else if (p.type === 'spark') {
+      // a four-point twinkle with a soft halo, turning slowly and glittering
+      const r = 13 * p.size * pop * (0.8 + 0.2 * Math.sin(p.life * 22 + p.x)), a = p.life * 2 + p.x * 0.05;
+      ell(p.x, p.y, r * 1.5, r * 1.5, 'rgba(255,255,255,.16)');
+      ctx.beginPath();
+      for (let k = 0; k < 8; k++) { const an = a + k * Math.PI / 4, rad = k % 2 ? r * 0.3 : r; ctx.lineTo(p.x + Math.cos(an) * rad, p.y + Math.sin(an) * rad); }
+      ctx.closePath(); ctx.fillStyle = p.color; ctx.fill();
+      ell(p.x, p.y, r * 0.26, r * 0.26, 'rgba(255,255,255,.9)');
+    }
+    else if (p.type === 'ring') {   // a ripple spreading out on the ground where it was tapped
+      const e = easeOut(q); ctx.strokeStyle = p.color || '#ffffff'; ctx.lineWidth = 5 * (1 - q) + 1;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, (10 + e * 46) * p.size, (5 + e * 20) * p.size, 0, 0, TAU); ctx.stroke();
+    }
+    else if (p.type === 'bubble') { const r = 14 * p.size * pop; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fillStyle = 'rgba(220,245,255,.4)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke(); ell(p.x - r * 0.35, p.y - r * 0.4, r * 0.28, r * 0.16, 'rgba(255,255,255,.9)', -0.6); }
     else if (p.type === 'flame') { flame(p.x, p.y, 13 * p.size * (1 + p.life * 1.5), p.life * 9); }
     else if (p.type === 'crumb') { p.vy += 700 * dt; if (p.y > GROUND + 6) { p.y = GROUND + 6; p.vy = 0; p.vx *= 0.8; } ell(p.x, p.y, 4.5 * p.size, 3.2 * p.size, p.color, p.life * 4); }
     else if (p.type === 'seed') { p.vy += 600 * dt; ell(p.x, p.y, 3.5, 5.5, '#2b2220', p.life * 9); }
     else if (p.type === 'leaf') { ell(p.x + Math.sin(p.life * 5) * 12, p.y, 11 * p.size, 5 * p.size, '#51cf66', Math.sin(p.life * 4)); }
     else if (p.type === 'snow') { snowflake(p.x + Math.sin(p.life * 3) * 8, p.y, 8 * p.size, p.life * 2); }
-    else if (p.type === 'txt') { ctx.font = '800 30px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 6; ctx.strokeStyle = '#ffffff'; ctx.strokeText(p.text, p.x, p.y); ctx.fillStyle = p.color || '#2b2220'; ctx.fillText(p.text, p.x, p.y); }
+    else if (p.type === 'txt') { ctx.font = `800 ${Math.round(30 * pop)}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.strokeStyle = '#ffffff'; ctx.strokeText(p.text, p.x, p.y); ctx.fillStyle = p.color || '#2b2220'; ctx.fillText(p.text, p.x, p.y); }
     else if (p.type === 'swept') {
       p.vy += 2000 * dt;
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.life * 14); ctx.scale(0.75 * p.size, 0.75 * p.size);
@@ -8418,9 +8451,12 @@ function drawParticles(dt) {
     }
     else if (p.type === 'bigheart') { heartPath(p.x, p.y, 16 + p.life * 70); ctx.fillStyle = '#ff4d6d'; ctx.fill(); }
     else if (p.type === 'plus') { ctx.fillStyle = '#2f9e44'; ctx.font = '800 36px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+', p.x, p.y); }
-    else if (p.type === 'dust') { ell(p.x, p.y - 6, 12 * p.size * (1 + p.life * 2), 7 * p.size * (1 + p.life), 'rgba(225,205,175,.7)'); }
+    else if (p.type === 'dust') {   // a soft puff of three billows that swells as it thins
+      const w = 11 * p.size * (1 + p.life * 2), h = 7 * p.size * (1 + p.life);
+      ell(p.x - w * 0.5, p.y - 5, w * 0.6, h * 0.8, 'rgba(232,216,190,.6)'); ell(p.x + w * 0.5, p.y - 4, w * 0.55, h * 0.7, 'rgba(232,216,190,.6)'); ell(p.x, p.y - 9, w * 0.7, h, 'rgba(245,234,214,.75)');
+    }
     else if (p.type === 'drop') { p.vy += 500 * dt; drop(p.x, p.y, 7, 'rgba(110,180,240,.9)'); }
-    else if (p.type === 'z') { ctx.fillStyle = '#f2f5ff'; ctx.font = `800 ${Math.round(40 * p.size)}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Z', p.x, p.y); }
+    else if (p.type === 'z') { ctx.save(); ctx.translate(p.x + Math.sin(p.life * 3) * 6, p.y); ctx.rotate(Math.sin(p.life * 2) * 0.25 - 0.15); ctx.font = `800 ${Math.round(40 * p.size * pop * (1 + q * 0.5))}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(70,90,170,.55)'; ctx.strokeText('Z', 0, 0); ctx.fillStyle = '#f2f5ff'; ctx.fillText('Z', 0, 0); ctx.restore(); }
     if (p.d != null) ctx.restore();
   }
   ctx.globalAlpha = 1;
@@ -8646,7 +8682,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261106084745';
+  const BUILD = '20261116113803';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
