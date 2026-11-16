@@ -1715,7 +1715,7 @@ const IDLE_DUR = {
 const DREAMS = ['cake', 'fish', 'icecream', 'pizza', 'boba', 'heart', 'star'];
 function startIdle(T) {
   const s = state, opts = [], add = (k, w) => { for (let i = 0; i < w; i++) opts.push(k); };
-  const chilly = THEME_BY_TYPE[curSp().type] === 'snow' || skyFor().night;
+  const chilly = themeOf(curSp()) === 'snow' || skyFor().night;
   if (s.sick) { add('sneeze', 4); add('sigh', 3); add('nap', 2); add('shiver', 2); }
   else {
     add('look', 3); add('wave', 2); add('sit', 3); add('scratch', 2); add('stretch', 2); add('daydream', 2); add('hiccup', 1); add('sneeze', 1);
@@ -5312,7 +5312,7 @@ function drawCreatureAt(sp, idx, x, R, t, md, dir, wear, variant, walkHop = 0, y
 }
 function drawHouse(t, dt = 0.016) {
   const h = house, p = h.pet, sp = p ? spById(p.species) : null;
-  const theme = sp ? THEME_BY_TYPE[sp.type] || 'meadow' : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
+  const theme = sp ? themeOf(sp) : 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod);
   h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), theme, hour: new Date().getHours() };
   drawGroundLive(t, theme, tod, h.weather.kind); h.theme = theme; h.tod = tod;
@@ -6951,11 +6951,22 @@ const THEME_BY_TYPE = {
   'Đá': 'canyon', 'Ma': 'haunted', 'Bọ': 'meadow', 'Băng': 'snow', 'Rừng': 'forest', 'Pha lê': 'crystal', 'Rồng': 'volcano',
   'Vũ trụ': 'space', 'Thánh': 'sky', 'Biển sâu': 'ocean',
 };
+// the rare pets (quý hiếm and up) live in themed homes from Vietnamese tales instead of their element's (drawn in 28b)
+const THEME_BY_SPECIES = {
+  nghe: 'dinh', lan: 'dinh',
+  thongoc: 'trang', cavoi: 'trang', tinh: 'trang', meomay: 'trang',
+  kimquy: 'hoguom', cachep: 'hoguom', hai: 'hoguom',
+  gautruc: 'rungtre', hac: 'rungtre', loc: 'rungtre',
+  trau: 'dongluo', boru: 'dongluo', hoa: 'dongluo',
+  chimlac: 'trongdong', phuong: 'trongdong', long: 'trongdong', ky: 'trongdong',
+};
+const themeOf = sp => THEME_BY_SPECIES[sp.id] || THEME_BY_TYPE[sp.type] || 'meadow';
 const THEME_NAME = {
   fairy: 'Xứ Kẹo Ngọt', storm: 'Đồng Bão Sấm', meadow: 'Đồng Cỏ Hoa', canyon: 'Hẻm Núi Đá', sky: 'Đảo Mây Trời', forest: 'Rừng Nấm',
   volcano: 'Núi Lửa', ocean: 'Đáy Biển', haunted: 'Đồi Ma Mị', snow: 'Núi Tuyết', crystal: 'Hang Pha Lê', space: 'Vũ Trụ Sao',
+  dinh: 'Sân Đình Làng', trang: 'Cung Trăng', hoguom: 'Hồ Gươm', rungtre: 'Rừng Tre', dongluo: 'Đồng Lúa Chín', trongdong: 'Sân Trống Đồng',
 };
-const OUTDOOR = ['meadow', 'forest', 'fairy', 'canyon', 'sky', 'snow', 'storm'];
+const OUTDOOR = ['meadow', 'forest', 'fairy', 'canyon', 'sky', 'snow', 'storm', 'dinh', 'hoguom', 'rungtre', 'dongluo', 'trongdong'];
 const rnd = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 function vgrad(y0, y1, c0, c1) { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, c0); g.addColorStop(1, c1); return g; }
 function band(y0, y1, c0, c1) { ctx.fillStyle = vgrad(y0, y1, c0, c1); ctx.fillRect(0, y0, LW, y1 - y0); }
@@ -7997,13 +8008,13 @@ function drawRarityFX(t, rar) {
   if (fx.vig) { const g = ctx.createRadialGradient(640, 360, 320, 640, 360, 820); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, fx.vig); ctx.fillStyle = g; ctx.fillRect(0, -padTop, LW, LH + padTop); }
 }
 function drawScene(t) {
-  const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', tod = OUTDOOR.includes(theme) ? todNow() : 'day';
+  const sp = curSp(), theme = themeOf(sp), tod = OUTDOOR.includes(theme) ? todNow() : 'day';
   drawBackdrop(theme, tod);
   drawGroundLive(t, theme, tod, weather.kind);
   drawRarityFX(t, sp.rarity);
 }
 function drawBadge() {
-  const sp = curSp(), theme = THEME_BY_TYPE[sp.type] || 'meadow', r = RARITY[sp.rarity];
+  const sp = curSp(), theme = themeOf(sp), r = RARITY[sp.rarity];
   const lab = r.label.toUpperCase(), txt = isPhone() ? THEME_NAME[theme] : `${THEME_NAME[theme]} · Hệ ${sp.type} · ${WEATHER_NAME[weather.kind] || ''}`;
   ctx.font = '800 17px "Be Vietnam Pro", sans-serif'; const w2 = ctx.measureText(lab).width;
   ctx.font = '700 21px "Be Vietnam Pro", sans-serif'; const w1 = ctx.measureText(txt).width;
@@ -8209,6 +8220,7 @@ function bakeGround(theme, tod, w) {
       g.addColorStop(0, light ? 'rgba(255,255,230,.15)' : 'rgba(20,40,10,.07)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
     }
+    if (L.under) L.under(r, top, H);   // a home's own ground pattern (rice paddies...), under the play patch
     if (L.puffs) for (let i = 0; i < 26; i++) { const x = r() * LW, y = top + r() * H; tdBall(x, y, 30 + r() * 50, 'rgba(255,255,255,.7)', 'rgba(200,215,240,.25)'); }
     // the play patch: a darker rim of trodden ground, then the patch, lighter in the middle, with pebbles
     patchPath(16); ctx.fillStyle = 'rgba(30,40,15,.16)'; ctx.fill();
@@ -8220,6 +8232,7 @@ function bakeGround(theme, tod, w) {
       const x = PATCH.x + (r() - 0.5) * PATCH.rx * 2, y = PATCH.y + (r() - 0.5) * PATCH.ry * 2, rad = 1 + r() * 3.4;
       ell(x, y, rad, rad * 0.7, r() < 0.5 ? rgba(L.speck || shade(L.patch[1], -0.3), 0.45) : 'rgba(255,250,235,.5)');
     }
+    if (L.onPatch) L.onPatch(r);   // paving on the play patch (bricks, a drum's rings...)
     if (L.shells) for (let i = 0; i < 14; i++) { const x = PATCH.x + (r() - 0.5) * PATCH.rx * 1.7, y = PATCH.y + (r() - 0.5) * PATCH.ry * 1.6; if (r() < 0.5) { starPath(x, y, 8, 0.5); ctx.fillStyle = '#ff9a6b'; ctx.fill(); } else ell(x, y, 6, 4.5, '#fff1e0'); }
     ctx.restore();
     // grass tufts, flowers, pebbles outside the patch
@@ -8250,7 +8263,7 @@ function bakeGround(theme, tod, w) {
       live.cracks.push(pts);
     }
     // a pond (or puddle, lava pool, frozen pond) at the back on the left
-    const pond = L.pond && { x: 205, y: 330, rx: 150, ry: 58, kind: L.pond };
+    const pond = L.pond && { x: 205, y: 330, rx: 150, ry: 58, kind: L.pond, ...(L.pondAt || {}) };
     if (pond) {
       const P = { water: ['#8f7a4c', '#3f8fc9', '#6cc0e8'], puddle: ['#6b5a40', '#506a80', '#7e98ad'], lava: ['#2a1a16', '#ff5a1a', '#ffc04a'], ice: ['#b7cde0', '#9fd2f0', '#e8f6ff'] }[pond.kind];
       ell(pond.x, pond.y + 4, pond.rx + 10, pond.ry + 9, P[0]);
@@ -8260,6 +8273,7 @@ function bakeGround(theme, tod, w) {
       if (pond.kind === 'water') [[-50, -8, 20], [54, 10, 16], [4, -18, 12]].forEach(([dx, dy, rad]) => { ell(pond.x + dx, pond.y + dy + 2, rad, rad * 0.55, '#3e8f3a'); ell(pond.x + dx, pond.y + dy, rad, rad * 0.55, '#5fb54f'); });
       live.ponds.push(pond);
     }
+    if (L.over) L.over(r, pond);   // on the water (lotus...)
     // the scenery: rows of props at the back, smaller and denser further away, drawn back to front
     const props = [];
     for (let y = top + 30; y < 395; y += 64) for (let x = -30; x < LW + 40; x += 150) {
@@ -8267,8 +8281,10 @@ function bakeGround(theme, tod, w) {
       const px = x + (r() - 0.5) * 110, py = y + (r() - 0.5) * 40;
       if (pond && ((px - pond.x) / (pond.rx + 50)) ** 2 + ((py - pond.y) / (pond.ry + 60)) ** 2 < 1) continue;
       if (py > 330 && inPatch(px, py + 40)) continue;
+      if ((L.landmarks || []).some(([, lx, ly, ls]) => Math.abs(px - lx) < 210 * ls && Math.abs(py - ly) < 120 * ls)) continue;   // keep clear of the landmark
       props.push({ x: px, y: py, s: (0.7 + 0.5 * (py - top) / (395 - top)) * (0.85 + r() * 0.3), kind: L.props[Math.floor(r() * L.props.length)] });
     }
+    (L.landmarks || []).forEach(([kind, x, y, s]) => props.push({ x, y, s, kind }));   // a home's one big building, placed by hand
     props.sort((a, b) => a.y - b.y).forEach(p => { TD_PROP[p.kind](p.x, p.y, p.s, L); if (p.kind === 'vent') live.vents.push(p); });
     { const sh = ctx.createLinearGradient(0, top, 0, 420); sh.addColorStop(0, 'rgba(8,14,4,.3)'); sh.addColorStop(0.6, 'rgba(8,14,4,.1)'); sh.addColorStop(1, 'rgba(8,14,4,0)'); ctx.fillStyle = sh; ctx.fillRect(0, top, LW, 420 - top);
       const vg = ctx.createRadialGradient(PATCH.x, PATCH.y - 40, 260, PATCH.x, PATCH.y - 60, 900); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,10,4,.28)'); ctx.fillStyle = vg; ctx.fillRect(0, top, LW, LH - top); }
@@ -8304,6 +8320,198 @@ function drawGroundLive(t, theme, tod, wkind) {
   if (theme === 'haunted') for (let i = 0; i < 4; i++) { const x = ((t * 14 + i * 400) % (LW + 600)) - 300; ell(x, 250 + i * 120, 240, 40, 'rgba(200,200,230,.08)'); }
   ctx.restore();
 }
+/* ---------- the themed homes of the rare pets (quý hiếm and up), from Vietnamese tales ----------
+   Same top-down yard as 28a (GROUND_LOOK + TD_PROP), with the extra hooks bakeGround offers: under (ground pattern),
+   onPatch (paving on the play patch), over (on the pond), pondAt (a bigger pond) and landmarks (one big building placed by
+   hand). Which pet lives where: THEME_BY_SPECIES (25). Lit from the upper left like the rest. */
+Object.assign(TD_PROP, {
+  // a village temple: stone base, red columns, two tiers of curved tiled roof with upturned corners
+  dinh(x, y, s) {
+    tdShadow(x + 20 * s, y + 6, 190 * s, 34 * s, 0.3);
+    rr(x - 160 * s, y - 34 * s, 320 * s, 38 * s, 6 * s, '#9c9483'); rr(x - 160 * s, y - 34 * s, 320 * s, 12 * s, 5 * s, '#c9c1ad');
+    for (let i = -1; i <= 1; i++) rr(x + i * 40 * s - 16 * s, y - 6 * s, 32 * s, 10 * s, 2 * s, '#b5ad99');   // steps
+    rr(x - 128 * s, y - 112 * s, 256 * s, 80 * s, 4 * s, '#5a2a1c');   // the dark hall behind the columns
+    for (let i = 0; i < 5; i++) { const cx = x - 120 * s + i * 60 * s; rr(cx, y - 116 * s, 13 * s, 84 * s, 3 * s, '#b3261e'); rr(cx, y - 116 * s, 5 * s, 84 * s, 2 * s, '#d9483b'); }
+    const roof = (w, top, bot, h, col, dark) => {
+      ctx.beginPath(); ctx.moveTo(x - w * s, bot); ctx.quadraticCurveTo(x - w * 1.12 * s, bot - 4 * s, x - w * 1.18 * s, bot - 26 * s);   // upturned left corner
+      ctx.quadraticCurveTo(x - w * 0.95 * s, bot - 12 * s, x - w * 0.62 * s, top); ctx.lineTo(x + w * 0.62 * s, top);
+      ctx.quadraticCurveTo(x + w * 0.95 * s, bot - 12 * s, x + w * 1.18 * s, bot - 26 * s); ctx.quadraticCurveTo(x + w * 1.12 * s, bot - 4 * s, x + w * s, bot); ctx.closePath();
+      const g = ctx.createLinearGradient(0, top, 0, bot); g.addColorStop(0, col); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(60,20,10,.35)'; ctx.lineWidth = 2 * s; for (let k = -6; k <= 6; k++) { ctx.beginPath(); ctx.moveTo(x + k * w * 0.1 * s, top + 3 * s); ctx.lineTo(x + k * w * 0.155 * s, bot - 3 * s); ctx.stroke(); }
+      rr(x - w * 0.64 * s, top - 7 * s, w * 1.28 * s, 9 * s, 4 * s, '#d9a937');   // the gilded ridge
+      for (const sd of [-1, 1]) { ctx.save(); ctx.translate(x + sd * w * 1.18 * s, bot - 26 * s); ctx.scale(sd, 1); ctx.strokeStyle = '#d9a937'; ctx.lineWidth = 5 * s; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(-6 * s, -8 * s, 9 * s, Math.PI * 0.2, Math.PI * 1.6); ctx.stroke(); ctx.restore(); }
+    };
+    roof(170, y - 160 * s, y - 104 * s, 0, '#a2442c', '#6e2a1c');
+    roof(110, y - 214 * s, y - 166 * s, 0, '#b04f33', '#7a301f');
+    ell(x, y - 222 * s, 14 * s, 9 * s, '#e8c547');   // a pearl on the ridge
+    ell(x - 50 * s, y - 196 * s, 22 * s, 6 * s, 'rgba(255,255,255,.22)', -0.1);
+  },
+  // the old banyan by the temple: a huge low crown and hanging roots
+  banyan(x, y, s, L) {
+    const [c1, c2] = L.tree || ['#7fbf5c', '#2f6b2e'];
+    tdShadow(x + 26 * s, y + 6, 110 * s, 30 * s, 0.28);
+    ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 3 * s; for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.moveTo(x + i * 16 * s, y - 70 * s); ctx.lineTo(x + i * 17 * s + Math.sin(i) * 4 * s, y - 4 * s); ctx.stroke(); }
+    rr(x - 18 * s, y - 80 * s, 36 * s, 82 * s, 8 * s, '#7a5532'); rr(x + 2 * s, y - 80 * s, 14 * s, 82 * s, 6 * s, '#5d3f22');
+    [[-70, -96, 46], [70, -98, 44], [-30, -130, 54], [34, -134, 52], [0, -104, 56], [-100, -82, 34], [100, -84, 34]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, c1, c2));
+    ell(x - 30 * s, y - 160 * s, 24 * s, 11 * s, 'rgba(255,255,255,.16)', -0.4);
+  },
+  // a red paper lantern on a bamboo pole
+  lantern(x, y, s) {
+    tdShadow(x + 6 * s, y + 2, 18 * s, 6 * s, 0.2);
+    rr(x - 3 * s, y - 92 * s, 6 * s, 94 * s, 2 * s, '#8a6a3c');
+    glow(x, y - 70 * s, 46 * s, '#ffb347', 0.35);
+    ell(x, y - 70 * s, 18 * s, 22 * s, '#e03131'); ell(x - 5 * s, y - 76 * s, 6 * s, 10 * s, 'rgba(255,255,255,.3)');
+    rr(x - 10 * s, y - 95 * s, 20 * s, 5 * s, 2 * s, '#d9a937'); rr(x - 10 * s, y - 50 * s, 20 * s, 5 * s, 2 * s, '#d9a937');
+    ctx.strokeStyle = '#d9a937'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(x, y - 45 * s); ctx.lineTo(x, y - 32 * s); ctx.stroke();
+  },
+  // a clump of bamboo: tall jointed stalks with leaves at the top
+  bamboo(x, y, s) {
+    tdShadow(x + 16 * s, y + 3, 44 * s, 12 * s, 0.24);
+    [[-22, 150, -0.08], [-8, 178, -0.03], [8, 166, 0.04], [22, 140, 0.1], [0, 120, 0]].forEach(([dx, h, a], i) => {
+      ctx.save(); ctx.translate(x + dx * s, y); ctx.rotate(a);
+      const c = i % 2 ? '#69b84e' : '#58a640';
+      rr(-5 * s, -h * s, 10 * s, h * s, 4 * s, c); rr(-5 * s, -h * s, 3.5 * s, h * s, 2 * s, '#8fd16a');
+      for (let k = 1; k * 30 < h; k++) rr(-6 * s, -k * 30 * s, 12 * s, 3 * s, 1.5 * s, '#3f7f2e');
+      for (let k = 0; k < 4; k++) ell((k % 2 ? 14 : -14) * s, -(h - 10 - k * 14) * s, 18 * s, 5 * s, k % 2 ? '#4f9a3a' : '#6cbf55', (k % 2 ? 0.5 : -0.5));
+      ctx.restore();
+    });
+  },
+  // a weeping willow by the lake
+  willow(x, y, s) {
+    tdShadow(x + 20 * s, y + 4, 70 * s, 18 * s, 0.25);
+    rr(x - 8 * s, y - 70 * s, 16 * s, 72 * s, 5 * s, '#6b4a2b');
+    tdBall(x, y - 100 * s, 54 * s, '#9bd67a', '#4f8a3c');
+    ctx.strokeStyle = '#6fb05a'; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+    for (let i = -6; i <= 6; i++) { const bx = x + i * 8 * s; ctx.beginPath(); ctx.moveTo(bx, y - 110 * s); ctx.quadraticCurveTo(bx + i * 3 * s, y - 60 * s, bx + i * 5 * s, y - 24 * s - Math.abs(i) * 3 * s); ctx.stroke(); }
+  },
+  // the little tower on its island in the middle of the lake, and the red bridge
+  tower(x, y, s) {
+    ell(x, y + 6 * s, 84 * s, 26 * s, '#5d8f45'); ell(x - 10 * s, y + 2 * s, 64 * s, 18 * s, '#7cb35a');   // the island
+    tdShadow(x + 12 * s, y + 2, 40 * s, 10 * s, 0.25);
+    [[0, 44, 46], [1, 36, 36], [2, 28, 28]].forEach(([k, w, h]) => {
+      const by = y - 6 * s - k * 40 * s;
+      rr(x - w * s, by - h * s, w * 2 * s, h * s, 3 * s, '#efe3c6'); rr(x + w * 0.35 * s, by - h * s, w * 0.65 * s, h * s, 2 * s, '#d8c9a4');
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.ellipse(x + i * w * 0.5 * s, by - h * 0.35 * s, 5 * s, 9 * s, 0, Math.PI, 0); ctx.lineTo(x + i * w * 0.5 * s + 5 * s, by - 4 * s); ctx.lineTo(x + i * w * 0.5 * s - 5 * s, by - 4 * s); ctx.closePath(); ctx.fillStyle = '#7a5a3a'; ctx.fill(); }
+      ctx.beginPath(); ctx.moveTo(x - (w + 10) * s, by - h * s); ctx.lineTo(x, by - (h + 14) * s); ctx.lineTo(x + (w + 10) * s, by - h * s); ctx.closePath(); ctx.fillStyle = '#7a4a32'; ctx.fill();
+    });
+  },
+  bridge(x, y, s) {
+    ctx.strokeStyle = '#c92a2a'; ctx.lineCap = 'round';
+    ctx.lineWidth = 16 * s; ctx.beginPath(); ctx.moveTo(x - 150 * s, y); ctx.quadraticCurveTo(x, y - 70 * s, x + 150 * s, y); ctx.stroke();
+    ctx.strokeStyle = '#e8574a'; ctx.lineWidth = 6 * s; ctx.beginPath(); ctx.moveTo(x - 150 * s, y - 6 * s); ctx.quadraticCurveTo(x, y - 76 * s, x + 150 * s, y - 6 * s); ctx.stroke();
+    ctx.strokeStyle = '#a61e1e'; ctx.lineWidth = 4 * s; for (let i = -4; i <= 4; i++) { const px = x + i * 33 * s, py = y - 70 * s * (1 - (i / 4.6) ** 2) * 0.5; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 22 * s); ctx.stroke(); }
+  },
+  // a haystack and a scarecrow in a conical hat, for the rice fields
+  haystack(x, y, s) {
+    tdShadow(x + 10 * s, y + 3, 40 * s, 11 * s, 0.24);
+    ctx.beginPath(); ctx.moveTo(x - 36 * s, y); ctx.quadraticCurveTo(x - 40 * s, y - 50 * s, x, y - 70 * s); ctx.quadraticCurveTo(x + 40 * s, y - 50 * s, x + 36 * s, y); ctx.closePath();
+    const g = ctx.createLinearGradient(x - 36 * s, 0, x + 36 * s, 0); g.addColorStop(0, '#f2cf6b'); g.addColorStop(1, '#c99a34'); ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'rgba(140,100,30,.45)'; ctx.lineWidth = 1.5 * s; for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.moveTo(x - 30 * s + i * 7 * s, y - 4 * s); ctx.lineTo(x - 14 * s + i * 3.5 * s, y - 50 * s); ctx.stroke(); }
+    rr(x - 3 * s, y - 84 * s, 6 * s, 18 * s, 2 * s, '#8a6a3c');
+  },
+  scarecrow(x, y, s) {
+    tdShadow(x + 8 * s, y + 2, 24 * s, 7 * s, 0.2);
+    rr(x - 3 * s, y - 80 * s, 6 * s, 82 * s, 2 * s, '#8a6a3c'); rr(x - 34 * s, y - 64 * s, 68 * s, 6 * s, 2 * s, '#8a6a3c');
+    rr(x - 22 * s, y - 66 * s, 44 * s, 34 * s, 6 * s, '#4c6ef5'); rr(x - 22 * s, y - 66 * s, 44 * s, 8 * s, 4 * s, '#748ffc');
+    ell(x, y - 82 * s, 12 * s, 12 * s, '#f6e7c4');
+    ctx.beginPath(); ctx.moveTo(x - 30 * s, y - 86 * s); ctx.lineTo(x, y - 110 * s); ctx.lineTo(x + 30 * s, y - 86 * s); ctx.closePath(); ctx.fillStyle = '#e9d39a'; ctx.fill();   // nón lá
+    ctx.strokeStyle = 'rgba(150,110,40,.5)'; ctx.lineWidth = 1.2 * s; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x - 30 * s * k / 4, y - 110 * s + 24 * s * k / 4); ctx.lineTo(x + 30 * s * k / 4, y - 110 * s + 24 * s * k / 4); ctx.stroke(); }
+  },
+  // a bronze drum seen from above at a slant: the drum's side and its face with rings and a star
+  drum(x, y, s) {
+    const R = 46 * s, h = 34 * s;
+    tdShadow(x + 10 * s, y + 4, R * 1.1, R * 0.36, 0.28);
+    ctx.beginPath(); ctx.ellipse(x, y - h, R, R * 0.38, 0, 0, Math.PI); ctx.lineTo(x - R, y - h); ctx.ellipse(x, y, R * 0.92, R * 0.34, 0, Math.PI, 0, true); ctx.closePath();
+    const g = ctx.createLinearGradient(x - R, 0, x + R, 0); g.addColorStop(0, '#a87a2a'); g.addColorStop(0.4, '#d9a94a'); g.addColorStop(1, '#7a5418'); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); ctx.rect(x - R, y - h - R * 0.4, R * 2, R * 0.8); ctx.save(); ctx.clip(); ctx.restore();
+    ell(x, y - h, R, R * 0.38, '#e2b65a');
+    ctx.save(); ctx.translate(x, y - h); ctx.scale(1, 0.38);
+    ctx.strokeStyle = 'rgba(110,70,15,.7)'; ctx.lineWidth = 2.5 * s; for (const k of [0.3, 0.55, 0.8]) { ctx.beginPath(); ctx.arc(0, 0, R * k, 0, TAU); ctx.stroke(); }
+    starPath(0, 0, R * 0.22, 0.4); ctx.fillStyle = 'rgba(110,70,15,.75)'; ctx.fill();
+    ctx.restore();
+  },
+  // the great drum of the courtyard: a bigger drum on a stand, with flying birds round its face
+  bigdrum(x, y, s) {
+    TD_PROP.drum(x, y, s * 2.2);
+    ctx.save(); ctx.translate(x, y - 34 * s * 2.2); ctx.scale(1, 0.38);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.3, bx = Math.cos(a) * 68 * s * 2.2, by = Math.sin(a) * 68 * s * 2.2; ctx.save(); ctx.translate(bx, by); ctx.rotate(a + Math.PI / 2); ctx.fillStyle = 'rgba(110,70,15,.75)'; ctx.beginPath(); ctx.moveTo(-14 * s, 0); ctx.quadraticCurveTo(0, -10 * s, 16 * s, 0); ctx.quadraticCurveTo(0, -3 * s, -14 * s, 0); ctx.fill(); ctx.fillRect(10 * s, -2 * s, 12 * s, 2 * s); ctx.restore(); }
+    ctx.restore();
+  },
+  // the moon's old banyan (cây đa cung trăng), silvery and glowing, and star lanterns
+  moontree(x, y, s) {
+    glow(x, y - 110 * s, 190 * s, '#fff3bf', 0.3);
+    tdShadow(x + 20 * s, y + 5, 90 * s, 24 * s, 0.18);
+    rr(x - 14 * s, y - 76 * s, 28 * s, 78 * s, 8 * s, '#b9a88a'); rr(x + 2 * s, y - 76 * s, 10 * s, 78 * s, 5 * s, '#9a8a6c');
+    [[-60, -92, 42], [60, -94, 40], [-24, -124, 50], [28, -128, 48], [0, -98, 52]].forEach(([dx, dy, r]) => tdBall(x + dx * s, y + dy * s, r * s, '#e9f3ff', '#9fb4d8'));
+    for (let i = 0; i < 10; i++) { const a = rnd(i + x) * TAU, d = rnd(i + 7 + x) * 70; starPath(x + Math.cos(a) * d * s, y - 110 * s + Math.sin(a) * d * 0.6 * s, 5 * s, 0.4); ctx.fillStyle = '#fff6c0'; ctx.fill(); }
+  },
+  moonlantern(x, y, s) {
+    tdShadow(x + 5 * s, y + 2, 16 * s, 5 * s, 0.16);
+    rr(x - 2.5 * s, y - 80 * s, 5 * s, 82 * s, 2 * s, '#a88a5a');
+    glow(x, y - 92 * s, 50 * s, '#ffd43b', 0.4);
+    starPath(x, y - 92 * s, 24 * s, 0.45); ctx.fillStyle = '#ffd43b'; ctx.fill(); starPath(x, y - 92 * s, 14 * s, 0.45); ctx.fillStyle = '#fff3bf'; ctx.fill();
+    ctx.strokeStyle = '#e03131'; ctx.lineWidth = 2 * s; ctx.beginPath(); ctx.moveTo(x, y - 68 * s); ctx.lineTo(x - 4 * s, y - 50 * s); ctx.moveTo(x, y - 68 * s); ctx.lineTo(x + 4 * s, y - 50 * s); ctx.stroke();
+  },
+});
+
+// Đồng Lúa: terraces of rice, green and ripening gold, with little earth ridges between the fields
+function paintPaddies(r, top) {
+  const rows = [[top + 40, '#b9d65a'], [top + 140, '#d9c75a'], [top + 250, '#9cc94e'], [top + 360, '#e2c95a'], [top + 470, '#a8cf52']];
+  rows.forEach(([y0, c], i) => {
+    const h = 96, g = ctx.createLinearGradient(0, y0, 0, y0 + h); g.addColorStop(0, shade(c, 0.15)); g.addColorStop(1, shade(c, -0.08));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-20, y0 + Math.sin(i) * 10);
+    for (let x = 0; x <= LW + 40; x += 80) ctx.lineTo(x, y0 + Math.sin(x * 0.006 + i) * 14);
+    ctx.lineTo(LW + 40, y0 + h); ctx.lineTo(-20, y0 + h); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,90,40,.55)'; ctx.lineWidth = 7; ctx.beginPath(); for (let x = -20; x <= LW + 40; x += 80) { const yy = y0 + Math.sin(x * 0.006 + i) * 14; x < 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); } ctx.stroke();
+    ctx.strokeStyle = rgba(shade(c, -0.35), 0.35); ctx.lineWidth = 2;   // rows of rice plants
+    for (let k = 0; k < 160; k++) { const x = r() * LW, y = y0 + 16 + r() * (h - 24); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y - 8); ctx.moveTo(x, y); ctx.lineTo(x + 3, y - 8); ctx.stroke(); }
+  });
+}
+// Cung Trăng: soft pools of moonlight and a dusting of stardust on the silver ground
+function paintMoonGlow(r, top, H) {
+  for (let i = 0; i < 9; i++) glow(r() * LW, top + r() * H, 160 + r() * 200, i % 3 ? '#ffffff' : '#fff3bf', 0.28);
+  for (let i = 0; i < 260; i++) { const x = r() * LW, y = top + r() * H; ell(x, y, 1.6, 1.6, rgba(i % 4 ? '#ffffff' : '#ffe066', 0.7)); }
+}
+// paving on the play patch: brick courtyard, or a drum's rings
+function paintBricks() {
+  ctx.strokeStyle = 'rgba(90,30,15,.35)'; ctx.lineWidth = 2;
+  for (let y = PATCH.y - PATCH.ry, row = 0; y < PATCH.y + PATCH.ry; y += 26, row++) {
+    ctx.beginPath(); ctx.moveTo(PATCH.x - PATCH.rx, y); ctx.lineTo(PATCH.x + PATCH.rx, y); ctx.stroke();
+    for (let x = PATCH.x - PATCH.rx + (row % 2) * 30; x < PATCH.x + PATCH.rx; x += 60) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 26); ctx.stroke(); }
+  }
+}
+function paintDrumRings() {
+  ctx.save(); ctx.translate(PATCH.x, PATCH.y); ctx.scale(1, PATCH.ry / PATCH.rx);
+  ctx.strokeStyle = 'rgba(110,70,15,.45)';
+  [0.12, 0.3, 0.48, 0.66, 0.84].forEach((k, i) => { ctx.lineWidth = i % 2 ? 3 : 6; ctx.beginPath(); ctx.arc(0, 0, PATCH.rx * k, 0, TAU); ctx.stroke(); });
+  starPath(0, 0, PATCH.rx * 0.1, 0.4); ctx.fillStyle = 'rgba(110,70,15,.5)'; ctx.fill();
+  ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i <= 48; i++) { const a = i / 48 * TAU, rr2 = PATCH.rx * (i % 2 ? 0.36 : 0.42); ctx.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2); } ctx.stroke();
+  for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, bx = Math.cos(a) * PATCH.rx * 0.57, by = Math.sin(a) * PATCH.rx * 0.57; ctx.save(); ctx.translate(bx, by); ctx.rotate(a + Math.PI / 2); ctx.fillStyle = 'rgba(110,70,15,.45)'; ctx.beginPath(); ctx.moveTo(-34, 0); ctx.quadraticCurveTo(0, -24, 38, 0); ctx.quadraticCurveTo(0, -8, -34, 0); ctx.fill(); ctx.fillRect(26, -5, 30, 5); ctx.restore(); }   // Lạc birds flying round
+  ctx.restore();
+}
+// lotus leaves and flowers on the lake
+function paintLotus(r, pond) {
+  if (!pond) return;
+  for (let i = 0; i < 16; i++) {
+    const a = r() * TAU, d = 0.45 + r() * 0.45, x = pond.x + Math.cos(a) * pond.rx * d, y = pond.y + Math.sin(a) * pond.ry * d, s = 0.7 + r() * 0.6;
+    ell(x, y + 2, 18 * s, 8 * s, '#3e8f3a'); ell(x, y, 18 * s, 8 * s, '#5fb54f');
+    if (i % 3 === 0) { for (let p = 0; p < 5; p++) ell(x + Math.cos(p / 5 * TAU) * 5 * s, y - 6 * s + Math.sin(p / 5 * TAU) * 2.5 * s, 6 * s, 3.5 * s, p % 2 ? '#ff8fb8' : '#ffc2dc', p / 5 * TAU); ell(x, y - 6 * s, 3 * s, 2 * s, '#ffd43b'); }
+  }
+}
+Object.assign(GROUND_LOOK, {
+  dinh: { g: ['#8cc06a', '#74a957'], patch: ['#c9714f', '#a8553c'], tuft: ['#4e9636', '#9ad670'], props: ['banyan', 'bush', 'lantern', 'rock', 'bush', 'banyan'], gap: 0.5,
+    tree: ['#7fbf5c', '#2f6b2e'], rock: ['#b9b2a2', '#857e6e'], speck: '#7a3a25', onPatch: paintBricks, landmarks: [['dinh', 900, 250, 1.0]] },
+  trang: { g: ['#e6e9f7', '#c8cee6'], patch: ['#f8f6ff', '#dcd6f2'], props: ['moonlantern', 'crater', 'rock', 'crater', 'rock'], craters: 1, sparkle: '#fff6c0', gap: 0.5, under: paintMoonGlow,
+    rock: ['#d8dcef', '#a3a9c6'], speck: '#b3b8d4', tint: 'rgba(40,40,110,.2)', landmarks: [['moontree', 900, 260, 1.3]] },
+  hoguom: { g: ['#7fbf6a', '#68a758'], patch: ['#e6d3a8', '#c8ad7a'], tuft: ['#4e9636', '#9ad670'], props: ['willow', 'willow', 'lantern', 'bush'], gap: 0.4, flowers: 1,
+    pond: 'water', pondAt: { x: 330, y: 280, rx: 300, ry: 92 }, over: paintLotus, tree: ['#8fd16a', '#3f8a37'], landmarks: [['tower', 300, 270, 0.9], ['bridge', 560, 330, 0.9]] },
+  rungtre: { g: ['#6fae55', '#5a9846'], patch: ['#dcc893', '#bca067'], tuft: ['#2f7030', '#7cc35a'], props: ['bamboo', 'bamboo', 'bamboo', 'rock', 'bamboo', 'bush'], gap: 0.12,
+    tree: ['#8fd16a', '#3f8a37'], rock: ['#a9b0a0', '#6f786a'], pond: 'water', pondAt: { x: 1060, y: 320, rx: 120, ry: 44 } },
+  dongluo: { g: ['#a3cc5e', '#8ab84c'], patch: ['#e3c98f', '#c7a66a'], tuft: ['#5f8f2e', '#b7d96a'], props: ['haystack', 'scarecrow', 'haystack', 'bush'], gap: 0.6,
+    tree: ['#a6d36a', '#4f8a3c'], under: paintPaddies },
+  trongdong: { g: ['#cdb57c', '#b59b5f'], patch: ['#dcb257', '#b9892f'], tuft: ['#8a7a3a', '#c9b56a'], props: ['drum', 'pillar', 'tree', 'drum'], gap: 0.5,
+    tree: ['#9cc96a', '#4f7a3c'], speck: '#8a6420', onPatch: paintDrumRings, landmarks: [['bigdrum', 900, 270, 1.0]] },
+});
 // the pet's needs, age, weight and coins as a slim strip inside the screen (the stats panel under the console is hidden)
 const isPhone = () => cv.clientWidth < 640;
 const HUD_COL = { good: '#5cc07f', warn: '#e6a443', bad: '#ec6a5c' };
@@ -8342,15 +8550,16 @@ const WEATHER_BY_THEME = {
   meadow: ['clear', 'clear', 'breezy', 'breezy', 'rain', 'storm'], forest: ['clear', 'breezy', 'breezy', 'rain', 'storm'], fairy: ['clear', 'clear', 'breezy', 'rain'],
   canyon: ['clear', 'breezy', 'dust'], sky: ['clear', 'breezy', 'breezy', 'rain'], snow: ['snow', 'snow', 'blizzard', 'clear'], storm: ['rain', 'storm', 'storm', 'breezy'],
   haunted: ['clear', 'breezy', 'rain'], volcano: ['clear', 'ash', 'ash'], ocean: ['clear', 'current'], space: ['clear', 'meteor'], crystal: ['clear', 'sparkle'],
+  dinh: ['clear', 'clear', 'breezy', 'rain'], trang: ['clear', 'sparkle'], hoguom: ['clear', 'breezy', 'rain'], rungtre: ['clear', 'breezy', 'breezy', 'rain'], dongluo: ['clear', 'clear', 'breezy', 'rain'], trongdong: ['clear', 'breezy', 'sparkle'],
 };
 const WEATHER_NAME = { clear: 'Trời đẹp', breezy: 'Gió nhẹ', rain: 'Mưa', storm: 'Bão', snow: 'Tuyết rơi', blizzard: 'Bão tuyết', dust: 'Gió cát', ash: 'Tro bụi', current: 'Hải lưu', meteor: 'Mưa sao băng', sparkle: 'Lấp lánh' };
 const WEATHER_WIND = { clear: 0.12, breezy: 0.55, rain: 0.3, storm: 0.95, snow: 0.2, blizzard: 0.95, dust: 0.85, ash: 0.25, current: 0.45, meteor: 0, sparkle: 0 };
-const SWAYING = ['meadow', 'forest', 'fairy', 'haunted', 'storm', 'snow', 'sky', 'canyon'];
+const SWAYING = ['meadow', 'forest', 'fairy', 'haunted', 'storm', 'snow', 'sky', 'canyon', 'dinh', 'hoguom', 'rungtre', 'dongluo', 'trongdong'];
 const weather = { kind: 'clear', theme: '', next: 0, wind: 0, windTarget: 0, gust: 0, flash: 0, boltX: 0, birds: [], leaves: [], announce: false };
 const isWet = () => weather.kind === 'rain' || weather.kind === 'storm';
 function weatherTick(T) {
   if (!state || !state.hatched || !state.alive) return;
-  const theme = THEME_BY_TYPE[curSp().type] || 'meadow';
+  const theme = themeOf(curSp());
   if (theme !== weather.theme || T > weather.next) {
     const changed = weather.theme === theme;
     if (!changed) { weather.birds = []; weather.leaves = []; }   // a new habitat: no birds or leaves carried over (none under the sea)
@@ -8802,12 +9011,12 @@ function gaitPose(g, e, ph, dir, look) {
 const PRINT_COL = { snow: 'rgba(130,150,190,', canyon: 'rgba(110,60,25,', ocean: 'rgba(50,80,100,', volcano: 'rgba(20,10,10,', space: 'rgba(60,60,80,' };
 const prints = [];
 function footstep(x, R, g) {
-  const theme = THEME_BY_TYPE[curSp().type] || 'meadow';
+  const theme = themeOf(curSp());
   if (['run', 'hop', 'skip'].includes(g)) for (let i = 0; i < (g === 'run' ? 2 : 3); i++) spawn('dust', x - pet.dir * R * 0.4 + (Math.random() - 0.5) * R * 0.5, GROUND + 6, { vx: -pet.dir * (30 + Math.random() * 50), vy: -20 - Math.random() * 30, max: 0.5, size: 0.45 + Math.random() * 0.3 });
   if (PRINT_COL[theme] && g !== 'tiptoe') { const q = fromDepth(x + (prints.length % 2 ? 1 : -1) * R * 0.2, GROUND + 8, pet.x, petD()); prints.push({ x: q.x, y: q.y, k: q.k, t: now(), dir: pet.dir }); if (prints.length > 16) prints.shift(); }
 }
 function drawPrints(T) {
-  const theme = THEME_BY_TYPE[curSp().type] || 'meadow', c = PRINT_COL[theme]; if (!c) return;
+  const theme = themeOf(curSp()), c = PRINT_COL[theme]; if (!c) return;
   for (const p of prints) { const a = 1 - (T - p.t) / 7000; if (a <= 0) continue; const k = p.k || 1; ell(p.x, p.y, 9 * k, 3.5 * k, c + (0.4 * a).toFixed(3) + ')'); ell(p.x + p.dir * 8 * k, p.y - 3 * k, 3 * k, 1.6 * k, c + (0.3 * a).toFixed(3) + ')'); }
 }
 // speed lines behind a running pet
@@ -9372,7 +9581,7 @@ function render(ts) {
   drawParticles(dt);
   if (state && state.hatched && state.alive) { updateWind(t, dt); drawWeatherFront(t, dt); }
   if (state && state.hatched && state.alive && !game) {   // nearest the camera: blurred corners, the light of the hour, soft lights
-    const th = THEME_BY_TYPE[curSp().type] || 'meadow', tod = OUTDOOR.includes(th) ? todNow() : 'day';
+    const th = themeOf(curSp()), tod = OUTDOOR.includes(th) ? todNow() : 'day';
     drawForeground(t, th); drawLightWash(th, tod); drawBokeh(t, th, tod, weather.kind);
   }
   if (state && state.hatched && !game) onScreen(() => scaled(22, LH - 20, drawBadge));
@@ -9480,7 +9689,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261116140209';
+  const BUILD = '20261116150214';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
