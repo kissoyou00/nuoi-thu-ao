@@ -1880,7 +1880,12 @@ cv.addEventListener('pointerdown', e => {
     drag = { sx: p.x, sy: p.y, hist: [{ x: p.x, y: p.y, t: performance.now() }], grabbed: false };
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
     if (phys.air) { drag.grabbed = true; grab(); }
-  } else tapPet(p);
+  } else {
+    // a decoration: drag it somewhere else, or tap it to play (16b)
+    const d = !busy() && hitDecor(p);
+    if (d) { decorGrab(d, p); try { cv.setPointerCapture(e.pointerId); } catch (er) {} }
+    else tapPet(p);
+  }
 });
 cv.addEventListener('pointermove', e => {
   const p = toLogical(e); pointer = { ...p, t: now() };
@@ -1890,9 +1895,11 @@ cv.addEventListener('pointermove', e => {
     while (drag.hist.length > 2 && T - drag.hist[0].t > 90) drag.hist.shift();
     if (!drag.grabbed && Math.hypot(p.x - drag.sx, p.y - drag.sy) > 16 && canGrab()) { drag.grabbed = true; grab(); }
   }
-  cv.style.cursor = drag && drag.grabbed ? 'grabbing' : hitPet(p) && canGrab() ? 'grab' : 'default';
+  if (decorDrag) decorMove(p);
+  cv.style.cursor = drag && drag.grabbed || decorDrag && decorDrag.moved ? 'grabbing' : (hitPet(p) && canGrab()) || (!drag && !decorDrag && hitDecor(p)) ? 'grab' : 'default';
 });
 function endDrag(e, cancel) {
+  if (decorDrag) { decorDrop(cancel); cv.style.cursor = 'default'; return; }
   if (!drag) return;
   const p = toLogical(e); pointer = { ...p, t: now() };
   if (drag.grabbed) { drag.hist.push({ x: p.x, y: p.y, t: performance.now() }); release(); }
@@ -4284,7 +4291,11 @@ function drawDecor(t, dt = 0) {
     if (id === 'aquarium') o.excited = T < toy.fishUntil;
     if (id === 'balloon') o.tug = T < toy.tugUntil ? 1 : 0;
     const x = id === 'ball' ? toy.ballX : DECOR_X[id];
-    return { d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(x, DECOR_D[id], () => { drawDecorItem(id, x, GROUND + 10, t, undefined, o); drawDecorFX(t, [id], () => x, st); }) };
+    // being dragged (16b): lifted off the ground with a wobble, its shadow left below
+    const lift = decorDrag && decorDrag.moved && decorDrag.id === id ? 18 + Math.sin(t * 9) * 3 : 0;
+    return { d: id === 'rug' ? (lift ? DECOR_D[id] : 0) : DECOR_D[id], draw: () => atDepth(x, DECOR_D[id], () => {
+      if (lift) { ell(x, GROUND + 12, 70, 14, 'rgba(20,12,4,.28)'); ctx.translate(x, GROUND); ctx.rotate(Math.sin(t * 7) * 0.04); ctx.translate(-x, -GROUND - lift); }
+      drawDecorItem(id, x, GROUND + 10, t, undefined, o); drawDecorFX(t, [id], () => x, st); }) };
   });
 }
 /* each kind of decoration has its own little life: smoke from the house chimney and a warm doorway at night, a cone of
@@ -4356,11 +4367,11 @@ function drawDecorFX(t, list, xOf, st = {}) {
 const PLAY_WITH = { ball: 'kick', house: 'house', lamp: 'lamp', plant: 'plant', duck: 'squeak', blocks: 'build', teddy: 'hug', aquarium: 'watch', balloon: 'reach' };
 const PLAY_ITEM = Object.fromEntries(Object.entries(PLAY_WITH).map(([k, v]) => [v, k]));
 const ballSpot = R => toy.ballX + (pet.x < toy.ballX ? -1 : 1) * (R + 24);
-function planPlay(T) {
+function planPlay(T, want) {   // want: the decoration the player just tapped (16b)
   const opts = (meta.decor || []).filter(d => PLAY_WITH[d]);
   if (Object.values(meta.wear || {}).some(Boolean)) opts.push('admire');
   if (!opts.length) return false;
-  const d = pick(opts), R = petR();
+  const d = want || pick(opts), R = petR();
   if (d === 'admire') { beginPlay('admire', T); return true; }
   const ix = DECOR_X[d], spot = d === 'ball' ? ballSpot(R) : d === 'house' ? ix + 60 + R : ix + (pet.x < ix ? -1 : 1) * (R + 40);
   pet.errand = PLAY_WITH[d]; pet.tx = spot; pet.td = DECOR_D[d] + 4; pet.nextMove = T + 9000; pet.nextIdle = T;
@@ -4698,6 +4709,64 @@ function drawGardenBar(g) {
     if (st.fed) outlined('🌿', xg + 22, by, '14px serif');
   });
 }
+/* ---------- arranging the decorations, and tapping them ----------
+   Drag a decoration: it lifts up, follows the finger anywhere in the yard and is put down where it is let go. The spots are
+   kept in meta.decorPos { id: [x, depth] } and go up with the save, so friends visiting see the yard as it was arranged.
+   A quick tap makes the decoration do its thing (the ball rolls, the duck squeaks...) and calls the pet over to play. */
+const DECOR_HOME = { x: { ...DECOR_X }, d: { ...DECOR_D } };
+// half width and height of each decoration (side-view units), for finding what a finger pressed
+const DECOR_BOX = { house: [115, 215], lamp: [42, 255], balloon: [70, 265], aquarium: [80, 170], blackboard: [95, 185], bed: [95, 95], rug: [125, 34], plant: [52, 135], globe: [50, 120] };
+let decorDrag = null;
+// put the decorations where this player arranged them (or back at their usual spots)
+function applyDecorPos() {
+  const pos = meta.decorPos || {};
+  for (const id in DECOR_HOME.x) { const p = pos[id]; DECOR_X[id] = p ? p[0] : DECOR_HOME.x[id]; DECOR_D[id] = p ? p[1] : DECOR_HOME.d[id]; }
+  if (!toy.ballV) toy.ballX = DECOR_X.ball;
+}
+// a friend's yard: where their decorations stand
+const decorPosOf = (h, id) => { const p = h && h.decorPos && h.decorPos[id]; return p ? p : [DECOR_HOME.x[id], DECOR_HOME.d[id]]; };
+const decorX = id => id === 'ball' ? toy.ballX : DECOR_X[id];
+function hitDecor(p) {
+  if (!state || !state.hatched || !state.alive || state.trip || game || house) return null;
+  // the front ones first, the flat rug last
+  const list = (meta.decor || []).filter(id => DECOR_X[id] != null).sort((a, b) => (b === 'rug' ? 0 : DECOR_D[b]) - (a === 'rug' ? 0 : DECOR_D[a]));
+  for (const id of list) {
+    const x = decorX(id), q = toDepth(p, x, DECOR_D[id]), [hw, h] = DECOR_BOX[id] || [58, 115];
+    if (Math.abs(q.x - x) < hw && q.y > GROUND + 10 - h && q.y < GROUND + 34) return id;
+  }
+  return null;
+}
+function decorGrab(id, p) { decorDrag = { id, sx: p.x, sy: p.y, dx: decorX(id) - p.x, dd: DECOR_D[id] - p.y, moved: false }; }
+function decorMove(p) {
+  const g = decorDrag; if (!g) return;
+  if (!g.moved && Math.hypot(p.x - g.sx, p.y - g.sy) < 14) return;
+  if (!g.moved) { g.moved = true; Sound.play('boing', 0.5); idle = idle && PLAY_ITEM[idle.type] === g.id ? null : idle; if (pet.errand && PLAY_ITEM[pet.errand] === g.id) pet.errand = null; }
+  const x = Math.max(80, Math.min(LW - 80, p.x + g.dx)), d = Math.max(D_BACK + 4, Math.min(D_FRONT, p.y + g.dd));
+  DECOR_X[g.id] = x; DECOR_D[g.id] = d; if (g.id === 'ball') { toy.ballX = x; toy.ballV = 0; }
+}
+function decorDrop(cancel) {
+  const g = decorDrag; decorDrag = null; if (!g) return;
+  if (!g.moved) { if (!cancel) tapDecor(g.id); return; }
+  const x = Math.round(DECOR_X[g.id]), d = Math.round(DECOR_D[g.id]);
+  meta.decorPos = { ...(meta.decorPos || {}), [g.id]: [x, d] }; saveMeta();
+  Sound.play('thud', 0.5);
+  for (let i = 0; i < 6; i++) spawn('dust', x + (i - 2.5) * 18, GROUND + 6, { vx: (i - 2.5) * 30, vy: -30, max: 0.6, size: 0.7, at: { ax: x, d } });
+}
+// a quick tap: the decoration answers, and the pet comes over to play with it
+function tapDecor(id) {
+  const T = now(), x = decorX(id), d = DECOR_D[id], at = { ax: x, d }, sparks = (n, col) => { for (let i = 0; i < n; i++) spawn('spark', x + (Math.random() - 0.5) * 70, GROUND - 40 - Math.random() * 80, { vx: (Math.random() - 0.5) * 120, vy: -80, max: 0.8, size: 0.5, color: col, at }); };
+  if (id === 'ball') { toy.ballV = (x > 640 ? -1 : 1) * (500 + Math.random() * 300); toy.ballVy = 320; Sound.play('boing', 0.8); }
+  else if (id === 'duck') { toy.duckSquish = T; Sound.play('chirp'); spawn('txt', x, GROUND - 90, { vx: 0, vy: -60, max: 0.9, text: 'Chít!', color: '#f08c00', at }); }
+  else if (id === 'teddy') { toy.hugUntil = T + 1500; Sound.play('love'); for (let i = 0; i < 3; i++) spawn('heart', x + (Math.random() - 0.5) * 50, GROUND - 100, { max: 1.2, size: 0.6, at }); }
+  else if (id === 'plant') { toy.plantWiggle = T + 1600; Sound.play('click'); }
+  else if (id === 'balloon') { toy.tugUntil = T + 1200; Sound.play('boing', 0.5); }
+  else if (id === 'aquarium') { toy.fishUntil = T + 3000; Sound.play('click'); }
+  else { Sound.play('magic', 0.5); sparks(6, '#fff3bf'); }
+  if (id !== 'ball') sparks(3, '#ffe8a3');
+  // the pet comes to play, unless it is busy, asleep or being carried
+  const s = state;
+  if (PLAY_WITH[id] && !s.asleep && !busy() && !phys.held && !phys.air && !idle) planPlay(T, id);
+}
 // open a secret box: pay its price, get a random item of that tier not owned yet, and watch it being unboxed
 function openBox(tier) {
   const B = BOXES[tier - 1], s = state; if (!B || !s) return;
@@ -4714,7 +4783,7 @@ function useItem(id, on) {
   if (it.slot === 'decor') { meta.decor = meta.decor.filter(x => x !== id); if (on) meta.decor.push(id); }
   else meta.wear[it.slot] = on ? id : '';
   if (on) quest('wear');
-  if (on && state && state.hatched) { setFace('love', 1500); setEmote('heart', 1500); say(it.slot === 'decor' ? `${state.name} rất thích ${it.name.toLowerCase()} mới!` : `${state.name} diện ${it.name.toLowerCase()} trông thật xinh!`, 3000); }
+  if (on && state && state.hatched) { setFace('love', 1500); setEmote('heart', 1500); say(it.slot === 'decor' ? `${state.name} rất thích ${it.name.toLowerCase()} mới! Kéo món đồ để dời chỗ, chạm vào để chơi.` : `${state.name} diện ${it.name.toLowerCase()} trông thật xinh!`, 3000); }
   saveMeta();
 }
 
@@ -5155,7 +5224,7 @@ async function doSteal() {
 function applyCloud(r) {
   if (!r) return;
   if (state && typeof r.coins === 'number') state.coins = r.coins;
-  if (r.meta) { ['owned', 'wear', 'decor'].forEach(k => { if (r.meta[k] !== undefined) meta[k] = r.meta[k]; }); saveMeta(); }
+  if (r.meta) { ['owned', 'wear', 'decor', 'decorPos'].forEach(k => { if (r.meta[k] !== undefined) meta[k] = r.meta[k]; }); applyDecorPos(); saveMeta(); }
 }
 async function sendGift(coins, item) {
   const note = ($('giftNote') && $('giftNote').value) || '';
@@ -5583,7 +5652,8 @@ function drawHouse(t, dt = 0.016) {
   h.weather = h.weather && h.weather.hour === new Date().getHours() ? h.weather : { ...houseWeather(theme, h.username), theme, hour: new Date().getHours() };
   drawGroundLive(t, theme, tod, h.weather.kind); h.theme = theme; h.tod = tod;
   // their decorations, their pet, other visitors and mine, drawn back to front
-  const yard = (h.decor || []).filter(id => DECOR_X[id]).map(id => ({ d: id === 'rug' ? 0 : DECOR_D[id], draw: () => atDepth(DECOR_X[id], DECOR_D[id], () => { drawDecorItem(id, DECOR_X[id], GROUND + 10, t, p ? p.name : h.username); drawDecorFX(t, [id], () => DECOR_X[id]); }) }));
+  const yard = (h.decor || []).filter(id => DECOR_X[id]).map(id => { const [x, d] = decorPosOf(h, id);   // where the owner arranged it (16b)
+    return { d: id === 'rug' ? 0 : d, draw: () => atDepth(x, d, () => { drawDecorItem(id, x, GROUND + 10, t, p ? p.name : h.username); drawDecorFX(t, [id], () => x); }) }; });
   const hg = houseGarden(h); if (hg) yard.push(...drawGarden(t, hg, true));   // their fruit tree, which I can help look after
   fillBand();   // stretch the sky band (phones) from the bare scene, before any label is drawn
   // the owner's pet: walking live where the owner's game has it when they are online, otherwise standing at home
@@ -10370,6 +10440,7 @@ const FAR3D = {
 function start(snap) {
   dex = (snap && snap.dex) || loadDex();
   state = (snap && snap.state) || load();
+  applyDecorPos();   // the decorations where the player last put them (16b)
   if (state) {
     setShell(state.shell);
     const r = document.querySelector(`input[name=shell][value="${state.shell}"]`); if (r) r.checked = true;
@@ -10460,7 +10531,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261117152148';
+  const BUILD = '20261117153430';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
