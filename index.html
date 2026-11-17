@@ -2892,9 +2892,9 @@ function drawFishCanvases() {
   });
 }
 /* ---------- memory: flip cards to find the pairs of pets ----------
-   First pick a level: 10, 15, 20 or 25 pairs (the baby forms of that many random species). A short peek at the start,
-   then flip two at a time. Fewer flips = more stars and coins; the best (fewest flips) of each level is kept in
-   meta.memBests (the old meta.memBest counts as the 10-pair record). The board lays itself out for the number of cards;
+   First pick a level: 10, 15, 20 or 25 pairs (the baby forms of that many random species). All cards start face down (no peek), then flip
+   two at a time. Fewer flips = more stars and coins; the best (fewest flips) of each level is kept in meta.memRec
+   (records from the old game with a peek, meta.memBests / memBest, are no longer counted). The board lays itself out for the number of cards;
    on tall phones it uses the sky band. */
 GAMES.memory = { name: 'Lật thẻ tìm cặp', rounds: 0, need: 1, coin: 0, petX: 1150, hint: () => 'Chọn độ khó: 10, 15, 20 hay 25 cặp hình?', next: '' };
 const MEM_LEVELS = [[10, 'Dễ', '#40c057'], [15, 'Vừa', '#fab005'], [20, 'Khó', '#fd7e14'], [25, 'Siêu khó', '#e03131']];
@@ -2903,7 +2903,7 @@ Object.defineProperty(GAME_BUTTONS, 'memory', { enumerable: true, get: () => gam
 Object.assign(ICON_LABEL, { 'g-memory': 'Lật thẻ tìm cặp', m10: 'Dễ: 10 cặp hình', m15: 'Vừa: 15 cặp hình', m20: 'Khó: 20 cặp hình', m25: 'Siêu khó: 25 cặp hình' });
 Object.assign(EMO_ICON, { 'g-memory': '🎴', m10: '🟢', m15: '🟡', m20: '🟠', m25: '🔴' });
 const MEM_FLIP = 260;
-const memBest = n => (meta.memBests || {})[n] || (n === 10 ? meta.memBest || 0 : 0);
+const memBest = n => (meta.memRec || {})[n] || 0;
 const memThumbs = {};
 function memThumb(sp) {
   if (!memThumbs[sp.id]) { const c = document.createElement('canvas'); c.width = c.height = 200; thumb(c, sp, 0); memThumbs[sp.id] = c; }
@@ -2941,16 +2941,16 @@ function memTap(p) {
 GAMES.memory.start = g => { g.d = { pick: true }; };
 function memBegin(pairs) {
   const g = game, sps = shuffle(SPECIES.slice()).slice(0, pairs);
-  const cards = shuffle(sps.concat(sps)).map(sp => ({ sp, up: true, done: false, flipAt: 0, doneAt: 0 }));
+  const cards = shuffle(sps.concat(sps)).map(sp => ({ sp, up: false, done: false, flipAt: 0, doneAt: 0 }));
   sps.forEach(memThumb);
-  g.d = { pairs, cards, open: [], moves: 0, found: 0, peekUntil: now() + 1500 + pairs * 120, resolveAt: 0, t0: now() };   // a longer look at a bigger board
-  Sound.play('ping'); say(`${pairs} cặp hình! Nhìn thật kỹ nhé...`, 1e9); syncMode(true);
+  g.d = { pairs, cards, open: [], moves: 0, found: 0, resolveAt: 0, t0: now() };
+  Sound.play('ping'); say(`${pairs} cặp hình! Lật 2 thẻ giống nhau để ghép cặp.`, 1e9); syncMode(true);
 }
 GAMES.memory.input = id => {
   const g = game, d = g.d, T = now(), s = String(id);
   if (d.pick) { const n = +s.slice(1); if (s[0] === 'm' && MEM_LEVELS.some(([k]) => k === n)) memBegin(n); return; }
   const i = +s.slice(1), c = d.cards[i];
-  if (s[0] !== 'c' || !c || T < d.peekUntil || c.up || c.done || d.open.length >= 2 || d.resolveAt) return;
+  if (s[0] !== 'c' || !c || c.up || c.done || d.open.length >= 2 || d.resolveAt) return;
   c.up = true; c.flipAt = T; d.open.push(i); Sound.play('click');
   if (d.open.length === 2) {
     d.moves++;
@@ -2961,7 +2961,6 @@ GAMES.memory.input = id => {
 GAMES.memory.tick = T => {
   const g = game, d = g.d;
   if (d.pick) return true;
-  if (d.peekUntil && T >= d.peekUntil) { d.peekUntil = 0; d.cards.forEach(c => { c.up = false; c.flipAt = T; }); Sound.play('chirp'); say('Bắt đầu! Lật 2 thẻ giống nhau để ghép cặp.', 1e9); }
   if (d.resolveAt && T >= d.resolveAt) {
     const pair = d.open.map(k => d.cards[k]); d.resolveAt = 0; d.open = [];
     if (d.match) {
@@ -2975,9 +2974,9 @@ GAMES.memory.tick = T => {
 };
 function memWin() {
   const g = game, d = g.d, P = d.pairs, best = memBest(P);
-  d.stars = d.moves <= P * 1.5 ? 3 : d.moves <= P * 2.2 ? 2 : 1;
+  d.stars = d.moves <= P * 2 ? 3 : d.moves <= P * 3 ? 2 : 1;   // no peek at the start: more flips are normal
   d.coins = Math.round((4 + d.stars * 3) * P / 10); d.record = !best || d.moves < best;   // bigger boards pay more
-  if (d.record) { meta.memBests = { ...(meta.memBests || {}), [P]: d.moves }; saveMeta(); }
+  if (d.record) { meta.memRec = { ...(meta.memRec || {}), [P]: d.moves }; saveMeta(); }
   g.results.push(true); g.phase = 'reveal'; g.at = now(); quest('win'); syncMode(true); FX3D.burst('win', [0, 0]);
   for (let i = 0; i < 12; i++) spawn('spark', 640 + (Math.random() - 0.5) * 500, 300 + (Math.random() - 0.5) * 200, { vx: (Math.random() - 0.5) * 300, vy: -200 - Math.random() * 200, max: 1.2, color: pick(['#ffd43b', '#ff8fab', '#74c0fc']) });
   say(`Xong cả ${P} cặp sau ${d.moves} lượt!` + (d.record ? ' Kỷ lục mới!' : ''), 1e9);
@@ -3088,12 +3087,6 @@ GAMES.memory.draw = t => {
   ctx.textAlign = 'center'; ctx.fillText(`Lượt: ${d.moves}`, bx + bw / 2, L.hudY);
   ctx.textAlign = 'right'; ctx.fillText(best ? `🏆 Kỷ lục: ${best}` : '🏆 Chưa có kỷ lục', bx + bw - 28, L.hudY);
   d.cards.forEach((c, i) => { const [x, y, w, h] = memRect(L, i); memCard(c, x, y, w, h, t, T); });
-  if (d.peekUntil) {
-    const left = Math.ceil((d.peekUntil - T) / 1000), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2;
-    const pw = L.tall ? 720 : 460, ph = L.tall ? 150 : 100;
-    ctx.save(); ctx.globalAlpha = 0.9; rr(L.cx - pw / 2, cy - ph / 2, pw, ph, ph / 2, 'rgba(30,30,50,.78)'); ctx.restore();
-    ctx.font = `800 ${L.tall ? 84 : 40}px "Baloo 2", sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.fillText(`Nhớ kỹ nhé... ${left}`, L.cx, cy + 2);
-  }
   if (g.phase === 'reveal') {
     const e = Math.min(1, (T - g.at) / 400), cy = L.y0 + (L.rows * (L.ch + L.gap)) / 2, big = L.tall ? 1.5 : 1;
     ctx.save(); ctx.translate(L.cx, cy); ctx.scale(easeOut(e) * big, easeOut(e) * big);
@@ -10531,7 +10524,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261117153430';
+  const BUILD = '20261117154705';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
