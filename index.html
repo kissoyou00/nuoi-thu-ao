@@ -3835,7 +3835,7 @@ BOXES.push({ tier: 5, name: 'Hộp quà 20/11', cost: 15, col: '#1c7ed6', lid: '
 // the 20/11 event runs from 5 to 20 November (to the end of the 20th): the box is in the shop and a notice scrolls along
 // the top of the screen; whatever was opened stays in the wardrobe for good
 const teacherEvent = (d = new Date()) => d.getMonth() === 10 && d.getDate() >= 5 && d.getDate() <= 20;
-const boxInSeason = B => !B.ev || (B.ev === 'teacher' && teacherEvent());
+const boxInSeason = B => !B.ev || B.ev === 'idol' || (B.ev === 'teacher' && teacherEvent());   // the pop-star box (15d) is always sold
 // the scrolling notice: a ribbon under the status strip with the event's message running right to left
 function drawEventTicker(t) {
   if (!teacherEvent()) return;
@@ -3930,6 +3930,7 @@ function drawHeld(id, px, py, R, t, unrot = 0) {
   ctx.save(); ctx.translate(px, py); ctx.rotate(unrot); const k = R / 100 * 0.85; ctx.scale(k, k);
   if (STYLE_3D) { const T = ctx.getTransform(); ctx.drawImage(accSprite(id, Math.hypot(T.a, T.b)), -ACC_U, -ACC_U, ACC_U * 2, ACC_U * 2); }
   else TEACHER_ART[id](t);
+  if (ACC_FX[id]) ACC_FX[id](t);   // a glow or glint on what is held (15d)
   ctx.restore();
 }
 // the greeting card: a popup above the pet's head with a new wish every few seconds. It is kept the same size on screen
@@ -4255,6 +4256,150 @@ Object.assign(OUTFITS, {
 // the shop and closet picture: the outfit on a plain body
 ['aotet', 'ninja', 'hawai', 'sieunhan', 'phuthuy', 'aolen', 'hoalong', 'congchua', 'hiepsi', 'phihanh'].forEach(id => {
   TEACHER_ART[id] = t => { ell(0, 6, 46, 44, '#f1e3d3'); OUTFITS[id](0, 6, 46, 44, 90, t || 0.6, 0, false, 92, true); };
+});
+/* ---------- "Ngôi Sao Sân Khấu": a pop-star stage set (hair, glasses, outfits, things to hold) ----------
+   The game's own design (neon pink, mint and gold with stars), not copied from any film's characters. Only its own box
+   gives it (tier 6, 50 xu, always in the shop); ev 'idol' keeps it out of the other boxes, the fruit tree and streak
+   presents. Static art is in TEACHER_ART (so the shop pictures and sprites work), the moving glints in ACC_FX. */
+SHOP.push(
+  { id: 'idolbuns', name: 'Tóc búi đôi ngôi sao', slot: 'head', tier: 6, ev: 'idol' },
+  { id: 'idoltail', name: 'Tóc đuôi ngựa neon', slot: 'head', tier: 6, ev: 'idol' },
+  { id: 'idolvisor', name: 'Kính sân khấu', slot: 'eyes', tier: 6, ev: 'idol' },
+  { id: 'idolstar', name: 'Kính ngôi sao', slot: 'eyes', tier: 6, ev: 'idol' },
+  { id: 'idoljacket', name: 'Áo khoác sân khấu', slot: 'body', tier: 6, ev: 'idol' },
+  { id: 'idolcoat', name: 'Áo choàng ánh sao', slot: 'body', tier: 6, ev: 'idol' },
+  { id: 'idolmic', name: 'Micro ánh sáng', slot: 'hand', tier: 6, ev: 'idol' },
+  { id: 'idolstick', name: 'Gậy cổ vũ trái tim', slot: 'hand', tier: 6, ev: 'idol' },
+  { id: 'idolfan', name: 'Quạt sao băng', slot: 'hand', tier: 6, ev: 'idol' },
+);
+BOXES.push({ tier: 6, name: 'Hộp Ngôi Sao', cost: 50, col: '#7b2ff7', lid: '#ff4fa3', rib: '#3ee6c4', ev: 'idol' });
+const IDOL = { pink: '#ff4fa3', pink2: '#ff9ccf', mint: '#3ee6c4', mint2: '#a8fff0', gold: '#ffd43b', violet: '#8f5bff', ink: '#2b1d4a' };
+const hairGrad = (y0, y1, a, b) => { const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+const star5 = (x, y, r, col, edge) => { starPath(x, y, r, 0.45); ctx.fillStyle = col; ctx.fill(); if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = r * 0.18; ctx.stroke(); } };
+
+Object.assign(TEACHER_ART, {
+  // two round buns on top, a short scalloped fringe, gold star clips and a pink-to-violet colour
+  idolbuns() {
+    const g = hairGrad(-62, 16, IDOL.pink2, IDOL.violet);
+    for (const sd of [-1, 1]) {
+      ell(sd * 44, -34, 30, 28, g); ell(sd * 44 - 8, -44, 10, 6, 'rgba(255,255,255,.4)', -0.5);
+      ctx.strokeStyle = shade(IDOL.violet, -0.2); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(sd * 44, -34, 18, sd > 0 ? 3.6 : 4.4, sd > 0 ? 5.4 : 6.1); ctx.stroke();
+      rr(sd * 44 - 16, -12, 32, 8, 4, IDOL.mint);
+    }
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-60, 4); ctx.quadraticCurveTo(0, -30, 60, 4);
+    for (let i = 0; i < 6; i++) { const xa = 60 - (i + 0.5) * 20, xb = 60 - (i + 1) * 20; ctx.quadraticCurveTo(xa, 22, xb, 6); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-30, -6); ctx.quadraticCurveTo(-8, -14, 14, -10); ctx.stroke();
+    star5(-30, -56, 11, IDOL.gold, '#e67700'); star5(52, -60, 9, IDOL.gold, '#e67700');
+  },
+  // a high ponytail that sweeps out to the side, mint with a glowing streak, held by a star scrunchie
+  idoltail() {
+    const g = hairGrad(-40, 70, IDOL.mint2, '#1fb5a0');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-58, 6); ctx.quadraticCurveTo(-50, -34, 0, -38); ctx.quadraticCurveTo(50, -34, 58, 6);
+    ctx.quadraticCurveTo(30, -4, 6, 10); ctx.quadraticCurveTo(-24, -4, -58, 6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(14, -40); ctx.bezierCurveTo(70, -86, 112, -40, 96, 20); ctx.bezierCurveTo(92, 48, 104, 64, 88, 78);
+    ctx.bezierCurveTo(88, 50, 70, 40, 74, 8); ctx.bezierCurveTo(78, -26, 50, -40, 26, -28); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = IDOL.pink; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(30, -42); ctx.bezierCurveTo(80, -70, 102, -30, 88, 20); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-34, -18); ctx.quadraticCurveTo(-6, -30, 20, -26); ctx.stroke();
+    ell(20, -36, 15, 11, IDOL.pink); ell(16, -40, 6, 3.5, 'rgba(255,255,255,.55)'); star5(20, -36, 7, IDOL.gold);
+  },
+  // a one-piece stage visor with a rainbow sheen
+  idolvisor() {
+    ctx.beginPath(); ctx.moveTo(-70, -12); ctx.quadraticCurveTo(0, -26, 70, -12); ctx.lineTo(64, 14); ctx.quadraticCurveTo(0, 26, -64, 14); ctx.closePath();
+    const g = ctx.createLinearGradient(-70, 0, 70, 0); ['#ff6bb5', '#b197fc', '#4dd4ff', '#63e6be', '#ffe066'].forEach((c, i) => g.addColorStop(i / 4, c));
+    ctx.fillStyle = g; ctx.globalAlpha *= 0.85; ctx.fill(); ctx.globalAlpha /= 0.85;
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.5; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.moveTo(-52, -10); ctx.quadraticCurveTo(-20, -18, 8, -15); ctx.lineTo(4, -8); ctx.quadraticCurveTo(-22, -11, -50, -3); ctx.closePath(); ctx.fill();
+    star5(56, -14, 6, '#ffffff');
+  },
+  // star-shaped glasses with gold frames
+  idolstar() {
+    for (const sd of [-1, 1]) { star5(sd * 36, -2, 26, 'rgba(255,79,163,.85)', '#f59f00'); ell(sd * 36 - 8, -10, 5, 3, 'rgba(255,255,255,.65)', -0.5); }
+    rr(-14, -8, 28, 5, 2.5, '#f59f00');
+  },
+  // a microphone with a glowing star on top and a ribbon round the handle
+  idolmic() {
+    rr(-7, -36, 14, 74, 6, '#343a40'); rr(-7, -36, 5, 74, 3, '#5c636a');
+    ctx.strokeStyle = IDOL.pink; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-9, -6); ctx.lineTo(9, 4); ctx.moveTo(-9, 10); ctx.lineTo(9, 20); ctx.stroke();
+    ell(0, -52, 20, 20, '#dee2e6'); ctx.strokeStyle = '#adb5bd'; ctx.lineWidth = 1.6;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 7, -70); ctx.lineTo(i * 7, -34); ctx.moveTo(-19, -52 + i * 7); ctx.lineTo(19, -52 + i * 7); ctx.stroke(); }
+    ell(-7, -60, 6, 4, 'rgba(255,255,255,.7)', -0.5); rr(-13, -36, 26, 6, 3, IDOL.gold);
+    star5(0, -86, 13, IDOL.gold, '#e67700');
+  },
+  // a light stick with a glowing heart
+  idolstick() {
+    rr(-7, -20, 14, 66, 6, '#f8f9fa'); rr(-7, -20, 14, 10, 4, IDOL.violet); rr(-5, 28, 10, 14, 4, IDOL.pink);
+    heartPath(0, -28, 32); ctx.fillStyle = '#ff6fb5'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.stroke();
+    heartPath(0, -30, 16); ctx.fillStyle = '#ffd6ec'; ctx.fill();
+    ell(-12, -46, 6, 4, 'rgba(255,255,255,.8)', -0.5);
+  },
+  // a folding fan painted with a shooting star
+  idolfan() {
+    ctx.fillStyle = IDOL.ink; ctx.beginPath(); ctx.moveTo(0, 30); ctx.arc(0, 30, 82, Math.PI * 1.18, Math.PI * 1.82); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(0, 30); ctx.arc(0, 30, 76, Math.PI * 1.2, Math.PI * 1.8); ctx.arc(0, 30, 26, Math.PI * 1.8, Math.PI * 1.2, true); ctx.closePath();
+    const g = ctx.createLinearGradient(-60, -40, 60, 0); g.addColorStop(0, IDOL.pink2); g.addColorStop(1, IDOL.mint2); ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'rgba(43,29,74,.35)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i <= 8; i++) { const a = Math.PI * (1.2 + i * 0.075); ctx.beginPath(); ctx.moveTo(Math.cos(a) * 26, 30 + Math.sin(a) * 26); ctx.lineTo(Math.cos(a) * 76, 30 + Math.sin(a) * 76); ctx.stroke(); }
+    ctx.strokeStyle = IDOL.gold; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-38, -14); ctx.quadraticCurveTo(-6, -24, 20, -28); ctx.stroke();
+    star5(26, -30, 11, IDOL.gold, '#e67700');
+    ell(0, 30, 7, 7, IDOL.gold); rr(-3, 30, 6, 22, 3, IDOL.ink);
+  },
+});
+
+Object.assign(OUTFITS, {
+  // a short stage jacket: violet with glowing mint piping, a pink top under it, a star badge and a belt with a chain
+  idoljacket(x, by, brx, bry, R, t, yS, back) {
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#9d6bff', '#5a2fc2');
+      if (!back) {
+        const cx = x + yS * brx * 0.3;
+        ctx.fillStyle = IDOL.pink; ctx.beginPath(); ctx.moveTo(cx - brx * 0.32, by - bry); ctx.lineTo(cx + brx * 0.32, by - bry); ctx.lineTo(cx + brx * 0.2, by + bry * 0.4); ctx.lineTo(cx - brx * 0.2, by + bry * 0.4); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = IDOL.mint; ctx.lineWidth = R * 0.03; ctx.shadowColor = IDOL.mint; ctx.shadowBlur = R * 0.08;
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sd * brx * 0.32, by - bry); ctx.lineTo(cx + sd * brx * 0.2, by + bry * 0.4); ctx.stroke(); }
+        ctx.shadowBlur = 0;
+        star5(cx - brx * 0.58, by - bry * 0.3, R * 0.07, IDOL.gold, '#e67700');
+      }
+      rr(x - brx * 1.1, by + bry * 0.4, brx * 2.2, bry * 0.18, 2, IDOL.ink);
+      rr(x - brx * 0.12 + yS * brx * 0.3, by + bry * 0.38, brx * 0.24, bry * 0.22, 3, IDOL.gold);
+    });
+    // a chain hanging from the belt and stiff shoulder pads reaching past the body
+    ctx.strokeStyle = '#ced4da'; ctx.lineWidth = R * 0.018; ctx.beginPath(); ctx.moveTo(x + brx * 0.3, by + bry * 0.55); ctx.quadraticCurveTo(x + brx * 0.7, by + bry * 0.85, x + brx * 0.95, by + bry * 0.5); ctx.stroke();
+    for (const sd of [-1, 1]) { ell(x + sd * brx * 0.95, by - bry * 0.62, brx * 0.32, bry * 0.2, '#7048e8', sd * 0.4); ctx.strokeStyle = IDOL.mint; ctx.lineWidth = R * 0.02; ctx.stroke(); }
+  },
+  // a long coat covered in tiny stars, with tails down to the floor and a stand-up collar
+  idolcoat(x, by, brx, bry, R, t, yS, back, floorY, panels) {
+    if (panels) longHem(x, by, brx * 0.9, bry, R, t, floorY, 0.35, 1.25, '#3b2a7a', '#1b1240', IDOL.gold);
+    inBody(x, by, brx, bry, () => {
+      fillBody(x, by, brx, bry, '#4b36a0', '#1f1550');
+      for (let i = 0; i < 14; i++) star5(x + (rnd(i + 40) * 2 - 1) * brx, by + (rnd(i + 41) * 2 - 1) * bry, R * (0.018 + rnd(i + 42) * 0.02), i % 3 ? '#fff3bf' : IDOL.pink2);
+      if (!back) { const cx = x + yS * brx * 0.3; ctx.strokeStyle = IDOL.gold; ctx.lineWidth = R * 0.03; ctx.beginPath(); ctx.moveTo(cx, by - bry); ctx.lineTo(cx, by + bry); ctx.stroke(); [-0.4, 0, 0.4].forEach(k => ell(cx + brx * 0.12, by + k * bry, R * 0.025, R * 0.025, IDOL.gold)); }
+    });
+    for (const sd of [-1, 1]) { ctx.fillStyle = '#5f45c4'; ctx.beginPath(); ctx.moveTo(x + sd * brx * 0.25, by - bry * 0.95); ctx.lineTo(x + sd * brx * 0.85, by - bry * 1.15); ctx.lineTo(x + sd * brx * 0.75, by - bry * 0.6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = IDOL.gold; ctx.lineWidth = R * 0.015; ctx.stroke(); }
+  },
+});
+// the moving part: glints on the clips and lenses, light from the mic star and the heart stick, sparkles off the outfits
+Object.assign(ACC_FX, {
+  idolbuns: t => { twinkle(-30, -56, 8, t, 0); twinkle(52, -60, 7, t, 1.7); },
+  idoltail: t => { const a = 0.25 + 0.2 * Math.sin(t * 3); glow(88, 10, 30, IDOL.pink, a); twinkle(96, -20 + Math.sin(t * 2) * 30, 6, t, 0.6); },
+  idolvisor: t => { const p = (t * 0.6) % 1; ctx.save(); ctx.globalAlpha *= Math.sin(p * Math.PI) * 0.7; rr(-64 + p * 120, -16, 10, 30, 4, '#ffffff'); ctx.restore(); },
+  idolstar: t => { twinkle(-36, -28, 7, t, 0); twinkle(36, -28, 7, t, 2); },
+  idolmic: t => { glow(0, -86, 34, IDOL.gold, 0.3 + 0.2 * Math.sin(t * 4)); twinkle(14, -100, 6, t, 1); },
+  idolstick: t => glow(0, -36, 46, IDOL.pink, 0.3 + 0.25 * Math.sin(t * 5)),
+  idolfan: t => twinkle(26, -30, 8, t, 0.4),
+});
+// the outfits' own sparkle, and the closet/shop picture: the outfit on a plain body
+['idoljacket', 'idolcoat'].forEach(id => {
+  const draw = OUTFITS[id];
+  OUTFITS[id] = (x, by, brx, bry, R, t, yS, back, floorY, panels) => {
+    draw(x, by, brx, bry, R, t, yS, back, floorY, panels);
+    for (let i = 0; i < 3; i++) sparkleAt(x + (rnd(i + 70) * 2 - 1) * brx * 1.2, by + (rnd(i + 71) * 2 - 1) * bry, R * 0.05, t, i, i % 2 ? IDOL.mint2 : '#fff6c0');
+  };
+  TEACHER_ART[id] = t => { ell(0, 6, 46, 44, '#f1e3d3'); OUTFITS[id](0, 6, 46, 44, 90, t || 0.6, 0, false, 92, true); };
+});
+// the mic and the light stick are thin: shown a third bigger in the paw and in the pictures (their glow too)
+['idolmic', 'idolstick'].forEach(id => {
+  const art = TEACHER_ART[id], fx = ACC_FX[id], big = f => t => { ctx.save(); ctx.scale(1.35, 1.35); f(t); ctx.restore(); };
+  TEACHER_ART[id] = big(art); ACC_FX[id] = big(fx);
 });
 // where each decoration stands in the yard (the ball moves, this is just where it starts)
 const DECOR_X = { house: 140, lamp: 290, bed: 420, plant: 530, balloon: 610, rug: 660, ball: 700, teddy: 780, blocks: 880, duck: 990, aquarium: 1100, blackboard: 760, flowervase: 470, globe: 1130 };
@@ -4770,7 +4915,7 @@ function openBox(tier) {
   log(`Mở ${B.name.toLowerCase()} (-${B.cost} xu): được ${it.name.toLowerCase()}.`);
   unboxQ.push({ id: it.id, how: 'box', tier }); quest('box'); closePanel(); save();
 }
-const TIER_NAME = ['', 'Gỗ', 'Bạc', 'Vàng', 'Kim cương', '20/11'];
+const TIER_NAME = ['', 'Gỗ', 'Bạc', 'Vàng', 'Kim cương', '20/11', 'Ngôi Sao'];
 function useItem(id, on) {
   const it = shopItem(id); if (!it) return;
   if (it.slot === 'decor') { meta.decor = meta.decor.filter(x => x !== id); if (on) meta.decor.push(id); }
@@ -5684,9 +5829,9 @@ $('panelClose').addEventListener('click', () => { closePanel(); syncMode(true); 
 const itemCanvas = (id, locked) => `<canvas width="128" height="128" data-item="${id}"${locked ? ' data-locked="1"' : ''}></canvas>`;
 // how big each decoration is drawn in a 128px picture, and how far down its foot sits
 const DECOR_FIT = { blackboard: [0.5, 62], flowervase: [0.72, 50], globe: [0.72, 52], house: [0.62, 70], lamp: [0.4, 120], plant: [0.95, 40], ball: [0.95, 20], duck: [1.05, 30], blocks: [0.9, 45], balloon: [0.4, 120], teddy: [0.85, 52], rug: [0.42, 4], aquarium: [0.7, 70], bed: [0.55, 22] };
-const ACC_X = { bow: 40, flower: 40, monocle: 46 };
+const ACC_X = { bow: 40, flower: 40, monocle: 46, idoltail: 42 };
 // the 20/11 set's pictures: [scale, y of the anchor] in a 128px picture
-const ACC_FIT = { aodai: [0.58, 58], uniform: [0.62, 60], bouquet: [0.95, 98], pencil: [0.7, 88], book: [0.95, 80], giftbox: [0.95, 86], wishcard: [0.95, 64], poemcard: [0.95, 64] };
+const ACC_FIT = { aodai: [0.58, 58], uniform: [0.62, 60], bouquet: [0.95, 98], pencil: [0.7, 88], book: [0.95, 80], giftbox: [0.95, 86], wishcard: [0.95, 64], poemcard: [0.95, 64], idolmic: [0.62, 118], idolstick: [0.7, 106], idolfan: [0.72, 74] };
 function drawItemPicture(c, id) {
   const it = shopItem(id); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 128, 128);
   if (it.slot === 'decor') { const [k, off] = DECOR_FIT[id] || [0.6, 40]; c.setTransform(k, 0, 0, k, 64, 64 + off * k); drawDecorItem(id, 0, 0, 0); }
@@ -10524,7 +10669,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261117154705';
+  const BUILD = '20261119114736';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
