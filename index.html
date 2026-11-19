@@ -27,7 +27,7 @@
 <meta name="theme-color" content="#12b886">
 <meta name="apple-mobile-web-app-title" content="Thú Ảo">
 <meta name="mobile-web-app-capable" content="yes">
-<style>html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>html{touch-action:pan-x pan-y;}body,button,a,label,input,select,textarea{touch-action:manipulation}html{-webkit-text-size-adjust:100%;text-size-adjust:100%}:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 <!-- File này được ghép tự động từ thư mục src/. Đừng sửa ở đây: sửa trong src/ rồi chạy tools\build.ps1 -->
 <title>Thú Ảo Bỏ Túi</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -389,8 +389,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--ink); outli
 #bootMsg { margin: 0; font-size: 14px; font-weight: 600; color: #8a4b3a; }
 @media (prefers-color-scheme: dark) { .boot { background: radial-gradient(circle at 50% 40%, #2a2230, #13171d 70%); } .boot-title { color: #ff8fab; } #bootMsg { color: #e6c8bd; } }
 /* iPad and iPhone Safari zoom the page in when a text box under 16px gets the keyboard (and the zoom lock then kept the
-   player from zooming back out), so on touch screens every text box uses at least 16px */
-@media (pointer: coarse) { input, textarea, select, .p-input, .notepop.tight .np-reply .p-input { font-size: 16px; } }
+   player from zooming back out), so on touch screens (an iPad with a trackpad too) every text box uses at least 16px */
+@media (pointer: coarse), (any-pointer: coarse) { input, textarea, select, .p-input, .notepop.tight .np-reply .p-input { font-size: 16px; } }
 /* tablets: the screen is big, so the picture buttons are too */
 @media (pointer: coarse) and (min-width: 601px) and (min-height: 521px) {
   .pad { gap: 10px; }
@@ -1476,23 +1476,34 @@ $('musBtn').addEventListener('click', () => { Sound.ensure(); Sound.toggleMusic(
 // browsers only allow audio after the first tap or key press
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => Sound.ensure(), { passive: true }));
 /* the layout is fixed: no zooming in any browser (the viewport tag covers most phones; these catch the rest).
-   pinch on phones (iOS Safari ignores user-scalable=no; double-tap zoom is stopped by touch-action in the page CSS),
-   Ctrl/⌘ + scroll, trackpad pinch and Ctrl/⌘ +/−/0 on computers */
-// once the page has been zoomed in anyway (an iPad zooming on a text box), pinching is let through so it can be zoomed back out
-const zoomedIn = () => !!window.visualViewport && visualViewport.scale > 1.02;
-['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => { if (!zoomedIn()) e.preventDefault(); }, { passive: false }));
-// and when the keyboard closes the zoom is put back: briefly setting the viewport to its plain size resets it
-document.addEventListener('focusout', e => {
-  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  setTimeout(() => {
-    const m = document.querySelector('meta[name=viewport]'); if (!m || !zoomedIn()) return;
-    const c = m.content; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; setTimeout(() => { m.content = c; }, 80);
-  }, 120);
-});
-// the blocking touchmove listener is only attached while two fingers are down, so ordinary scrolling stays smooth
-const pinchGuard = e => { if (!zoomedIn() && (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1))) e.preventDefault(); };
+   iPad and iPhone browsers (Safari, and Chrome, which is Safari underneath there) ignore user-scalable=no, so pinches are
+   cancelled, a quick second tap is not let through as a double-tap zoom, and if the page ends up zoomed anyway (a text box
+   getting the keyboard, rotating the iPad) it is put back to its plain size as soon as no text box is being typed in.
+   Ctrl/⌘ + scroll, trackpad pinch and Ctrl/⌘ +/−/0 on computers are stopped below too. */
+const zoomedIn = () => !!window.visualViewport && visualViewport.scale > 1.01;
+const typing = () => { const a = document.activeElement; return !!a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+function unzoom() {
+  const m = document.querySelector('meta[name=viewport]'); if (!m || !zoomedIn() || typing()) return;
+  const c = m.content; m.content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1'; setTimeout(() => { m.content = c; }, 80);
+}
+['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+let unzoomT = 0;
+const unzoomSoon = () => { clearTimeout(unzoomT); unzoomT = setTimeout(unzoom, 250); };
+if (window.visualViewport) visualViewport.addEventListener('resize', unzoomSoon);
+document.addEventListener('focusout', unzoomSoon);
+window.addEventListener('orientationchange', () => setTimeout(unzoom, 400));
+// two fingers on the screen: the move is blocked (the listener is only attached then, so ordinary scrolling stays smooth)
+const pinchGuard = e => { if (e.touches.length > 1 || (e.scale !== undefined && e.scale !== 1)) e.preventDefault(); };
 document.addEventListener('touchstart', e => { if (e.touches.length > 1) document.addEventListener('touchmove', pinchGuard, { passive: false }); }, { passive: true });
 ['touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, e => { if (e.touches.length < 2) document.removeEventListener('touchmove', pinchGuard); }, { passive: true }));
+// a second tap within 300 ms would zoom the page: it is cancelled and its click sent by hand (the game canvas and text boxes
+// are left alone: the canvas takes its taps as pointer events, text boxes need double-tap to select words)
+let lastTapEnd = 0;
+document.addEventListener('touchend', e => {
+  const T = e.timeStamp, el = e.target, quick = T - lastTapEnd < 300; lastTapEnd = T;
+  if (!quick || e.touches.length || el.closest('canvas, input, textarea, select')) return;
+  e.preventDefault(); if (el.click) el.click();   // (preventDefault also cancels the browser's own click)
+}, { passive: false });
 document.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) e.preventDefault(); }, { passive: false });
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', '0'].includes(e.key)) e.preventDefault(); });
 syncSoundButtons();
@@ -10669,7 +10680,7 @@ Net.boot().catch(() => {}).then(() => { Boot.step(0.95, 'Đang dọn nhà cho b�
 
 <script>
 (() => {
-  const BUILD = '20261119114736';
+  const BUILD = '20261119121957';
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   let newer = false;
   const check = () => fetch('version.json', { cache: 'no-store' }).then(r => r.json()).then(v => { if (v.build && v.build !== BUILD) newer = true; }).catch(() => {});
